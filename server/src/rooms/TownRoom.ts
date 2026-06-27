@@ -14,6 +14,11 @@ export class TownRoom extends Room {
     player.x = 0;
     player.y = 0;
     player.z = 0;
+    player.hp = 100;
+    player.mp = 50;
+    player.xp = 0;
+    player.level = 1;
+    player.connected = true;
     this.state.players.set(client.sessionId, player);
   }
 

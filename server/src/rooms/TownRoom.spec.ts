@@ -23,6 +23,11 @@ describe('TownRoom', () => {
     expect(player!.x).toBe(0);
     expect(player!.y).toBe(0);
     expect(player!.z).toBe(0);
+    expect(player!.hp).toBe(100);
+    expect(player!.mp).toBe(50);
+    expect(player!.xp).toBe(0);
+    expect(player!.level).toBe(1);
+    expect(player!.connected).toBe(true);
 
     await client.leave();
   });
