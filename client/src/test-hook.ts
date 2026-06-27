@@ -4,6 +4,9 @@ export interface GameStatePlayer {
   z: number;
   xp: number;
   level: number;
+  mp: number;
+  powerStrikeCooldownEndMs: number;
+  powerStrikeCooldownRemainingMs: number;
 }
 
 export interface GameStateMob {
@@ -50,7 +53,7 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1 },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0 },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -94,13 +97,26 @@ export function setTarget(x: number | null, z: number | null): void {
   state.target.z = z;
 }
 
-export function setPlayer(player: GameStatePlayer): void {
+export function computePowerStrikeCooldownRemainingMs(
+  cooldownEndMs: number,
+  nowMs = Date.now()
+): number {
+  return Math.max(0, cooldownEndMs - nowMs);
+}
+
+export function setPlayer(player: GameStatePlayer, nowMs = Date.now()): void {
   const state = getGameState();
   state.player.x = player.x;
   state.player.y = player.y;
   state.player.z = player.z;
   state.player.xp = player.xp;
   state.player.level = player.level;
+  state.player.mp = player.mp;
+  state.player.powerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
+  state.player.powerStrikeCooldownRemainingMs = computePowerStrikeCooldownRemainingMs(
+    player.powerStrikeCooldownEndMs,
+    nowMs
+  );
 }
 
 export function setMobs(mobs: GameStateMob[]): void {

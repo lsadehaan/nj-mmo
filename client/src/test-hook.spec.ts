@@ -59,7 +59,7 @@ describe('test-hook multiplayer state', () => {
 
   it('stores combat target and player progression from server', () => {
     setTargetMobId('mob-1');
-    setPlayer({ x: 1, y: 2, z: 3, xp: 44, level: 1 });
+    setPlayer({ x: 1, y: 2, z: 3, xp: 44, level: 1, mp: 50, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0 });
 
     const state = window.__GAME_STATE__;
     expect(state.targetMobId).toBe('mob-1');
@@ -72,5 +72,36 @@ describe('test-hook multiplayer state', () => {
     expect(window.__GAME_STATE__.targetMobId).toBeNull();
     expect(window.__GAME_STATE__.player.xp).toBe(0);
     expect(window.__GAME_STATE__.player.level).toBe(1);
+  });
+
+  it('initializes mp and Power Strike cooldown fields', () => {
+    const { player } = window.__GAME_STATE__;
+    expect(player.mp).toBe(0);
+    expect(player.powerStrikeCooldownEndMs).toBe(0);
+    expect(player.powerStrikeCooldownRemainingMs).toBe(0);
+  });
+
+  it('syncs player mp from server snapshots', () => {
+    setPlayer({ x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 41 });
+    expect(window.__GAME_STATE__.player.mp).toBe(41);
+  });
+
+  it('syncs cooldown end and derives remaining ms from server timestamp', () => {
+    const now = 10_000;
+    setPlayer(
+      { x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 50, powerStrikeCooldownEndMs: 13_000 },
+      now
+    );
+    const { player } = window.__GAME_STATE__;
+    expect(player.powerStrikeCooldownEndMs).toBe(13_000);
+    expect(player.powerStrikeCooldownRemainingMs).toBe(3_000);
+  });
+
+  it('reports zero remaining when cooldown has expired', () => {
+    setPlayer(
+      { x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 50, powerStrikeCooldownEndMs: 5_000 },
+      10_000
+    );
+    expect(window.__GAME_STATE__.player.powerStrikeCooldownRemainingMs).toBe(0);
   });
 });

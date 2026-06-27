@@ -68,6 +68,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     z: number;
     xp: number;
     level: number;
+    mp: number;
+    powerStrikeCooldownEndMs: number;
   };
 
   type MobSchema = {
@@ -109,6 +111,9 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       z: player.z,
       xp: player.xp,
       level: player.level,
+      mp: player.mp,
+      powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
+      powerStrikeCooldownRemainingMs: 0,
     });
   };
 
