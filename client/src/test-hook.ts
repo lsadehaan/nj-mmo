@@ -11,6 +11,9 @@ export interface GameStatePlayer {
   powerStrikeCooldownRemainingMs: number;
 }
 
+/** Server snapshot input — remaining cooldown is derived client-side. */
+export type GameStatePlayerInput = Omit<GameStatePlayer, 'powerStrikeCooldownRemainingMs'>;
+
 export interface GameStateMob {
   id: string;
   npcId: number;
@@ -107,7 +110,7 @@ export function computePowerStrikeCooldownRemainingMs(
   return Math.max(0, cooldownEndMs - nowMs);
 }
 
-export function setPlayer(player: GameStatePlayer, nowMs = Date.now()): void {
+export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): void {
   const state = getGameState();
   state.player.x = player.x;
   state.player.y = player.y;

@@ -120,7 +120,6 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       level: player.level,
       mp: player.mp,
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
-      powerStrikeCooldownRemainingMs: 0,
     });
   };
 

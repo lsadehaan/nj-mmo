@@ -77,9 +77,13 @@ describe('wireRoom player combat sync', () => {
     expect(state.player.powerStrikeCooldownEndMs).toBe(cooldownEndMs);
     expect(state.player.powerStrikeCooldownRemainingMs).toBeGreaterThan(0);
 
-    (localPlayer as { mp: number }).mp = 32;
-    (localPlayer as { powerStrikeCooldownEndMs: number }).powerStrikeCooldownEndMs = 0;
-    localOnChange?.();
+    if (!localPlayer) throw new Error('expected local player');
+    const onChange = localOnChange;
+    if (!onChange) throw new Error('expected onChange handler');
+    const playerRef = localPlayer as { mp: number; powerStrikeCooldownEndMs: number };
+    playerRef.mp = 32;
+    playerRef.powerStrikeCooldownEndMs = 0;
+    (onChange as () => void)();
 
     expect(window.__GAME_STATE__.player.mp).toBe(32);
     expect(window.__GAME_STATE__.player.powerStrikeCooldownEndMs).toBe(0);
@@ -116,8 +120,11 @@ describe('wireRoom player combat sync', () => {
 
     expect(mockTriggerSkillFlash).not.toHaveBeenCalled();
 
+    if (!localPlayer) throw new Error('expected local player');
+    const onChange = localOnChange;
+    if (!onChange) throw new Error('expected onChange handler');
     (localPlayer as { powerStrikeCooldownEndMs: number }).powerStrikeCooldownEndMs = Date.now() + 3_000;
-    localOnChange?.();
+    (onChange as () => void)();
 
     expect(mockTriggerSkillFlash).toHaveBeenCalledTimes(1);
   });

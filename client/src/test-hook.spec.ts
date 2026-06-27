@@ -59,7 +59,7 @@ describe('test-hook multiplayer state', () => {
 
   it('stores combat target and player progression from server', () => {
     setTargetMobId('mob-1');
-    setPlayer({ x: 1, y: 2, z: 3, xp: 44, level: 1, mp: 50, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0 });
+    setPlayer({ x: 1, y: 2, z: 3, xp: 44, level: 1, mp: 50, powerStrikeCooldownEndMs: 0 });
 
     const state = window.__GAME_STATE__;
     expect(state.targetMobId).toBe('mob-1');
@@ -82,7 +82,7 @@ describe('test-hook multiplayer state', () => {
   });
 
   it('syncs player mp from server snapshots', () => {
-    setPlayer({ x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 41 });
+    setPlayer({ x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 41, powerStrikeCooldownEndMs: 0 });
     expect(window.__GAME_STATE__.player.mp).toBe(41);
   });
 
