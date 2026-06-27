@@ -30,7 +30,7 @@ describe('experience seeding', () => {
     expect(rows.find((r) => r.level === 2)?.xpToNextLevel).toBe(68);
     expect(rows.find((r) => r.level === 3)?.xpToNextLevel).toBe(364);
     expect(rows.find((r) => r.level === 10)?.xpToNextLevel).toBe(48230);
-    expect(rows.some((r) => r.level === 91)).toBe(true);
-    expect(rows).toHaveLength(91);
+    expect(rows.some((r) => r.level === 87)).toBe(true);
+    expect(rows).toHaveLength(87);
   });
 });
