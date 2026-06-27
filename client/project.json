@@ -1,0 +1,45 @@
+{
+  "name": "client",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "client/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/client"
+      }
+    },
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "client:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "client:build:development",
+          "hmr": true
+        },
+        "production": {
+          "buildTarget": "client:build:production",
+          "hmr": false
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "outputs": ["{workspaceRoot}/coverage/client"],
+      "options": {
+        "configFile": "client/vite.config.ts",
+        "reportsDirectory": "../coverage/client"
+      }
+    }
+  }
+}
