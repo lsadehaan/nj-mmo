@@ -87,17 +87,23 @@ test('browser B stops seeing browser A after consented leave', async ({ browser 
   const pageB = await contextB.newPage();
 
   try {
-    await pageA.goto('/');
     await pageB.goto('/');
-    await waitReady(pageA);
     await waitReady(pageB);
 
+    const othersBeforeA = await pageB.evaluate(() =>
+      (window.__GAME_STATE__?.others ?? []).map((o) => o.id)
+    );
+
+    await pageA.goto('/');
+    await waitReady(pageA);
+
     const aIdOnB = await pageB.waitForFunction(
-      () => {
-        const others = window.__GAME_STATE__?.others ?? [];
-        return others.length >= 1 ? others[0].id : null;
+      (before) => {
+        const current = (window.__GAME_STATE__?.others ?? []).map((o) => o.id);
+        const newcomers = current.filter((id) => !before.includes(id));
+        return newcomers.length === 1 ? newcomers[0] : null;
       },
-      undefined,
+      othersBeforeA,
       { timeout: 15_000 }
     );
     const leaverId = (await aIdOnB.jsonValue()) as string;
@@ -105,23 +111,19 @@ test('browser B stops seeing browser A after consented leave', async ({ browser 
 
     await pageA.waitForFunction(() => typeof window.__consentLeave__ === 'function');
     await pageA.evaluate(async () => {
-      await window.__consentLeave__?.();
+      await window.__consentLeave__!();
     });
 
-    await pageB.waitForFunction(
-      (id) => {
-        const others = window.__GAME_STATE__?.others ?? [];
-        return !others.some((o) => o.id === id);
-      },
-      leaverId,
-      { timeout: 15_000 }
-    );
-
-    const othersAfterLeave = await pageB.evaluate(
-      (id) => (window.__GAME_STATE__?.others ?? []).some((o) => o.id === id),
-      leaverId
-    );
-    expect(othersAfterLeave).toBe(false);
+    await expect
+      .poll(
+        async () =>
+          pageB.evaluate(
+            (id) => (window.__GAME_STATE__?.others ?? []).some((o) => o.id === id),
+            leaverId
+          ),
+        { timeout: 20_000, intervals: [100, 250, 500] }
+      )
+      .toBe(false);
   } finally {
     await contextA.close();
     await contextB.close();
