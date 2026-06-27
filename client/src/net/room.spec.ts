@@ -1,0 +1,70 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const storage: Record<string, string> = {};
+
+const { mockJoinOrCreate } = vi.hoisted(() => ({
+  mockJoinOrCreate: vi.fn(),
+}));
+
+vi.stubGlobal('localStorage', {
+  getItem: (key: string) => storage[key] ?? null,
+  setItem: (key: string, value: string) => {
+    storage[key] = value;
+  },
+  removeItem: (key: string) => {
+    delete storage[key];
+  },
+});
+
+vi.mock('@colyseus/sdk', () => ({
+  Client: class MockClient {
+    joinOrCreate = mockJoinOrCreate;
+    constructor(_endpoint: string) {}
+  },
+}));
+
+vi.mock('../test-hook', () => ({
+  setConnected: vi.fn(),
+}));
+
+describe('room connect', () => {
+  beforeEach(() => {
+    for (const key of Object.keys(storage)) {
+      delete storage[key];
+    }
+    mockJoinOrCreate.mockReset();
+    vi.resetModules();
+  });
+
+  it('passes stored characterId to joinOrCreate and persists server characterId message', async () => {
+    storage['nj.characterId'] = 'stored-uuid';
+
+    const handlers: Record<string, (payload: string) => void> = {};
+    const mockRoom = {
+      onMessage: (type: string, handler: (payload: string) => void) => {
+        handlers[type] = handler;
+      },
+    };
+    mockJoinOrCreate.mockResolvedValue(mockRoom);
+
+    const { connect, CHARACTER_ID_STORAGE_KEY } = await import('./room');
+    const room = await connect('http://test');
+
+    expect(CHARACTER_ID_STORAGE_KEY).toBe('nj.characterId');
+    expect(mockJoinOrCreate).toHaveBeenCalledWith('town', { characterId: 'stored-uuid' });
+    expect(room).toBe(mockRoom);
+
+    handlers['characterId']('server-issued-uuid');
+    expect(storage['nj.characterId']).toBe('server-issued-uuid');
+  });
+
+  it('joins without characterId when localStorage is empty', async () => {
+    const mockRoom = { onMessage: vi.fn() };
+    mockJoinOrCreate.mockResolvedValue(mockRoom);
+
+    const { connect } = await import('./room');
+    await connect('http://test');
+
+    expect(mockJoinOrCreate).toHaveBeenCalledWith('town', {});
+  });
+});

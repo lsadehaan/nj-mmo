@@ -26,7 +26,10 @@ async function boot(): Promise<void> {
     game.renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  await connectSafe();
+  const room = await connectSafe();
+  if (!room) {
+    console.warn('Failed to connect to game server');
+  }
   setReady(true);
 }
 
