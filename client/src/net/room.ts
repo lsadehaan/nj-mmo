@@ -81,6 +81,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     maxHp: number;
   };
 
+  type NpcSchema = {
+    npcId: number;
+    name: string;
+    type: string;
+    x: number;
+    y: number;
+    z: number;
+  };
+
   const publishMobs = (): void => {
     const mobsMap = room.state.mobs;
     if (!mobsMap) {
@@ -180,4 +189,34 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   }
 
   publishMobs();
+
+  const syncNpcFromState = (npcKey: string, npc: NpcSchema): void => {
+    game.syncNpc({
+      id: npcKey,
+      npcId: npc.npcId,
+      type: npc.type,
+      x: npc.x,
+      y: npc.y,
+      z: npc.z,
+    });
+  };
+
+  callbacks.onAdd('npcs', (npc, npcKey) => {
+    const id = npcKey as string;
+    const state = npc as NpcSchema;
+    syncNpcFromState(id, state);
+    callbacks.onChange(state, () => syncNpcFromState(id, state));
+  });
+
+  callbacks.onRemove('npcs', (_npc, npcKey) => {
+    game.removeNpc(npcKey as string);
+  });
+
+  const npcsMap = room.state.npcs;
+  if (npcsMap) {
+    for (const [id, npc] of npcsMap.entries() as Iterable<[string, NpcSchema]>) {
+      syncNpcFromState(id, npc);
+      callbacks.onChange(npc, () => syncNpcFromState(id, npc));
+    }
+  }
 }

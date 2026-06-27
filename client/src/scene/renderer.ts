@@ -20,6 +20,12 @@ import {
   syncMobVisual,
   type MobMeshMap,
 } from './mobs';
+import {
+  npcStateToVisual,
+  removeNpc,
+  syncNpcVisual,
+  type NpcMeshMap,
+} from './npc-renderer';
 
 const WORLD_SEED = 42;
 const TERRAIN_OPTS = { size: 200, segments: 64, heightScale: 10, seed: WORLD_SEED };
@@ -44,6 +50,15 @@ export interface GameRenderer {
     maxHp: number;
   }) => void;
   removeMob: (mobId: string) => void;
+  syncNpc: (npc: {
+    id: string;
+    npcId: number;
+    type: string;
+    x: number;
+    y: number;
+    z: number;
+  }) => void;
+  removeNpc: (npcKey: string) => void;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   setMobTargetHandler: (handler: (mobId: string) => void) => void;
   triggerSkillFlash: () => void;
@@ -149,6 +164,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   let mobTargetHandler: ((mobId: string) => void) | null = null;
   const remoteMeshes: RemotePlayerMeshMap = new Map();
   const mobMeshes: MobMeshMap = new Map();
+  const npcMeshes: NpcMeshMap = new Map();
 
   const raycaster = new THREE.Raycaster();
 
@@ -210,6 +226,21 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const removeMobById = (mobId: string): void => {
     removeMob(mobMeshes, mobId, scene);
+  };
+
+  const syncNpc = (npc: {
+    id: string;
+    npcId: number;
+    type: string;
+    x: number;
+    y: number;
+    z: number;
+  }): void => {
+    syncNpcVisual(npcMeshes, npcStateToVisual(npc), scene);
+  };
+
+  const removeNpcById = (npcKey: string): void => {
+    removeNpc(npcMeshes, npcKey, scene);
   };
 
   const tick = (_dt: number): void => {
@@ -288,6 +319,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     removeRemotePlayer: removeRemotePlayerById,
     syncMob,
     removeMob: removeMobById,
+    syncNpc,
+    removeNpc: removeNpcById,
     setMoveIntentHandler,
     setMobTargetHandler,
     triggerSkillFlash,
