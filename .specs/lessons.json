@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 2,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "spec_deviation::add an explicit vitest resolve alias to shared lib source tsconfig paths alone do not override nx vitest when dist output exists",
+      "text": "Add an explicit vitest resolve alias to shared lib source; tsconfig paths alone do not override Nx vitest when dist output exists.",
+      "signal": "spec_deviation",
+      "scope": "nx/vitest/shared-libs",
+      "status": "candidate",
+      "features": [
+        "phase-3-authoritative-server"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "tsconfig.base.json + server/vitest.config.ts — vitest still resolves dist when present (nx/vitest/shared-libs)"
+      ],
+      "created": "2026-06-27T16:12:01Z",
+      "last_seen": "2026-06-27T16:12:01Z"
+    }
+  ]
+}

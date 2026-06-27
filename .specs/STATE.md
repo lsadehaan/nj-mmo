@@ -108,12 +108,26 @@
 
 ## Handoff
 
-Phase 3 verifier gaps 1–4 closed. Ready for re-verification.
+**Phase 3 — Authoritative server + multiplayer: COMPLETE (Verifier PASS).**
+`.specs/features/phase-3-authoritative-server/validation.md` records PASS over
+diff `48e00e4..HEAD` (22 commits): 19/19 ACs traced, discrimination sensor
+10/10 mutants killed, full gate + `nx e2e client-e2e` green. ROADMAP Phase 3
+flipped to `[x]`.
+
+**Next step:** Phase 4 — Combat on the server (server-side melee, mob
+spawning/aggro/respawn, server-granted XP + drops via seeded RNG). Build on the
+authoritative `TownRoom` tick, `PlayerState` stats, and character persistence
+delivered in Phase 3. Translate combat rules/values from the L2J Classic
+reference tree.
+
+Lesson L-001 (vitest must resolve `@nj/game-core` from source via
+`resolve.alias`, not built `dist/`) is recorded and resolved — apply the same
+alias pattern to any future shared lib.
 
 ### Phase 3 deviations (Implementer)
 
 | Task | Deviation | Reason |
 | ---- | --------- | ------ |
 | T10 | Debounced save uses wall-clock `setTimeout` instead of `room.clock.setTimeout` | Colyseus clock timers only advance on `clock.tick()`; trailing debounce during continuous movement never fired in room-integration tests. Wall-clock debounce matches spec intent (5 s after last change) for I/O. |
-| T12 | `getDb()` mkdir parent dir; added `game-core:build` + `server:build` dependsOn; `tsconfig.base` dual path for `@nj/game-core` | Fresh e2e failed without `data/` directory; `server:build` failed with path-mapped lib under wrong `rootDir` — required for full gate. **Post-verify fix (gap 3):** `tsconfig.base.json` maps `@nj/game-core` → source only (vitest/tests); `server/tsconfig.app.json` overrides → `dist/` for `tsc` build (`rootDir` constraint). |
-| T15 | Multiplayer e2e uses `test.describe.configure({ mode: 'serial' })` and matches moved player by id delta | Parallel Playwright workers share one `town` room; `others[0]` was not always browser A. |
+| T12 | `getDb()` mkdir parent dir; added `game-core:build` + `server:build` dependsOn; `tsconfig.base` dual path for `@nj/game-core` | Fresh e2e failed without `data/` directory; `server:build` failed with path-mapped lib under wrong `rootDir` — required for full gate. **Post-verify fix (gap 3):** `tsconfig.base.json` maps `@nj/game-core` → source only (vitest/tests); `server/tsconfig.app.json` overrides → `dist/` for `tsc` build (`rootDir` constraint). **Fix iteration 2 (gap 1):** explicit `resolve.alias` in `server/vitest.config.ts` + `client/vite.config.ts` — tsconfig paths alone insufficient (L-001). |
+| T15 | Multiplayer e2e uses `test.describe.configure({ mode: 'serial' })` and matches moved player by id delta | Parallel Playwright workers share one `town` room; `others[0]` was not always browser A. **Fix iteration 2 (gap 2):** leave test joins B before A, tracks newcomer session id, polls `others` with `expect.poll`. |

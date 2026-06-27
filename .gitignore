@@ -4,6 +4,7 @@ dist/
 .nx/workspace-data
 *.db
 *.db-journal
+data/
 .env
 .DS_Store
 coverage/

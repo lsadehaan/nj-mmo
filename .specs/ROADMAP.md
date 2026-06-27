@@ -38,14 +38,14 @@ Never run phases in parallel.
 - [x] Scattered trees/rocks + surrounding field
 - [x] Click-to-move (ground raycast) + L2-style follow camera
 
-## Phase 3 — Authoritative server + multiplayer `[ ]`
+## Phase 3 — Authoritative server + multiplayer `[x]`
 
 > Done when: two browsers see each other moving; characters resume on reconnect.
 
-- [ ] Move movement to the server (client sends intent; server validates + broadcasts)
-- [ ] Migrate the pure `step()` into the `TownRoom` tick (per AD-008)
-- [ ] Render other players from room state
-- [ ] Persist character (position, HP/MP, XP, level) to DB; resume on reconnect
+- [x] Move movement to the server (client sends intent; server validates + broadcasts)
+- [x] Migrate the pure `step()` into the `TownRoom` tick (per AD-008)
+- [x] Render other players from room state
+- [x] Persist character (position, HP/MP, XP, level) to DB; resume on reconnect
 
 ## Phase 4 — Combat on the server `[ ]`
 
