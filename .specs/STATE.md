@@ -117,6 +117,33 @@
 
 ## Handoff
 
+**Phase 7 — Progression loop: T13–T16 COMPLETE (Worker C client + e2e).**
+Commits `a7b0b24` (T13), `6b5edf2` (T14), `17121be` (T15), T16 pending below.
+Gate green: `nx test client` **73/73**; full `nx run-many -t build lint test &&
+nx e2e client-e2e` **13/13** e2e pass. Progression e2e observes starter kit →
+equip 2369 → level 2 → buy potion → adena **897**. **Next:** Verifier on full
+Phase 7 slice.
+
+### Phase 7 deviations (Implementer, Worker C — client T13–T16)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T16 | Added `callbacks.onAdd/onChange/onRemove` on local `player.items` in `wireRoom` | Starter kit only mutates the items map; scalar `onChange` never fired, so `__GAME_STATE__.items` stayed empty in e2e until nested collection listeners were wired (AD-001 render-only). |
+| T13 | Panel id `#inventory-window` (not `#inventory`) | Matches `design.md` + `tasks.md` DOM id. |
+
+**Phase 7 — Progression loop (Worker B server logic): T6/T7/T10/T11/T12 COMPLETE.**
+Commits `5c76923` (T6), `0266b12` (T7), `5d7f814` (T10), `e14a2c2` (T11),
+`451af80` (T12). Gate green: `nx test server` **167/167** pass. Anchors asserted:
+equipped melee **27** / Power Strike **79** (unit + room); unequipped **17**/**69**
+(unit); death→spawn full HP, xp unchanged; 2× Gremlin kill→level 2 maxHp **112**
+maxMp **55**. **Next:** Worker C client (T13+) or Verifier on full Phase 7 slice.
+
+### Phase 7 deviations (Implementer, Worker B — server T6/T7/T10–T12)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T10 | Power Strike cooldown room test retargeted to Gremlin with inflated HP (500) | Goblin kill XP (220) + T12 level-up full-restore made the old goblin-based cooldown test assert wrong MP/damage; Gremlin anchor (69) is spec-correct. |
+
 **Phase 6 — NPCs & functional town: COMPLETE (Verifier PASS).**
 `.specs/features/phase-6-npcs-town/validation.md` records PASS over diff
 `9813114..HEAD`: 31/32 ACs traced (1 optional cosmetic spec-precision gap —

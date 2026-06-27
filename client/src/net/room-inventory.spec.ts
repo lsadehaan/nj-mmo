@@ -17,6 +17,7 @@ describe('room inventory equip wiring', () => {
   const send = vi.fn();
   let localPlayer: Record<string, unknown>;
   let onLocalChange: (() => void) | undefined;
+  let itemsOnAdd: ((stack: unknown) => void) | undefined;
 
   const game = {
     syncLocalPlayer: vi.fn(),
@@ -34,6 +35,7 @@ describe('room inventory equip wiring', () => {
     initGameState();
     send.mockReset();
     onLocalChange = undefined;
+    itemsOnAdd = undefined;
 
     localPlayer = {
       x: 0,
@@ -41,9 +43,9 @@ describe('room inventory equip wiring', () => {
       z: 0,
       xp: 0,
       level: 1,
-      mp: 50,
       hp: 100,
       maxHp: 100,
+      mp: 50,
       maxMp: 50,
       adena: 1000,
       equippedWeaponItemId: 0,
@@ -54,15 +56,44 @@ describe('room inventory equip wiring', () => {
     };
 
     mockCallbacksGet.mockReturnValue({
-      onAdd: (path: string, cb: (entity: unknown, id: string) => void) => {
-        if (path === 'players') {
-          cb(localPlayer, 'local-session');
+      onAdd: (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((entity: unknown, id: string) => void),
+        handler?: (stack: unknown) => void
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          (handlerOrProperty as (entity: unknown, id: string) => void)(
+            localPlayer,
+            'local-session'
+          );
+          return;
+        }
+        if (
+          collectionOrPlayer === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          itemsOnAdd = handler;
+          for (const [, stack] of (localPlayer.items as { entries: () => Iterable<[string, unknown]> }).entries()) {
+            handler(stack);
+          }
         }
       },
-      onChange: (_state: unknown, cb: () => void) => {
-        onLocalChange = cb;
+      onChange: (target: unknown, handlerOrProperty?: string | (() => void), handler?: () => void) => {
+        if (target === localPlayer && typeof handlerOrProperty === 'function') {
+          onLocalChange = handlerOrProperty;
+        }
+        if (
+          target === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          // items collection onChange — stored for future tests if needed
+          void handler;
+        }
       },
       onRemove: vi.fn(),
+      listen: vi.fn(),
     });
 
     const room = {
@@ -105,5 +136,10 @@ describe('room inventory equip wiring', () => {
 
     const equipped = document.querySelector('#inventory-window [data-equipped-weapon]');
     expect(equipped?.textContent).toMatch(/Squire's Sword/i);
+  });
+
+  it('syncs inventory items when player.items gains a stack', () => {
+    itemsOnAdd?.({ itemId: 2369, count: 1 });
+    expect(window.__GAME_STATE__.items[2369]).toBe(1);
   });
 });

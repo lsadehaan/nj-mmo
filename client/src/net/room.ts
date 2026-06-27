@@ -212,6 +212,39 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     });
   };
 
+  const syncPlayerItems = (player: PlayerSchema): void => {
+    localItemCounts = readItemCounts(player);
+    setItems(localItemCounts);
+    refreshShopDom(player);
+    refreshInventoryDom(player);
+  };
+
+  const bindLocalPlayerItems = (player: PlayerSchema): void => {
+    const onItemsChanged = (): void => syncPlayerItems(player);
+    const collectionCallbacks = callbacks as {
+      onAdd: (
+        instance: PlayerSchema,
+        property: 'items',
+        handler: (stack: { itemId: number; count: number }) => void,
+        immediate?: boolean
+      ) => void;
+      onChange: (instance: PlayerSchema, property: 'items', handler: () => void) => void;
+      onRemove: (instance: PlayerSchema, property: 'items', handler: () => void) => void;
+      listen: (instance: { count: number }, property: 'count', handler: () => void) => void;
+    };
+    collectionCallbacks.onAdd(
+      player,
+      'items',
+      (stack) => {
+        onItemsChanged();
+        collectionCallbacks.listen(stack, 'count', onItemsChanged);
+      },
+      true
+    );
+    collectionCallbacks.onChange(player, 'items', onItemsChanged);
+    collectionCallbacks.onRemove(player, 'items', onItemsChanged);
+  };
+
   const syncLocal = (player: PlayerSchema): void => {
     if (prevPowerStrikeCooldownEndMs === 0 && player.powerStrikeCooldownEndMs > 0) {
       game.triggerSkillFlash();
@@ -353,6 +386,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     if (id === localId) {
       syncLocal(state);
       callbacks.onChange(state, () => syncLocal(state));
+      bindLocalPlayerItems(state);
       return;
     }
 

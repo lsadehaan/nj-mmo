@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { initGameState } from '../test-hook';
 
-const { mockOnAdd, mockOnChange, mockOnRemove } = vi.hoisted(() => ({
+const { mockOnAdd, mockOnChange, mockOnRemove, mockListen } = vi.hoisted(() => ({
   mockOnAdd: vi.fn(),
   mockOnChange: vi.fn(),
   mockOnRemove: vi.fn(),
+  mockListen: vi.fn(),
 }));
 
 vi.mock('@colyseus/sdk', () => ({
@@ -13,6 +14,7 @@ vi.mock('@colyseus/sdk', () => ({
       onAdd: mockOnAdd,
       onChange: mockOnChange,
       onRemove: mockOnRemove,
+      listen: mockListen,
     }),
   },
 }));
@@ -34,6 +36,7 @@ describe('wireRoom player combat sync', () => {
     mockOnAdd.mockReset();
     mockOnChange.mockReset();
     mockOnRemove.mockReset();
+    mockListen.mockReset();
     mockSyncLocalPlayer.mockReset();
     mockTriggerSkillFlash.mockReset();
     vi.resetModules();
@@ -44,26 +47,58 @@ describe('wireRoom player combat sync', () => {
     let localOnChange: (() => void) | null = null;
     const cooldownEndMs = Date.now() + 3_000;
 
-    mockOnAdd.mockImplementation((collection: string, handler: (item: unknown, id: string) => void) => {
-      if (collection !== 'players') return;
-      const player = {
-        x: 1,
-        y: 2,
-        z: 3,
-        xp: 10,
-        level: 1,
-        mp: 41,
-        powerStrikeCooldownEndMs: cooldownEndMs,
-      };
-      localPlayer = player;
-      handler(player, 'local-session');
-    });
-
-    mockOnChange.mockImplementation((target: unknown, handler: () => void) => {
-      if (target === localPlayer) {
-        localOnChange = handler;
+    mockOnChange.mockImplementation(
+      (target: unknown, handlerOrProperty: string | (() => void), handler?: () => void) => {
+        if (target === localPlayer && typeof handlerOrProperty === 'function') {
+          localOnChange = handlerOrProperty;
+        }
+        if (
+          target === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          void handler;
+        }
       }
-    });
+    );
+
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void),
+        handler?: (stack: unknown) => void
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          const player = {
+            x: 1,
+            y: 2,
+            z: 3,
+            xp: 10,
+            level: 1,
+            hp: 100,
+            maxHp: 100,
+            maxMp: 50,
+            mp: 41,
+            adena: 1000,
+            equippedWeaponItemId: 0,
+            powerStrikeCooldownEndMs: cooldownEndMs,
+            items: { entries: () => [] as const },
+          };
+          localPlayer = player;
+          handlerOrProperty(player, 'local-session');
+        }
+        if (
+          localPlayer &&
+          collectionOrPlayer === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          for (const [, stack] of (localPlayer.items as { entries: () => Iterable<[string, unknown]> }).entries()) {
+            handler(stack);
+          }
+        }
+      }
+    );
 
     const { wireRoom } = await import('./room');
     const room = {
@@ -96,26 +131,58 @@ describe('wireRoom player combat sync', () => {
     let localPlayer: Record<string, unknown> | null = null;
     let localOnChange: (() => void) | null = null;
 
-    mockOnAdd.mockImplementation((collection: string, handler: (item: unknown, id: string) => void) => {
-      if (collection !== 'players') return;
-      const player = {
-        x: 0,
-        y: 0,
-        z: 0,
-        xp: 0,
-        level: 1,
-        mp: 50,
-        powerStrikeCooldownEndMs: 0,
-      };
-      localPlayer = player;
-      handler(player, 'local-session');
-    });
-
-    mockOnChange.mockImplementation((target: unknown, handler: () => void) => {
-      if (target === localPlayer) {
-        localOnChange = handler;
+    mockOnChange.mockImplementation(
+      (target: unknown, handlerOrProperty: string | (() => void), handler?: () => void) => {
+        if (target === localPlayer && typeof handlerOrProperty === 'function') {
+          localOnChange = handlerOrProperty;
+        }
+        if (
+          target === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          void handler;
+        }
       }
-    });
+    );
+
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void),
+        handler?: (stack: unknown) => void
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          const player = {
+            x: 0,
+            y: 0,
+            z: 0,
+            xp: 0,
+            level: 1,
+            hp: 100,
+            maxHp: 100,
+            maxMp: 50,
+            mp: 50,
+            adena: 1000,
+            equippedWeaponItemId: 0,
+            powerStrikeCooldownEndMs: 0,
+            items: { entries: () => [] as const },
+          };
+          localPlayer = player;
+          handlerOrProperty(player, 'local-session');
+        }
+        if (
+          localPlayer &&
+          collectionOrPlayer === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          for (const [, stack] of (localPlayer.items as { entries: () => Iterable<[string, unknown]> }).entries()) {
+            handler(stack);
+          }
+        }
+      }
+    );
 
     const { wireRoom } = await import('./room');
     wireRoom({ sessionId: 'local-session', state: { mobs: new Map(), players: new Map(), npcs: new Map() }, onMessage: vi.fn(), send: vi.fn() } as never, mockGame as never);
