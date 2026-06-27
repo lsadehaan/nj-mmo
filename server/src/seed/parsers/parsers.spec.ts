@@ -23,6 +23,23 @@ describe('parseMonsters', () => {
       sp: 0,
       hp: 41.145,
       mp: 44.247,
+      pAtk: 8.47458,
+      pDef: 44.44444,
+      attackSpeed: 253,
+      random: 30,
+      critical: 4.75,
+      accuracy: 4.75,
+      attackRange: 40,
+    });
+  });
+
+  it('parses Goblin combat stats from fixture XML', () => {
+    const mobs = parseMonsters(xml, [20003]);
+    expect(mobs[0]).toMatchObject({
+      pAtk: 12.34006,
+      pDef: 51.60553,
+      attackSpeed: 253,
+      attackRange: 40,
     });
   });
 

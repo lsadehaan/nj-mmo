@@ -8,7 +8,18 @@ interface NpcNode {
   '@_name': string;
   race?: string;
   acquire?: { '@_exp'?: string; '@_sp'?: string };
-  stats?: { vitals?: { '@_hp'?: string; '@_mp'?: string } };
+  stats?: {
+    vitals?: { '@_hp'?: string; '@_mp'?: string };
+    attack?: {
+      '@_physical'?: string;
+      '@_random'?: string;
+      '@_critical'?: string;
+      '@_accuracy'?: string;
+      '@_attackSpeed'?: string;
+      '@_range'?: string;
+    };
+    defence?: { '@_physical'?: string };
+  };
 }
 
 export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
@@ -29,6 +40,13 @@ export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
     requireAttr(id, 'acquire.sp', node.acquire?.['@_sp']);
     requireAttr(id, 'vitals.hp', node.stats?.vitals?.['@_hp']);
     requireAttr(id, 'vitals.mp', node.stats?.vitals?.['@_mp']);
+    requireAttr(id, 'attack.physical', node.stats?.attack?.['@_physical']);
+    requireAttr(id, 'attack.random', node.stats?.attack?.['@_random']);
+    requireAttr(id, 'attack.critical', node.stats?.attack?.['@_critical']);
+    requireAttr(id, 'attack.accuracy', node.stats?.attack?.['@_accuracy']);
+    requireAttr(id, 'attack.attackSpeed', node.stats?.attack?.['@_attackSpeed']);
+    requireAttr(id, 'attack.range', node.stats?.attack?.['@_range']);
+    requireAttr(id, 'defence.physical', node.stats?.defence?.['@_physical']);
 
     results.push({
       npcId: parseNumber(id, 'id', id),
@@ -40,6 +58,13 @@ export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
       sp: parseNumber(id, 'acquire.sp', node.acquire?.['@_sp']),
       hp: parseNumber(id, 'vitals.hp', node.stats?.vitals?.['@_hp']),
       mp: parseNumber(id, 'vitals.mp', node.stats?.vitals?.['@_mp']),
+      pAtk: parseNumber(id, 'attack.physical', node.stats?.attack?.['@_physical']),
+      pDef: parseNumber(id, 'defence.physical', node.stats?.defence?.['@_physical']),
+      attackSpeed: parseNumber(id, 'attack.attackSpeed', node.stats?.attack?.['@_attackSpeed']),
+      random: parseNumber(id, 'attack.random', node.stats?.attack?.['@_random']),
+      critical: parseNumber(id, 'attack.critical', node.stats?.attack?.['@_critical']),
+      accuracy: parseNumber(id, 'attack.accuracy', node.stats?.attack?.['@_accuracy']),
+      attackRange: parseNumber(id, 'attack.range', node.stats?.attack?.['@_range']),
     });
   }
 

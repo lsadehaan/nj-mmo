@@ -32,6 +32,10 @@ describe('monster seeding', () => {
       hp: 41.145,
       mp: 44.247,
       race: 'FAIRY',
+      pAtk: 8.47458,
+      attackSpeed: 253,
+      attackRange: 40,
+      random: 30,
     });
   });
 
@@ -52,14 +56,29 @@ describe('monster seeding', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20120)).get();
-    expect(row).toMatchObject({ name: 'Wolf', level: 4, exp: 176, hp: 70.896 });
+    expect(row).toMatchObject({
+      name: 'Wolf',
+      level: 4,
+      exp: 176,
+      hp: 70.896,
+      pAtk: 11.24892,
+      pDef: 49.73343,
+    });
   });
 
   it('seeds Goblin (20003) with authentic values', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20003)).get();
-    expect(row).toMatchObject({ name: 'Goblin', level: 5, exp: 220, hp: 84.189, race: 'HUMANOID' });
+    expect(row).toMatchObject({
+      name: 'Goblin',
+      level: 5,
+      exp: 220,
+      hp: 84.189,
+      race: 'HUMANOID',
+      critical: 4.75,
+      accuracy: 4.75,
+    });
   });
 
   it('is idempotent when run twice', () => {

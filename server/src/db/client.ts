@@ -28,7 +28,14 @@ function applySchema(sqlite: Database.Database): void {
       exp INTEGER NOT NULL,
       sp INTEGER NOT NULL,
       hp REAL NOT NULL,
-      mp REAL NOT NULL
+      mp REAL NOT NULL,
+      p_atk REAL NOT NULL DEFAULT 0,
+      p_def REAL NOT NULL DEFAULT 0,
+      attack_speed INTEGER NOT NULL DEFAULT 0,
+      random INTEGER NOT NULL DEFAULT 0,
+      critical REAL NOT NULL DEFAULT 0,
+      accuracy REAL NOT NULL DEFAULT 0,
+      attack_range INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS npcs (
       npc_id INTEGER PRIMARY KEY,
@@ -65,4 +72,24 @@ function applySchema(sqlite: Database.Database): void {
       updated_at INTEGER NOT NULL
     );
   `);
+  migrateMonstersCombatColumns(sqlite);
+}
+
+function migrateMonstersCombatColumns(sqlite: Database.Database): void {
+  const cols = sqlite.pragma('table_info(monsters)') as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  const adds: [string, string][] = [
+    ['p_atk', 'REAL NOT NULL DEFAULT 0'],
+    ['p_def', 'REAL NOT NULL DEFAULT 0'],
+    ['attack_speed', 'INTEGER NOT NULL DEFAULT 0'],
+    ['random', 'INTEGER NOT NULL DEFAULT 0'],
+    ['critical', 'REAL NOT NULL DEFAULT 0'],
+    ['accuracy', 'REAL NOT NULL DEFAULT 0'],
+    ['attack_range', 'INTEGER NOT NULL DEFAULT 0'],
+  ];
+  for (const [col, def] of adds) {
+    if (!names.has(col)) {
+      sqlite.exec(`ALTER TABLE monsters ADD COLUMN ${col} ${def}`);
+    }
+  }
 }

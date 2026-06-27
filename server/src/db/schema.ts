@@ -10,6 +10,13 @@ export const monsters = sqliteTable('monsters', {
   sp: integer('sp').notNull(),
   hp: real('hp').notNull(),
   mp: real('mp').notNull(),
+  pAtk: real('p_atk').notNull(),
+  pDef: real('p_def').notNull(),
+  attackSpeed: integer('attack_speed').notNull(),
+  random: integer('random').notNull(),
+  critical: real('critical').notNull(),
+  accuracy: real('accuracy').notNull(),
+  attackRange: integer('attack_range').notNull(),
 });
 
 export const npcs = sqliteTable('npcs', {
