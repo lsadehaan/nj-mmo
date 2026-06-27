@@ -32,6 +32,32 @@ describe('npc-actions', () => {
     }
   });
 
+  it('applyStarterKit grants 1× Squire\'s Sword (2369) with potions', () => {
+    const result = applyStarterKit({
+      starterKitGranted: false,
+      itemCounts: {},
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.itemCounts[1060]).toBe(3);
+      expect(result.itemCounts[2369]).toBe(1);
+    }
+  });
+
+  it('applyStarterKit does not grant sword again when already granted', () => {
+    const result = applyStarterKit({
+      starterKitGranted: true,
+      itemCounts: { 1060: 3, 2369: 1 },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.itemCounts[1060]).toBe(3);
+      expect(result.itemCounts[2369]).toBe(1);
+    }
+  });
+
   it('applyStarterKit is a no-op when already granted', () => {
     const result = applyStarterKit({
       starterKitGranted: true,
@@ -45,7 +71,7 @@ describe('npc-actions', () => {
     }
   });
 
-  it('applyStarterKit adds to existing potion count', () => {
+  it('applyStarterKit adds to existing potion count and grants sword', () => {
     const result = applyStarterKit({
       starterKitGranted: false,
       itemCounts: { 1060: 1 },
@@ -54,6 +80,7 @@ describe('npc-actions', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.itemCounts[1060]).toBe(4);
+      expect(result.itemCounts[2369]).toBe(1);
     }
   });
 });

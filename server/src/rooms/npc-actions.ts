@@ -41,6 +41,8 @@ export type StarterKitResult = StarterKitSuccess | StarterKitFailure;
 
 const STARTER_KIT_ITEM_ID = 1060;
 const STARTER_KIT_QUANTITY = 3;
+const STARTER_SWORD_ITEM_ID = 2369;
+const STARTER_SWORD_QUANTITY = 1;
 
 export function applyStarterKit(params: {
   starterKitGranted: boolean;
@@ -57,6 +59,8 @@ export function applyStarterKit(params: {
   const itemCounts = { ...params.itemCounts };
   itemCounts[STARTER_KIT_ITEM_ID] =
     (itemCounts[STARTER_KIT_ITEM_ID] ?? 0) + STARTER_KIT_QUANTITY;
+  itemCounts[STARTER_SWORD_ITEM_ID] =
+    (itemCounts[STARTER_SWORD_ITEM_ID] ?? 0) + STARTER_SWORD_QUANTITY;
 
   return {
     ok: true,
