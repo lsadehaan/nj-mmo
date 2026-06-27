@@ -3,7 +3,7 @@ import { XMLParser } from 'fast-xml-parser';
 export const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
-  isArray: (name) => name === 'npc' || name === 'experience' || name === 'skill',
+  isArray: (name) => name === 'npc' || name === 'experience' || name === 'skill' || name === 'item',
 });
 
 export function requireAttr(

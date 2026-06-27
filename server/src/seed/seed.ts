@@ -1,5 +1,5 @@
 import { getDb, type AppDatabase } from '../db/client';
-import { monsters, npcs, skills, experience, mobDrops, mobSpawns, merchantItems, npcSpawns } from '../db/schema';
+import { monsters, npcs, skills, experience, items, mobDrops, mobSpawns, merchantItems, npcSpawns } from '../db/schema';
 import { seedMonsters } from './seeders/monsters.seeder';
 import { seedNpcs } from './seeders/npcs.seeder';
 import { seedSkills } from './seeders/skills.seeder';
@@ -8,6 +8,7 @@ import { seedMobDrops } from './seeders/drops.seeder';
 import { seedMobSpawns } from './seeders/spawns.seeder';
 import { seedMerchantItems } from './seeders/merchant-items.seeder';
 import { seedNpcSpawns } from './seeders/npc-spawns.seeder';
+import { seedItems } from './seeders/items.seeder';
 import { FIXTURE_DATA_DIR, resolveDataDir } from './paths';
 
 export interface SeedOptions {
@@ -20,6 +21,7 @@ export interface SeedReport {
   npcs: number;
   skills: number;
   experience: number;
+  items: number;
   mobDrops: number;
   mobSpawns: number;
   merchantItems: number;
@@ -39,6 +41,7 @@ export function runSeed(options: SeedOptions): SeedReport {
     tx.delete(skills).run();
     tx.delete(npcs).run();
     tx.delete(monsters).run();
+    tx.delete(items).run();
 
     const report: SeedReport = {
       monsters: seedMonsters(tx as unknown as AppDatabase, dataDir),
@@ -49,6 +52,7 @@ export function runSeed(options: SeedOptions): SeedReport {
       npcSpawns: seedNpcSpawns(tx as unknown as AppDatabase, dataDir),
       skills: seedSkills(tx as unknown as AppDatabase, dataDir),
       experience: seedExperience(tx as unknown as AppDatabase, dataDir),
+      items: seedItems(tx as unknown as AppDatabase, dataDir),
     };
 
     return report;

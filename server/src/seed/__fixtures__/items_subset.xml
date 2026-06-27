@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../xsd/items.xsd">
+	<item id="17" name="Wooden Arrow" type="EtcItem">
+		<set name="etcitem_type" val="ARROW" />
+		<set name="bodypart" val="lhand" />
+	</item>
+	<item id="1060" name="Healing Potion" type="EtcItem">
+		<set name="etcitem_type" val="POTION" />
+	</item>
+	<item id="1835" name="Soulshot (No-grade)" type="EtcItem">
+		<set name="etcitem_type" val="SOULSHOT" />
+	</item>
+	<item id="2369" name="Squire's Sword" type="Weapon">
+		<set name="bodypart" val="rhand" />
+		<stats>
+			<stat type="pAtk">6</stat>
+			<stat type="randomDamage">10</stat>
+		</stats>
+	</item>
+</list>
