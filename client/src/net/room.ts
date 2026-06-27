@@ -6,8 +6,16 @@ import {
   renderShopWindow,
   setShopVisible,
   isShopVisible,
-  KATERINA_NPC_ID,
 } from '../ui/shop-window';
+import { mountNpcDialog, renderNpcDialog, setNpcDialogVisible } from '../ui/npc-dialog';
+import {
+  findNearestInteractableNpc,
+  mountInteractPrompt,
+  openNpcUiForInteract,
+  setInteractPromptVisible,
+  type NpcPresence,
+} from '../npc-interaction';
+import { getGameState } from '../test-hook';
 
 const DEFAULT_ENDPOINT =
   import.meta.env.VITE_COLYSEUS_ENDPOINT ?? 'http://localhost:2567';
@@ -123,6 +131,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
 
   let prevPowerStrikeCooldownEndMs = 0;
   let localItemCounts: Record<number, number> = {};
+  let npcPresences: NpcPresence[] = [];
+
+  const updateInteractPrompt = (): void => {
+    const player = getGameState().player;
+    const nearest = findNearestInteractableNpc({ x: player.x, z: player.z }, npcPresences);
+    setInteractPromptVisible(Boolean(nearest?.canInteract));
+  };
 
   const readItemCounts = (player: PlayerSchema): Record<number, number> => {
     const counts: Record<number, number> = {};
@@ -163,27 +178,60 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     });
     localItemCounts = readItemCounts(player);
     refreshShopDom(player);
+    updateInteractPrompt();
   };
 
   mountShopWindow();
+  mountNpcDialog();
+  mountInteractPrompt();
 
-  room.onMessage('interactResult', (message: { npcId: number; type: string }) => {
-    if (message.npcId === KATERINA_NPC_ID || message.type === 'Merchant') {
-      const local = room.state.players.get(localId) as PlayerSchema | undefined;
-      if (local) {
-        renderShopWindow({
-          adena: local.adena ?? 0,
-          itemCounts: localItemCounts,
+  const sendInteract = (npcId: number): void => {
+    room.send('interact', { npcId });
+  };
+
+  window.__interact__ = sendInteract;
+
+  const onInteractKey = (ev: KeyboardEvent): void => {
+    if (ev.key !== 'e' && ev.key !== 'E') return;
+    const player = getGameState().player;
+    const nearest = findNearestInteractableNpc({ x: player.x, z: player.z }, npcPresences);
+    if (!nearest?.canInteract) return;
+    ev.preventDefault();
+    sendInteract(nearest.npcId);
+  };
+  window.addEventListener('keydown', onInteractKey);
+
+  room.onMessage('interactResult', (message: { npcId: number; type: string; name: string }) => {
+    openNpcUiForInteract(message, {
+      openShop: () => {
+        const local = room.state.players.get(localId) as PlayerSchema | undefined;
+        if (local) {
+          renderShopWindow({
+            adena: local.adena ?? 0,
+            itemCounts: localItemCounts,
+            visible: true,
+            handlers: {
+              sendBuy: (payload) => room.send('buy', payload),
+              sendSell: (payload) => room.send('sell', payload),
+            },
+          });
+        } else {
+          setShopVisible(true);
+        }
+        setNpcDialogVisible(false);
+      },
+      openDialog: (npcId, name) => {
+        setShopVisible(false);
+        renderNpcDialog({
+          npcId,
+          name,
           visible: true,
           handlers: {
-            sendBuy: (payload) => room.send('buy', payload),
-            sendSell: (payload) => room.send('sell', payload),
+            sendNpcAction: (payload) => room.send('npcAction', payload),
           },
         });
-      } else {
-        setShopVisible(true);
-      }
-    }
+      },
+    });
   });
 
   callbacks.onAdd('players', (player, sessionId) => {
@@ -253,6 +301,17 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       y: npc.y,
       z: npc.z,
     });
+    const idx = npcPresences.findIndex((entry) => entry.npcId === npc.npcId);
+    const presence: NpcPresence = {
+      npcId: npc.npcId,
+      x: npc.x,
+      y: npc.y,
+      z: npc.z,
+      type: npc.type,
+    };
+    if (idx >= 0) npcPresences[idx] = presence;
+    else npcPresences.push(presence);
+    updateInteractPrompt();
   };
 
   callbacks.onAdd('npcs', (npc, npcKey) => {

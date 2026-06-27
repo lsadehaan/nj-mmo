@@ -52,6 +52,7 @@ declare global {
     __sendMoveIntent__?: (targetX: number, targetZ: number) => void;
     __attack__?: () => void;
     __useSkill__?: () => void;
+    __interact__?: (npcId: number) => void;
     __consentLeave__?: () => Promise<void>;
   }
 }
