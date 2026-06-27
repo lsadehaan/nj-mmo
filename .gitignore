@@ -1,6 +1,7 @@
 node_modules/
 dist/
-.nx/
+.nx/cache
+.nx/workspace-data
 *.db
 *.db-journal
 .env
