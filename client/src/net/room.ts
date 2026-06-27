@@ -1,5 +1,6 @@
-import { Client, Room } from '@colyseus/sdk';
+import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { setConnected } from '../test-hook';
+import type { GameRenderer } from '../scene/renderer';
 
 const DEFAULT_ENDPOINT =
   import.meta.env.VITE_COLYSEUS_ENDPOINT ?? 'http://localhost:2567';
@@ -35,4 +36,21 @@ export async function connectSafe(endpoint = DEFAULT_ENDPOINT): Promise<Room | n
     setConnected(false);
     return null;
   }
+}
+
+export function wireRoom(room: Room, game: GameRenderer): void {
+  const callbacks = Callbacks.get(room);
+  const localId = room.sessionId;
+
+  const syncLocal = (player: { x: number; y: number; z: number }): void => {
+    game.syncLocalPlayer(player.x, player.y, player.z);
+  };
+
+  callbacks.onAdd('players', (player, sessionId) => {
+    const state = player as { x: number; y: number; z: number };
+    if (sessionId === localId) {
+      syncLocal(state);
+      callbacks.onChange(state, () => syncLocal(state));
+    }
+  });
 }

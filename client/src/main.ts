@@ -1,5 +1,5 @@
 import { initGameState, setReady } from './test-hook';
-import { connectSafe } from './net/room';
+import { connectSafe, wireRoom } from './net/room';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 
 async function boot(): Promise<void> {
@@ -27,7 +27,12 @@ async function boot(): Promise<void> {
   });
 
   const room = await connectSafe();
-  if (!room) {
+  if (room) {
+    game.setMoveIntentHandler((intent) => {
+      room.send('move', { targetX: intent.targetX, targetZ: intent.targetZ });
+    });
+    wireRoom(room, game);
+  } else {
     console.warn('Failed to connect to game server');
   }
   setReady(true);

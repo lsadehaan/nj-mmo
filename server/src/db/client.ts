@@ -1,10 +1,15 @@
 import Database from 'better-sqlite3';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { schema } from './schema';
 
 export type AppDatabase = BetterSQLite3Database<typeof schema>;
 
 export function getDb(path: string): AppDatabase {
+  if (path !== ':memory:') {
+    mkdirSync(dirname(path), { recursive: true });
+  }
   const sqlite = new Database(path);
   sqlite.pragma('journal_mode = WAL');
   const db = drizzle(sqlite, { schema });

@@ -8,6 +8,7 @@
     "build": {
       "executor": "@nx/js:tsc",
       "outputs": ["{options.outputPath}"],
+      "dependsOn": ["game-core:build"],
       "options": {
         "outputPath": "dist/server",
         "main": "server/src/index.ts",

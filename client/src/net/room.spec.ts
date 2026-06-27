@@ -19,7 +19,9 @@ vi.stubGlobal('localStorage', {
 vi.mock('@colyseus/sdk', () => ({
   Client: class MockClient {
     joinOrCreate = mockJoinOrCreate;
-    constructor(_endpoint: string) {}
+    constructor(_endpoint: string) {
+      void _endpoint;
+    }
   },
 }));
 

@@ -2,12 +2,7 @@ import * as THREE from 'three';
 import { generateTerrain, createTerrainMesh } from './terrain';
 import { buildVillage, type SceneObjectSpec } from './village';
 import { scatterProps } from './scatter';
-import {
-  step,
-  createInitialMoveState,
-  type PlayerMoveState,
-  type MovementIntent,
-} from '@nj/game-core';
+import { type MovementIntent } from '@nj/game-core';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
 import { setPlayer, setTarget } from '../test-hook';
@@ -20,10 +15,11 @@ export interface GameRenderer {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   terrainMesh: THREE.Mesh;
-  playerState: PlayerMoveState;
   tick: (dt: number) => void;
   render: () => void;
   handleClick: (ev: RaycastInput) => void;
+  syncLocalPlayer: (x: number, y: number, z: number) => void;
+  setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   dispose: () => void;
 }
 
@@ -111,27 +107,34 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   );
   scene.add(playerMesh);
 
-  const playerState = createInitialMoveState(0, terrainData.sampleHeight(0, 0) + 1, 0);
-  let pendingIntent: MovementIntent | null = null;
+  const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
+  let moveIntentHandler: ((intent: MovementIntent) => void) | null = null;
 
   const raycaster = new THREE.Raycaster();
 
-  const tick = (dt: number): void => {
-    const next = step(playerState, pendingIntent, dt);
-    pendingIntent = null;
-    Object.assign(playerState, next);
-    setTarget(playerState.targetX, playerState.targetZ);
-
-    playerMesh.position.set(playerState.x, playerState.y, playerState.z);
+  const syncLocalPlayer = (x: number, y: number, z: number): void => {
+    localPosition.x = x;
+    localPosition.y = y;
+    localPosition.z = z;
+    playerMesh.position.set(x, y, z);
     applyTo(
       {
         position: camera.position,
         lookAt: (target) => camera.lookAt(target.x, target.y, target.z),
       },
-      { x: playerState.x, y: playerState.y, z: playerState.z },
+      { x, y, z },
       DEFAULT_CAMERA_OFFSET
     );
-    setPlayer({ x: playerState.x, y: playerState.y, z: playerState.z });
+    setPlayer({ x, y, z });
+  };
+
+  const setMoveIntentHandler = (handler: (intent: MovementIntent) => void): void => {
+    moveIntentHandler = handler;
+  };
+
+  const tick = (_dt: number): void => {
+    void _dt;
+    // Position is server-authoritative; render loop does not simulate movement.
   };
 
   const render = (): void => {
@@ -152,34 +155,40 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     let hits = raycaster.intersectObject(terrainMesh, false);
 
     if (hits.length === 0) {
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -playerState.y);
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -localPosition.y);
       const fallback = new THREE.Vector3();
       if (raycaster.ray.intersectPlane(plane, fallback)) {
         hits = [{ point: fallback } as THREE.Intersection];
       }
     }
 
-    pendingIntent = toMovementIntent(
+    const intent = toMovementIntent(
       hits.length > 0 ? { x: hits[0].point.x, z: hits[0].point.z } : null
     );
-    setTarget(pendingIntent?.targetX ?? null, pendingIntent?.targetZ ?? null);
+    if (intent) {
+      setTarget(intent.targetX, intent.targetZ);
+      moveIntentHandler?.(intent);
+    } else {
+      setTarget(null, null);
+    }
   };
 
   const dispose = (): void => {
     renderer.dispose();
   };
 
-  tick(0);
+  syncLocalPlayer(localPosition.x, localPosition.y, localPosition.z);
 
   return {
     scene,
     camera,
     renderer,
     terrainMesh,
-    playerState,
     tick,
     render,
     handleClick,
+    syncLocalPlayer,
+    setMoveIntentHandler,
     dispose,
   };
 }

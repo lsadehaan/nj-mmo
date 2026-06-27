@@ -5,6 +5,16 @@
   "projectType": "library",
   "tags": [],
   "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/game-core",
+        "main": "libs/game-core/src/index.ts",
+        "tsConfig": "libs/game-core/tsconfig.lib.json",
+        "generatePackageJson": true
+      }
+    },
     "test": {
       "executor": "@nx/vitest:test",
       "outputs": ["{workspaceRoot}/coverage/libs/game-core"],
