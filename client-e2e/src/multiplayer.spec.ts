@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-test.describe.configure({ mode: 'serial' });
+import { gotoGame } from './game-page';
 
 async function clickGround(page: import('@playwright/test').Page, xRatio = 0.5, yRatio = 0.85) {
   await page.waitForFunction(() => typeof window.__handleGroundClick__ === 'function');
@@ -23,15 +22,15 @@ async function waitReady(page: import('@playwright/test').Page) {
   });
 }
 
-test('browser B sees browser A move in __GAME_STATE__.others', async ({ browser }) => {
+test('browser B sees browser A move in __GAME_STATE__.others', async ({ browser }, testInfo) => {
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
   const pageB = await contextB.newPage();
 
   try {
-    await pageA.goto('/');
-    await pageB.goto('/');
+    await gotoGame(pageA, testInfo);
+    await gotoGame(pageB, testInfo);
     await waitReady(pageA);
     await waitReady(pageB);
 
@@ -80,21 +79,21 @@ test('browser B sees browser A move in __GAME_STATE__.others', async ({ browser 
   }
 });
 
-test('browser B stops seeing browser A after consented leave', async ({ browser }) => {
+test('browser B stops seeing browser A after consented leave', async ({ browser }, testInfo) => {
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
   const pageB = await contextB.newPage();
 
   try {
-    await pageB.goto('/');
+    await gotoGame(pageB, testInfo);
     await waitReady(pageB);
 
     const othersBeforeA = await pageB.evaluate(() =>
       (window.__GAME_STATE__?.others ?? []).map((o) => o.id)
     );
 
-    await pageA.goto('/');
+    await gotoGame(pageA, testInfo);
     await waitReady(pageA);
 
     const aIdOnB = await pageB.waitForFunction(
@@ -130,13 +129,13 @@ test('browser B stops seeing browser A after consented leave', async ({ browser 
   }
 });
 
-test('rejoining with the same characterId restores saved position', async ({ browser }) => {
+test('rejoining with the same characterId restores saved position', async ({ browser }, testInfo) => {
   test.setTimeout(60_000);
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    await page.goto('/');
+    await gotoGame(page, testInfo);
     await waitReady(page);
 
     await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
@@ -180,7 +179,7 @@ test('rejoining with the same characterId restores saved position', async ({ bro
     await page.close();
 
     const page2 = await context.newPage();
-    await page2.goto('/');
+    await gotoGame(page2, testInfo);
     await waitReady(page2);
 
     await page2.waitForFunction(

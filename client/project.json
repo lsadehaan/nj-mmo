@@ -30,6 +30,14 @@
         }
       }
     },
+    "preview": {
+      "executor": "@nx/vite:preview-server",
+      "options": {
+        "buildTarget": "client:build",
+        "port": 4200,
+        "watch": false
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint"
     },

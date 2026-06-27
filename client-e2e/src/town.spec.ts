@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-test.describe.configure({ mode: 'serial' });
+import { gotoGame } from './game-page';
 
 const KATERINA_NPC_ID = 30004;
 
@@ -45,9 +44,9 @@ async function walkTowardInPeaceZone(
     .toBe(true);
 }
 
-test('buying Healing Potion at Katerina updates adena 1000 to 897', async ({ page }) => {
+test('buying Healing Potion at Katerina updates adena 1000 to 897', async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
-  await page.goto('/');
+  await gotoGame(page, testInfo);
   await waitReady(page);
 
   await page.waitForFunction(() => window.__GAME_STATE__?.adena === 1000, undefined, {
@@ -98,9 +97,9 @@ test('buying Healing Potion at Katerina updates adena 1000 to 897', async ({ pag
   expect(domAdena).toBe('897');
 });
 
-test('attack inside peace zone does not reduce mob HP or grant XP', async ({ page }) => {
+test('attack inside peace zone does not reduce mob HP or grant XP', async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
-  await page.goto('/');
+  await gotoGame(page, testInfo);
   await waitReady(page);
 
   await page.waitForFunction(() => (window.__GAME_STATE__?.mobs?.length ?? 0) > 0, undefined, {
@@ -159,9 +158,9 @@ test('attack inside peace zone does not reduce mob HP or grant XP', async ({ pag
 
 test('Power Strike inside peace zone does not reduce mob HP or spend MP', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
-  await page.goto('/');
+  await gotoGame(page, testInfo);
   await waitReady(page);
 
   await page.waitForFunction(() => (window.__GAME_STATE__?.mobs?.length ?? 0) > 0, undefined, {

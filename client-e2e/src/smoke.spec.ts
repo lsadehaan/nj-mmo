@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { gotoGame } from './game-page';
 
-test('mounts canvas and connects to the server', async ({ page }) => {
-  await page.goto('/');
+test('mounts canvas and connects to the server', async ({ page }, testInfo) => {
+  await gotoGame(page, testInfo);
 
   await expect(page.locator('#game')).toBeVisible();
   await page.waitForFunction(() => window.__GAME_STATE__?.connected === true, undefined, {
@@ -9,8 +10,8 @@ test('mounts canvas and connects to the server', async ({ page }) => {
   });
 });
 
-test('clicking the ground moves the player via game state hook', async ({ page }) => {
-  await page.goto('/');
+test('clicking the ground moves the player via game state hook', async ({ page }, testInfo) => {
+  await gotoGame(page, testInfo);
   await page.waitForFunction(() => window.__GAME_STATE__?.ready === true, undefined, {
     timeout: 30_000,
   });
@@ -50,8 +51,8 @@ test('clicking the ground moves the player via game state hook', async ({ page }
   expect(moved.x !== initial.x || moved.z !== initial.z).toBe(true);
 });
 
-test('does not integrate movement locally before server updates', async ({ page }) => {
-  await page.goto('/');
+test('does not integrate movement locally before server updates', async ({ page }, testInfo) => {
+  await gotoGame(page, testInfo);
   await page.waitForFunction(() => window.__GAME_STATE__?.ready === true, undefined, {
     timeout: 30_000,
   });

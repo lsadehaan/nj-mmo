@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { pickNearestCombatMob } from './peace-zone';
-
-test.describe.configure({ mode: 'serial' });
+import { gotoGame } from './game-page';
+import { approachMob } from './mob-combat';
 
 async function waitReady(page: import('@playwright/test').Page) {
   await page.waitForFunction(() => window.__GAME_STATE__?.ready === true, undefined, {
@@ -9,10 +9,10 @@ async function waitReady(page: import('@playwright/test').Page) {
   });
 }
 
-test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }) => {
+test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
-  await page.goto('/');
+  await gotoGame(page, testInfo);
   await waitReady(page);
 
   await page.waitForFunction(() => (window.__GAME_STATE__?.mobs?.length ?? 0) > 0, undefined, {
@@ -33,25 +33,7 @@ test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }
   }));
   const target = pickNearestCombatMob(mobs, player);
 
-  await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
-
-  await expect
-    .poll(
-      async () =>
-        page.evaluate((mob) => {
-          const player = window.__GAME_STATE__.player;
-          const dist = Math.hypot(player.x - mob.x, player.z - mob.z);
-          if (dist <= 3.5) return true;
-          const dx = mob.x - player.x;
-          const dz = mob.z - player.z;
-          const len = Math.hypot(dx, dz) || 1;
-          const step = Math.max(1, Math.min(len - 2.5, 6));
-          window.__sendMoveIntent__?.(player.x + (dx / len) * step, player.z + (dz / len) * step);
-          return false;
-        }, target),
-      { timeout: 90_000, intervals: [250, 500, 1000] }
-    )
-    .toBe(true);
+  await approachMob(page, target.id, 3.4);
 
   await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
   await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), target.id);
@@ -71,15 +53,28 @@ test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }
           const state = window.__GAME_STATE__;
           const cooldownEl = document.getElementById('power-strike-cooldown');
           const domRemaining = Number(cooldownEl?.getAttribute('data-remaining-ms') ?? 0);
-          const mobAlive = state.mobs.some((m) => m.id === mobId);
-          if (
-            state.player.mp === 41 &&
-            state.player.powerStrikeCooldownRemainingMs > 0 &&
-            domRemaining > 0 &&
-            state.player.xp > 0 &&
-            !mobAlive
-          ) {
-            return state.player.xp;
+          const mob = state.mobs.find((m) => m.id === mobId);
+          if (!mob) {
+            if (
+              state.player.mp === 41 &&
+              state.player.powerStrikeCooldownRemainingMs > 0 &&
+              domRemaining > 0 &&
+              state.player.xp > 0
+            ) {
+              return state.player.xp;
+            }
+            return -1;
+          }
+          // Mob still alive: keep within cast range (mobs wander) before casting.
+          const p = state.player;
+          const dist = Math.hypot(p.x - mob.x, p.z - mob.z);
+          if (dist > 3.4) {
+            const dx = mob.x - p.x;
+            const dz = mob.z - p.z;
+            const len = Math.hypot(dx, dz) || 1;
+            const step = Math.max(1, Math.min(len - 2.5, 6));
+            window.__sendMoveIntent__?.(p.x + (dx / len) * step, p.z + (dz / len) * step);
+            return -1;
           }
           window.__useSkill__?.();
           return -1;

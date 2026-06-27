@@ -7,7 +7,10 @@ export default config({
     devMode: true,
   },
   initializeGameServer: (gameServer) => {
-    gameServer.define('town', TownRoom);
+    // `instanceKey` lets clients opt into an isolated room instance (used by e2e
+    // tests for per-test isolation). Production clients pass no key and therefore
+    // all share the single default `town` world.
+    gameServer.define('town', TownRoom).filterBy(['instanceKey']);
   },
   initializeExpress: (app) => {
     app.get('/health', (_req: Request, res: Response) => {

@@ -5,8 +5,10 @@ const baseURL = process.env['BASE_URL'] || 'http://localhost:4200';
 
 export default defineConfig({
   ...nxE2EPreset(__filename, { testDir: './src' }),
-  fullyParallel: false,
-  workers: 1,
+  // Each test joins its own isolated `town` room (see src/game-page.ts), so the
+  // suite is parallel-safe — no shared-room state bleed, no serial ordering.
+  fullyParallel: true,
+  workers: process.env['CI'] ? 2 : 4,
   use: {
     baseURL,
     trace: 'on-first-retry',
@@ -20,7 +22,11 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'npx nx serve client',
+      // Serve a prebuilt client (static) rather than the dev server: the dev
+      // server compiles modules on first request, and parallel cold page-loads
+      // contended enough to occasionally push a test toward its timeout. A
+      // prebuilt preview serves instantly and deterministically.
+      command: 'npx nx run client:preview',
       url: 'http://localhost:4200',
       reuseExistingServer: !process.env['CI'],
       timeout: 120_000,
