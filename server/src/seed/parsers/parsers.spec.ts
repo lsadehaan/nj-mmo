@@ -30,7 +30,25 @@ describe('parseMonsters', () => {
       critical: 4.75,
       accuracy: 4.75,
       attackRange: 40,
+      aggroRange: 0,
+      isAggressive: false,
+      respawnSec: 27,
     });
+  });
+
+  it('parses Goblin aggro flags from fixture XML', () => {
+    const mobs = parseMonsters(xml, [20003]);
+    expect(mobs[0]).toMatchObject({ isAggressive: true, aggroRange: 450 });
+  });
+
+  it('parses Wolf as aggressive with aggroRange 450', () => {
+    const mobs = parseMonsters(xml, [20120]);
+    expect(mobs[0]).toMatchObject({ isAggressive: true, aggroRange: 450 });
+  });
+
+  it('parses Keltir as passive despite aggroRange attribute', () => {
+    const mobs = parseMonsters(xml, [20481]);
+    expect(mobs[0]).toMatchObject({ isAggressive: false, aggroRange: 500 });
   });
 
   it('parses Goblin combat stats from fixture XML', () => {

@@ -81,6 +81,24 @@ describe('monster seeding', () => {
     });
   });
 
+  it('seeds Gremlin combat stats for melee formula', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20001)).get();
+    expect(row?.pDef).toBeCloseTo(44.44444, 4);
+    expect(row?.pAtk).toBeCloseTo(8.47458, 4);
+    expect(row?.attackSpeed).toBe(253);
+    expect(row?.isAggressive).toBe(false);
+  });
+
+  it('seeds Goblin as aggressive with raw aggroRange 450', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20003)).get();
+    expect(row?.isAggressive).toBe(true);
+    expect(row?.aggroRange).toBe(450);
+  });
+
   it('is idempotent when run twice', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });

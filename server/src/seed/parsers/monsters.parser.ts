@@ -20,7 +20,13 @@ interface NpcNode {
     };
     defence?: { '@_physical'?: string };
   };
+  ai?: {
+    '@_aggroRange'?: string;
+    '@_isAggressive'?: string;
+  };
 }
+
+const DEFAULT_RESPAWN_SEC = 27;
 
 export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
   const doc = xmlParser.parse(xml) as { list?: { npc?: NpcNode[] } };
@@ -65,6 +71,9 @@ export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
       critical: parseNumber(id, 'attack.critical', node.stats?.attack?.['@_critical']),
       accuracy: parseNumber(id, 'attack.accuracy', node.stats?.attack?.['@_accuracy']),
       attackRange: parseNumber(id, 'attack.range', node.stats?.attack?.['@_range']),
+      aggroRange: parseAggroRange(id, node.ai?.['@_aggroRange']),
+      isAggressive: parseIsAggressive(node.ai),
+      respawnSec: DEFAULT_RESPAWN_SEC,
     });
   }
 
@@ -76,6 +85,20 @@ export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
   }
 
   return results.sort((a, b) => (a.npcId ?? 0) - (b.npcId ?? 0));
+}
+
+function parseAggroRange(id: string, raw: string | undefined): number {
+  if (raw === undefined || raw === '') return 0;
+  return parseNumber(id, 'ai.aggroRange', raw);
+}
+
+function parseIsAggressive(ai: NpcNode['ai']): boolean {
+  if (!ai) return false;
+  const explicit = ai['@_isAggressive'];
+  if (explicit === 'false') return false;
+  if (explicit === 'true') return true;
+  const aggro = ai['@_aggroRange'];
+  return aggro !== undefined && aggro !== '';
 }
 
 function requireAttr(id: string | number, field: string, value: unknown): void {
