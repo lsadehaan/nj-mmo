@@ -13,6 +13,9 @@ import {
 } from '../db/character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { TownState } from './schema/TownState';
+import type { MobRuntime } from './spawn-manager';
+
+const OUT_OF_PEACE = { x: 30, z: -30 };
 
 let colyseus: ColyseusTestServer;
 
@@ -76,6 +79,32 @@ function placePlayerNear(
     tickState.targetX = null;
     tickState.targetZ = null;
   }
+}
+
+function relocateMob(
+  room: { state: TownState },
+  mobId: string,
+  x: number,
+  z: number
+) {
+  const runtime = (room as { mobRuntime: Map<string, MobRuntime> }).mobRuntime.get(mobId)!;
+  runtime.x = x;
+  runtime.z = z;
+  runtime.wanderTargetX = x;
+  runtime.wanderTargetZ = z;
+  runtime.wanderCooldownMs = Number.MAX_SAFE_INTEGER;
+  const mobState = room.state.mobs.get(mobId)!;
+  mobState.x = x;
+  mobState.z = z;
+}
+
+function placePlayerAndMobForCombat(
+  room: { state: TownState },
+  sessionId: string,
+  mob: { id: string; x: number; z: number }
+) {
+  relocateMob(room, mob.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+  placePlayerNear(room, sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
 }
 
 describe('TownRoom', () => {
@@ -402,8 +431,8 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
-      const hpBefore = gremlin.hp;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
       client.send('setTarget', { mobId: gremlin.id });
       client.send('attack', {});
@@ -424,8 +453,9 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x + 20, gremlin.z);
-      const hpBefore = gremlin.hp;
+      relocateMob(room, gremlin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 20, OUT_OF_PEACE.z);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
       client.send('setTarget', { mobId: gremlin.id });
       client.send('attack', {});
@@ -443,7 +473,7 @@ describe('TownRoom combat', () => {
     client: Awaited<ReturnType<ColyseusTestServer['connectTo']>>
   ) {
     const gremlin = findMobByNpcId(room, 20001)!;
-    placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+    placePlayerAndMobForCombat(room, client.sessionId, gremlin);
 
     client.send('setTarget', { mobId: gremlin.id });
 
@@ -564,12 +594,13 @@ describe('TownRoom combat', () => {
       const client = await colyseus.connectTo(room);
       const gremlin = findMobByNpcId(room, 20001)!;
       placePlayerNear(room, client.sessionId, gremlin.x + 5, gremlin.z);
+      relocateMob(room, gremlin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
 
       await room.waitForNextSimulationTick();
       let runtime = room['mobRuntime'].get(gremlin.id)!;
       expect(runtime.targetSessionId).toBeNull();
 
-      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
       client.send('setTarget', { mobId: gremlin.id });
       client.send('attack', {});
       await room.waitForNextSimulationTick();
@@ -608,7 +639,7 @@ describe('TownRoom Power Strike', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
 
       await castPowerStrike(client, room, gremlin.id);
 
@@ -631,8 +662,9 @@ describe('TownRoom Power Strike', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x + 4.1, gremlin.z);
-      const hpBefore = gremlin.hp;
+      relocateMob(room, gremlin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 4.1, OUT_OF_PEACE.z);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
       const mpBefore = player.mp;
 
       await castPowerStrike(client, room, gremlin.id);
@@ -655,7 +687,8 @@ describe('TownRoom Power Strike', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x + 3.9, gremlin.z);
+      relocateMob(room, gremlin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 3.9, OUT_OF_PEACE.z);
 
       await castPowerStrike(client, room, gremlin.id);
 
@@ -678,8 +711,8 @@ describe('TownRoom Power Strike', () => {
       const player = room.state.players.get(client.sessionId)!;
       player.mp = 8;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
-      const hpBefore = gremlin.hp;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
       await castPowerStrike(client, room, gremlin.id);
 
@@ -703,7 +736,7 @@ describe('TownRoom Power Strike', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
 
       await castPowerStrike(client, room, gremlin.id);
 
@@ -762,8 +795,8 @@ describe('TownRoom Power Strike', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
-      const hpBefore = gremlin.hp;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
       const mpBefore = player.mp;
 
       client.send('useSkill', { skillId: 3 });

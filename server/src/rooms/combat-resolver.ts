@@ -4,6 +4,7 @@ import {
   calcPhysicalSkillDamage,
   calculateAttackIntervalMs,
   isInMeleeRange,
+  isInPeaceZone,
   grantXp,
   rollDrops,
   type DropRow,
@@ -78,6 +79,10 @@ export function resolvePlayerAttack(params: {
 
   combat.attackPending = false;
 
+  if (isInPeaceZone(playerX, playerZ)) {
+    return { damage: 0, killed: false };
+  }
+
   if (nowMs < combat.nextAttackAtMs) {
     return { damage: 0, killed: false };
   }
@@ -150,6 +155,10 @@ export function resolvePowerStrike(params: {
 
   combat.skillPending = false;
 
+  if (isInPeaceZone(playerX, playerZ)) {
+    return reject();
+  }
+
   if (nowMs < combat.powerStrikeCooldownEndMs) {
     return reject();
   }
@@ -201,6 +210,10 @@ export function resolveMobAttack(params: {
   const { mob, targetSessionId, targetX, targetZ, nowMs, rng } = params;
 
   if (mob.hp <= 0 || mob.targetSessionId !== targetSessionId) {
+    return { damage: 0 };
+  }
+
+  if (isInPeaceZone(targetX, targetZ)) {
     return { damage: 0 };
   }
 

@@ -7,6 +7,8 @@ import {
 import { tickMobAi, WANDER_RADIUS, WANDER_SPEED_FACTOR } from './mob-ai';
 import type { MobRuntime } from './spawn-manager';
 
+const OUT_OF_PEACE = { x: 30, z: -30 };
+
 function makeRng(sequence: number[]): SeededRng {
   let i = 0;
   return {
@@ -92,10 +94,10 @@ describe('tickMobAi', () => {
       isAggressive: false,
       wasDamaged: true,
       lastAttackerSessionId: 'p1',
-      x: 0,
-      z: 0,
+      x: OUT_OF_PEACE.x,
+      z: OUT_OF_PEACE.z,
     });
-    const players = [{ sessionId: 'p1', x: 20, z: 0 }];
+    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 5, z: OUT_OF_PEACE.z }];
 
     tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
 
@@ -134,18 +136,46 @@ describe('tickMobAi', () => {
   it('chase moves aggressive mob toward its target', () => {
     const mob = baseMob({
       isAggressive: true,
-      x: 0,
-      z: 0,
+      x: OUT_OF_PEACE.x,
+      z: OUT_OF_PEACE.z,
       targetSessionId: 'p1',
     });
-    const players = [{ sessionId: 'p1', x: 20, z: 0 }];
-    const startDist = horizontalDistance(mob.x, mob.z, 20, 0);
+    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 20, z: OUT_OF_PEACE.z }];
+    const startDist = horizontalDistance(mob.x, mob.z, OUT_OF_PEACE.x + 20, OUT_OF_PEACE.z);
 
     for (let i = 0; i < 20; i++) {
       tickMobAi(mob, players, 0.05, makeRng([0.5]), i * 50);
     }
 
-    const endDist = horizontalDistance(mob.x, mob.z, 20, 0);
+    const endDist = horizontalDistance(mob.x, mob.z, OUT_OF_PEACE.x + 20, OUT_OF_PEACE.z);
     expect(endDist).toBeLessThan(startDist);
+  });
+
+  it('does not acquire a player standing inside the peace zone', () => {
+    const mob = baseMob({
+      isAggressive: true,
+      x: 0,
+      z: 0,
+      aggroRangeWorld: 45,
+    });
+    const players = [{ sessionId: 'p1', x: 0, z: 0 }];
+
+    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
+
+    expect(mob.targetSessionId).toBeNull();
+  });
+
+  it('clears target when player enters the peace zone', () => {
+    const mob = baseMob({
+      isAggressive: true,
+      x: 0,
+      z: 0,
+      targetSessionId: 'p1',
+    });
+    const players = [{ sessionId: 'p1', x: 0, z: 0 }];
+
+    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
+
+    expect(mob.targetSessionId).toBeNull();
   });
 });

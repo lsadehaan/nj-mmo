@@ -1,6 +1,7 @@
 import {
   DEFAULT_MOVE_SPEED,
   horizontalDistance,
+  isInPeaceZone,
   type SeededRng,
 } from '@nj/game-core';
 import type { MobRuntime } from './spawn-manager';
@@ -37,6 +38,8 @@ export function tickMobAi(
     const target = players.find((p) => p.sessionId === mob.targetSessionId);
     if (!target) {
       mob.targetSessionId = null;
+    } else if (isInPeaceZone(target.x, target.z)) {
+      mob.targetSessionId = null;
     } else {
       moveToward(mob, target.x, target.z, CHASE_SPEED, dt);
       return;
@@ -51,6 +54,7 @@ function acquireAggressiveTarget(mob: MobRuntime, players: MobAiPlayer[]): void 
   let nearestDist = Infinity;
 
   for (const player of players) {
+    if (isInPeaceZone(player.x, player.z)) continue;
     const dist = horizontalDistance(mob.x, mob.z, player.x, player.z);
     if (dist <= mob.aggroRangeWorld && dist < nearestDist) {
       nearest = player;

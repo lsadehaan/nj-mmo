@@ -18,6 +18,8 @@ import {
 } from './combat-resolver';
 import type { MobRuntime } from './spawn-manager';
 
+const OUT_OF_PEACE = { x: 30, z: -30 };
+
 const TEST_CURVE: ExperienceCurveRow[] = [
   { level: 1, xpToNextLevel: 0 },
   { level: 2, xpToNextLevel: 68 },
@@ -29,9 +31,9 @@ function gremlinMob(overrides: Partial<MobRuntime> = {}): MobRuntime {
     id: 'gremlin-1',
     npcId: 20001,
     spawnRowId: 1,
-    x: 0,
+    x: OUT_OF_PEACE.x,
     y: 4.26,
-    z: 0,
+    z: OUT_OF_PEACE.z,
     hp: 41.145,
     maxHp: 41.145,
     pAtk: 8.47458,
@@ -43,8 +45,8 @@ function gremlinMob(overrides: Partial<MobRuntime> = {}): MobRuntime {
     isAggressive: false,
     exp: 44,
     respawnSec: 27,
-    spawnX: 0,
-    spawnZ: 0,
+    spawnX: OUT_OF_PEACE.x,
+    spawnZ: OUT_OF_PEACE.z,
     targetSessionId: null,
     lastAttackerSessionId: null,
     nextAttackAtMs: 0,
@@ -194,7 +196,7 @@ describe('combat-resolver', () => {
   });
 
   it('mob attack deals damage when in melee range', () => {
-    const mob = gremlinMob({ targetSessionId: 'p1', x: 0, z: 0 });
+    const mob = gremlinMob({ targetSessionId: 'p1' });
     const rng = {
       nextFloat: () => 0,
       nextInt: () => 0,
@@ -205,8 +207,8 @@ describe('combat-resolver', () => {
     const result = resolveMobAttack({
       mob,
       targetSessionId: 'p1',
-      targetX: 2,
-      targetZ: 0,
+      targetX: OUT_OF_PEACE.x + 2,
+      targetZ: OUT_OF_PEACE.z,
       targetHp: 100,
       nowMs: 1000,
       rng,
@@ -423,6 +425,128 @@ describe('combat-resolver', () => {
       expect(result.damage).toBe(0);
       expect(result.mpCost).toBe(0);
       expect(mob.hp).toBeCloseTo(hpBefore, 3);
+    });
+  });
+
+  describe('peace zone guards', () => {
+    it('resolvePlayerAttack at (0,0) returns damage 0', () => {
+      const mob = gremlinMob();
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.attackPending = true;
+      const hpBefore = mob.hp;
+
+      const result = resolvePlayerAttack({
+        sessionId: 'p1',
+        playerX: 0,
+        playerZ: 0,
+        combat,
+        mob,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(0);
+      expect(mob.hp).toBeCloseTo(hpBefore, 3);
+    });
+
+    it('resolvePlayerAttack outside peace zone still deals damage', () => {
+      const mob = gremlinMob({ x: 30, z: 30 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.attackPending = true;
+
+      const result = resolvePlayerAttack({
+        sessionId: 'p1',
+        playerX: 30,
+        playerZ: 30,
+        combat,
+        mob,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(17);
+    });
+
+    it('resolvePowerStrike at (0,0) returns damage 0 and mpCost 0', () => {
+      const mob = gremlinMob();
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+      const hpBefore = mob.hp;
+
+      const result = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: 0,
+        playerZ: 0,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(0);
+      expect(result.mpCost).toBe(0);
+      expect(mob.hp).toBeCloseTo(hpBefore, 3);
+    });
+
+    it('resolvePowerStrike outside peace zone still deals damage', () => {
+      const mob = gremlinMob({ x: 30, z: 30, hp: 200, maxHp: 200 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+
+      const result = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: 30,
+        playerZ: 30,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(69);
+      expect(result.mpCost).toBe(9);
+    });
+
+    it('resolveMobAttack vs target at (0,0) returns damage 0', () => {
+      const mob = gremlinMob({ targetSessionId: 'p1', x: 0, z: 0 });
+      mob.nextAttackAtMs = 0;
+
+      const result = resolveMobAttack({
+        mob,
+        targetSessionId: 'p1',
+        targetX: 0,
+        targetZ: 0,
+        targetHp: 100,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(0);
+    });
+
+    it('resolveMobAttack vs target outside peace zone deals damage', () => {
+      const mob = gremlinMob({ targetSessionId: 'p1', x: 30, z: 30 });
+      mob.nextAttackAtMs = 0;
+
+      const result = resolveMobAttack({
+        mob,
+        targetSessionId: 'p1',
+        targetX: 30,
+        targetZ: 30,
+        targetHp: 100,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBeGreaterThan(0);
     });
   });
 });
