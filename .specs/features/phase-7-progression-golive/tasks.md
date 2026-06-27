@@ -1,4 +1,4 @@
-# Phase 7 — Progression Loop & Go-Live Tasks
+# Phase 7 — Progression Loop Tasks
 
 ## Execution Protocol (MANDATORY -- do not skip)
 
@@ -35,9 +35,6 @@ without it.**
 | inventory window DOM | unit | P7-R09 list + equip button | `client/src/ui/inventory-window.spec.ts` | `nx test client` |
 | test-hook progression fields | unit | equippedWeaponId, maxHp exposed | `client/src/test-hook.spec.ts` | `nx test client` |
 | progression loop E2E | e2e | P7-R17 full loop | `client-e2e/src/progression.spec.ts` | `nx e2e client-e2e` |
-| Deploy configs (Docker/vercel/CORS) | unit + integration | P7-R18–R21; CORS header test; prod-smoke script | `server/src/app.config.spec.ts`, `scripts/prod-smoke.sh` | `nx run-many -t build` + smoke |
-| Schema-only deploy files | none | Build gate | — | `nx run-many -t build lint` |
-| Cloud deploy (T20) | manual | P7-R22 **credential-gated** | — | HALT |
 
 ## Parallelism Assessment
 
@@ -51,7 +48,6 @@ without it.**
 | room-integration | Yes | `@colyseus/testing` per suite; `NJ_AUTOSIM=0`; temp DB | `TownRoom.spec.ts` |
 | unit (client) | Yes | jsdom per test | `client/src/*.spec.ts` |
 | e2e (Playwright) | Yes | `?room=` + `filterBy(['instanceKey'])`; `fullyParallel` | `client-e2e/playwright.config.ts` |
-| prod-smoke script | No | Single server process on 2567 | Sequential manual/CI step |
 
 ## Gate Check Commands
 
@@ -62,15 +58,13 @@ without it.**
 | Quick (game-core) | After T3, T4 | `nx test game-core` |
 | Quick (server) | After T1–T2, T5–T12 | `nx test server` |
 | Quick (client) | After T13–T15 | `nx test client` |
-| Full | After T16 / pre-deploy | `nx affected -t test lint` and `nx e2e client-e2e` |
-| Build | After T17–T19 | `nx run-many -t build lint` + `scripts/prod-smoke.sh` |
-| Credential | T20 only | Manual deploy — **HALT without tokens** |
+| Full | After T16 / phase complete | `nx affected -t test lint` and `nx e2e client-e2e` |
 
 ---
 
 ## Execution Plan
 
-**6 phases**, 20 tasks.
+**5 phases**, 16 tasks.
 
 ### Phase 1: Pure rules + items schema (Parallel roots)
 
@@ -109,14 +103,6 @@ T11,T12,T14 ──→ T15
 
 ```
 T15 ──→ T16
-```
-
-### Phase 6: Deploy artifacts (Parallel then smoke)
-
-```
-T16 ──┬──→ T17 [P]
-      └──→ T18 [P]
-T17,T18 ──→ T19 ──→ T20 (🔒 CREDENTIAL-GATED HALT)
 ```
 
 ---
@@ -555,115 +541,6 @@ T17,T18 ──→ T19 ──→ T20 (🔒 CREDENTIAL-GATED HALT)
 
 ---
 
-### T17: Server production container config `[deploy]` [P]
-
-**What**: `Dockerfile`, `fly.toml`, `railway.json` for Node 22 Colyseus server.
-**Where**: repo root `Dockerfile`, `fly.toml`, `railway.json`, `.dockerignore`
-**Depends on**: T16
-**Reuses**: `nx run server:build` output; `PORT`, `NJ_DB_PATH`
-**Requirement**: P7-R18
-
-**Tools**:
-
-- MCP: `user-context7` (Fly/Railway Node deploy)
-- Skill: NONE
-
-**Done when**:
-
-- [ ] `docker build` succeeds locally
-- [ ] Container starts and `GET /health` returns **ok**
-- [ ] Gate check passes: `nx run server:build`
-- [ ] Test count: n/a (build gate)
-
-**Tests**: none
-**Gate**: build
-
-**Commit**: `chore(deploy): add Dockerfile and fly.toml for server`
-
----
-
-### T18: Client Vercel config and server CORS `[deploy]` [P]
-
-**What**: `vercel.json`, `NJ_ALLOWED_ORIGINS` CORS in `app.config.ts`, document `VITE_COLYSEUS_ENDPOINT`.
-**Where**: `vercel.json`, `server/src/app.config.ts`, `server/src/app.config.spec.ts`
-**Depends on**: T16
-**Reuses**: Context7 Colyseus `DEFAULT_CORS_HEADERS`; existing `VITE_COLYSEUS_ENDPOINT` in `room.ts`
-**Requirement**: P7-R19, P7-R20
-
-**Tools**:
-
-- MCP: `user-context7` (`/colyseus/docs`, `/websites/vercel`)
-- Skill: NONE
-
-**Done when**:
-
-- [ ] `nx run client:build` succeeds with env example in comments
-- [ ] CORS unit test asserts allowed origin header when `NJ_ALLOWED_ORIGINS` set
-- [ ] `devMode` false when `NODE_ENV=production`
-- [ ] Gate check passes: `nx test server` + `nx run client:build`
-- [ ] Test count: **+2** tests pass (no silent deletions)
-
-**Tests**: unit
-**Gate**: build
-
-**Commit**: `chore(deploy): vercel static config and Colyseus CORS`
-
----
-
-### T19: Deploy runbook and local prod smoke script `[deploy]`
-
-**What**: `docs/DEPLOY.md` + `scripts/prod-smoke.sh` verifying built client connects to built server.
-**Where**: `docs/DEPLOY.md`, `scripts/prod-smoke.sh`
-**Depends on**: T17, T18
-**Reuses**: AD-014 prebuilt client pattern; seed CLI
-**Requirement**: P7-R21
-
-**Tools**:
-
-- MCP: NONE
-- Skill: NONE
-
-**Done when**:
-
-- [ ] Runbook documents Fly + Vercel steps, env vars, volume for SQLite
-- [ ] `scripts/prod-smoke.sh` exits 0: build → serve → join room
-- [ ] Gate check passes: `nx run-many -t build lint` + `scripts/prod-smoke.sh`
-- [ ] Test count: n/a (script gate)
-
-**Tests**: integration (smoke script)
-**Gate**: build
-
-**Commit**: `docs(deploy): runbook and production smoke script`
-
----
-
-### T20: Cloud deploy to public URL 🔒 CREDENTIAL-GATED `[deploy]`
-
-**What**: Execute `fly deploy` (or `railway up`) + `vercel deploy` with operator credentials; verify public URL.
-**Where**: Hosting provider dashboards; env secrets
-**Depends on**: T19
-**Reuses**: T17–T19 artifacts
-**Requirement**: P7-R22
-
-**Tools**:
-
-- MCP: NONE
-- Skill: NONE
-- **External**: Fly/Railway account + API token; Vercel token; domain optional
-
-**Done when**:
-
-- [ ] **GATED**: Operator provides credentials — without them, **STOP loop** and write blocker to `STATE.md` Handoff
-- [ ] With credentials: server health URL green; client loads; WebSocket connects; progression smoke passes on public URL
-- [ ] Public HTTPS URL recorded in Handoff
-
-**Tests**: manual / post-deploy e2e (credential-gated)
-**Gate**: credential — **expected autonomous HALT point**
-
-**Commit**: `chore(deploy): production release config` (only if deploy executed)
-
----
-
 ## Parallel Execution Map
 
 ```
@@ -687,10 +564,6 @@ Phase 4 (Client):
 
 Phase 5:
   T15 ──→ T16
-
-Phase 6 (Deploy):
-  T16 ──→ T17 [P], T18 [P]
-  T17,T18 ──→ T19 ──→ T20 🔒
 ```
 
 ---
@@ -715,10 +588,6 @@ Phase 6 (Deploy):
 | T14: wire equip client | room wiring | ✅ Granular |
 | T15: test hook HUD | hook + labels | ✅ Granular |
 | T16: progression e2e | 1 spec file | ✅ Granular |
-| T17: Dockerfile | container config | ✅ Granular |
-| T18: vercel + CORS | 2 config files | ✅ Granular |
-| T19: runbook + smoke | docs + script | ✅ Granular |
-| T20: cloud deploy | credential gate only | ✅ Granular |
 
 **Granularity check**: ✅ All tasks pass
 
@@ -744,10 +613,6 @@ Phase 6 (Deploy):
 | T14 | T10, T13 | T10 → T14 | ✅ Match |
 | T15 | T11, T12, T14 | T11,T12,T14 → T15 | ✅ Match |
 | T16 | T15 | T15 → T16 | ✅ Match |
-| T17 | T16 | T16 → T17 | ✅ Match |
-| T18 | T16 | T16 → T18 | ✅ Match |
-| T19 | T17, T18 | T17,T18 → T19 | ✅ Match |
-| T20 | T19 | T19 → T20 | ✅ Match |
 
 **Diagram-definition cross-check**: ✅ All tasks match
 
@@ -773,10 +638,6 @@ Phase 6 (Deploy):
 | T14: wire equip | client unit | unit | unit | ✅ OK |
 | T15: test hook | client unit | unit | unit | ✅ OK |
 | T16: progression e2e | e2e | e2e | e2e | ✅ OK |
-| T17: Dockerfile | deploy config | none | none | ✅ OK |
-| T18: CORS + vercel | server config | unit | unit | ✅ OK |
-| T19: smoke script | integration | integration | integration | ✅ OK |
-| T20: cloud deploy | manual | manual | manual | ✅ OK |
 
 **Test co-location validation**: ✅ All tasks pass
 
@@ -799,11 +660,6 @@ Phase 6 (Deploy):
 | P7-R14–R15 | T4, T12 |
 | P7-R16 | T15 |
 | P7-R17 | T16 |
-| P7-R18 | T17 |
-| P7-R19 | T18 |
-| P7-R20 | T18 |
-| P7-R21 | T19 |
-| P7-R22 🔒 | T20 |
 
 ---
 
@@ -827,7 +683,3 @@ Phase 6 (Deploy):
 | T14 | wire equip client | client | unit | T10,T13 |
 | T15 | test hook + HUD | client | unit | T11,T12,T14 |
 | T16 | progression e2e | e2e | e2e | T15 |
-| T17 | Dockerfile + fly.toml | deploy | none | T16 |
-| T18 | vercel + CORS | deploy | unit | T16 |
-| T19 | runbook + prod smoke | deploy | integration | T17,T18 |
-| T20 | 🔒 cloud deploy | deploy | manual (gated) | T19 |

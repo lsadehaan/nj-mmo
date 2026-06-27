@@ -1,10 +1,9 @@
-# Phase 7 — Progression Loop & Go-Live Design
+# Phase 7 — Progression Loop Design
 
 ## Overview
 
 Phase 7 adds three server-authoritative gameplay systems on top of the Phase 6 town
-(shop, NPCs, peace zone) and Phase 4–5 combat stack, plus production deploy
-artifacts.
+(shop, NPCs, peace zone) and Phase 4–5 combat stack.
 
 ```
 ┌─────────────┐     equip / buy      ┌──────────────────┐
@@ -258,83 +257,11 @@ __openInventory__?: () => void;
 
 ---
 
-## Deployment Architecture
+## Out of scope: production deployment
 
-### Credential boundary
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Implementable without secrets (T17–T19)                    │
-│  Dockerfile, fly.toml, vercel.json, CORS env, DEPLOY.md,    │
-│  scripts/prod-smoke.sh, nx build gate                       │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│  🔒 CREDENTIAL-GATED (T20) — loop HALT                        │
-│  fly deploy / railway up / vercel deploy                    │
-│  Requires: FLY_API_TOKEN, VERCEL_TOKEN, etc.               │
-│  Delivers: public URL (ROADMAP final AC)                    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Server container
-
-**Dockerfile** (multi-stage):
-
-1. `node:22-bookworm` build stage: `npm ci`, `nx run server:build`, `nx run game-core:build`.
-2. Runtime: copy `dist/server`, `node_modules` production, `package.json`.
-3. `CMD ["node", "dist/server/index.js"]` (verify built entry).
-4. Env: `PORT` (Fly/Railway inject), `NJ_DB_PATH=/data/game.db`, `NJ_ALLOWED_ORIGINS`.
-5. Volume mount `/data` for SQLite persistence.
-
-**`fly.toml`:**
-
-- `app` name placeholder.
-- `[[services]]` internal_port = 2567 (or `PORT`).
-- `http_service` health check `GET /health`.
-- `mounts` → `data` volume at `/data`.
-
-**`railway.json`** (alternate): `startCommand`, `healthcheckPath: /health`.
-
-### Client static host (Vercel)
-
-**`vercel.json`:**
-
-```json
-{
-  "buildCommand": "npx nx run client:build",
-  "outputDirectory": "dist/client",
-  "framework": null
-}
-```
-
-**Env (Vercel dashboard):**
-
-- `VITE_COLYSEUS_ENDPOINT=https://<server-host>` (wss-compatible — Colyseus client
-  accepts `https://` and upgrades to WebSocket per Context7 docs).
-
-### CORS (`server/src/app.config.ts`)
-
-```typescript
-import { matchMaker } from 'colyseus';
-
-const origins = process.env.NJ_ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:4200'];
-matchMaker.controller.DEFAULT_CORS_HEADERS = {
-  'Access-Control-Allow-Origin': origins.join(','), // or dynamic per-request in prod
-  'Access-Control-Allow-Credentials': 'true',
-  // ...methods/headers per Colyseus docs
-};
-```
-
-`devMode: false` in production via `NODE_ENV=production`.
-
-### Local prod smoke (`scripts/prod-smoke.sh`)
-
-1. `nx run-many -t build --projects=server,client,game-core`
-2. Start built server with `NJ_DB_PATH=./data/game.db`.
-3. Serve `dist/client` (e.g. `npx serve dist/client -p 4300`).
-4. `curl /health` + optional headless Playwright snippet joining room.
+Production deployment (container hosting, static client hosting, CORS for cross-origin
+deploy, runbooks, public URL) is **deferred post-MVP**. Phase 7 delivers the full
+progression loop running locally via `npm run dev`.
 
 ---
 
@@ -362,7 +289,6 @@ skip level-up reward — tests must fail.
 | game-core | `effective-patk.ts`, `level-up-reward.ts`, `player-death.ts` |
 | Server room | `combat-resolver.ts`, `TownRoom.ts`, `npc-actions.ts`, `schema/TownState.ts`, `character-repository.ts` |
 | Client | `ui/inventory-window.ts`, `net/room.ts`, `test-hook.ts`, `main.ts` |
-| Deploy | `Dockerfile`, `fly.toml`, `railway.json`, `vercel.json`, `docs/DEPLOY.md`, `scripts/prod-smoke.sh`, `app.config.ts` |
 
 ---
 

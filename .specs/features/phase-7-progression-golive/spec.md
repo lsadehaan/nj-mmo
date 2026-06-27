@@ -1,15 +1,18 @@
-# Phase 7 — Progression Loop & Go-Live Specification
+# Phase 7 — Progression Loop Specification
 
 ## Problem Statement
 
 Phases 1–6 deliver authoritative combat, skills, shop/adena, and a functional town,
 but the MVP loop is incomplete: players fight with a fixed `STARTER_COMBAT.pAtk`
 (10) regardless of inventory, **players never die** (mob damage reduces HP to 0 with
-no consequence), **level-up has no reward** beyond the number changing, and there is
-no path to a **public URL** for friends to play.
+no consequence), and **level-up has no reward** beyond the number changing.
 
-Phase 7 closes the vertical slice: **inventory + equip weapon → fight → die/respawn
-→ level-up reward → buy item → deploy**.
+Phase 7 closes the vertical slice locally: **inventory + equip weapon → fight →
+die/respawn → level-up reward → buy item**.
+
+**Done when:** a player can create a character, claim the starter kit, equip a weapon,
+kill a mob, level up, die and respawn in town, and buy an item — all running locally.
+Public deployment is deferred post-MVP.
 
 ## Goals
 
@@ -20,7 +23,6 @@ Phase 7 closes the vertical slice: **inventory + equip weapon → fight → die/
 - [ ] Player death when `hp ≤ 0`; respawn in town at spawn point with HP/MP restored.
 - [ ] Level-up reward: max HP/MP increase + full restore (L2-inspired deltas).
 - [ ] Client inventory/equip UI mirroring shop/dialog DOM patterns.
-- [ ] Production build artifacts + deploy runbook; **public URL AC credential-gated**.
 - [ ] Unit + room-integration + seed + e2e tests with spec-anchored values (AD-010,
       AD-014).
 
@@ -33,8 +35,7 @@ Phase 7 closes the vertical slice: **inventory + equip weapon → fight → die/
 | XP loss on death (full L2 `ExperienceLossData`) | Newbie protection simplified |
 | Death penalty item drop / karma | Post-MVP |
 | Postgres migration | SQLite-first per AD-007 |
-| Custom domain / TLS cert management | Hosting provider handles |
-| Actual `railway up` / `fly deploy` / `vercel deploy` without credentials | Credential halt |
+| Production deployment / public URL | Deferred post-MVP |
 
 ---
 
@@ -59,11 +60,6 @@ Phase 7 closes the vertical slice: **inventory + equip weapon → fight → die/
 | Respawn point | `SPAWN_X=0`, `SPAWN_Z=0`, `SPAWN_Y` from `@nj/game-core` | Town spawn / character create origin (AD-013) |
 | Respawn restore | `hp = maxHp`, `mp = maxMp`; position teleported to spawn; combat target cleared; mobs drop player target | Functional "respawn in town" |
 | Death persistence | Position + HP/MP saved on respawn (debounced save) | Phase 3 persistence contract |
-| Deploy server host | **Fly.io** primary (`fly.toml` + Dockerfile); **Railway** alt (`railway.json`) documented in runbook | Both support Node WebSocket; pick one at deploy time |
-| Deploy client host | **Vercel** static (`dist/client`) | Vite build already outputs there |
-| Client endpoint | `VITE_COLYSEUS_ENDPOINT` (build-time); default `http://localhost:2567` | Already in `client/src/net/room.ts` |
-| CORS | `matchMaker.controller.DEFAULT_CORS_HEADERS` allow deployed Vercel origin(s) via `NJ_ALLOWED_ORIGINS` env | Context7 `/colyseus/docs` CORS pattern |
-| Public URL AC | **Requires hosting credentials** — satisfiable only after T20 deploy task | Autonomous halt point |
 
 **Open questions:** none — all resolved or logged above.
 
@@ -188,37 +184,6 @@ mobs, level up, buy from shop.
 
 ---
 
-### P7: Deploy — buildable now vs credential-gated ⭐ MVP
-
-**User Story**: Production artifacts build locally; a human with hosting tokens can
-publish a public URL.
-
-**Requirements**:
-
-| ID | One-liner |
-| -- | --------- |
-| P7-R18 | Dockerfile + `fly.toml` (or `railway.json`) for Colyseus server |
-| P7-R19 | `vercel.json` + `VITE_COLYSEUS_ENDPOINT` documented |
-| P7-R20 | CORS via `NJ_ALLOWED_ORIGINS`; `/health` kept |
-| P7-R21 | `docs/DEPLOY.md` runbook + script verifying prod builds connect |
-| P7-R22 | **CREDENTIAL-GATED**: cloud deploy yields public HTTPS URL |
-
-**Acceptance Criteria**:
-
-1. WHEN `nx run server:build` AND `nx run client:build` THEN artifacts SHALL exist in
-   `dist/server` and `dist/client` with no errors. **Test layer: build gate**
-2. WHEN built client runs with `VITE_COLYSEUS_ENDPOINT=http://localhost:2567` against
-   a locally-run built server THEN join + `characterId` message SHALL succeed.
-   **Test layer: integration** (`scripts/prod-smoke.sh` or equivalent)
-3. WHEN `NJ_ALLOWED_ORIGINS` includes client origin THEN browser preflight from that
-   origin SHALL succeed. **Test layer: unit** (CORS header config test) or manual in
-   runbook
-4. **🔒 REQUIRES CREDENTIALS**: WHEN operator runs deploy with Railway/Fly + Vercel
-   tokens THEN a public URL SHALL load the client and connect to the hosted server.
-   **Test layer: manual / post-deploy e2e** — **NOT automatable without secrets**
-
----
-
 ## Requirement Traceability Summary
 
 | ID | Summary |
@@ -232,5 +197,3 @@ publish a public URL.
 | P7-R10–R13 | Death / respawn |
 | P7-R14–R16 | Level-up reward |
 | P7-R17 | Progression E2E |
-| P7-R18–R21 | Deploy artifacts (no creds) |
-| P7-R22 | Public URL (credential-gated) |

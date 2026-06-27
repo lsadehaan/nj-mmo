@@ -72,13 +72,14 @@ Never run phases in parallel.
 - [x] Utility NPC dialog + useful action (heal / starter item)
 - [x] Enforce peace zone (no combat in town)
 
-## Phase 7 — Progression loop & go live `[ ]`
+## Phase 7 — Progression loop `[ ]`
 
-> Done when: a public URL lets a friend create a character, kill a mob, level up, and buy an item.
+> Done when: a player can create a character, claim the starter kit, equip a weapon,
+> kill a mob, level up, die and respawn in town, and buy an item — all running locally.
+> Public deployment is deferred post-MVP.
 
 - [ ] Basic inventory + gold + equip weapon
 - [ ] Death/respawn in town; level-up reward
-- [ ] Deploy server (Railway/Fly) + static client (Vercel) → public URL
 
 ---
 
