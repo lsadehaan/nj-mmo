@@ -70,8 +70,18 @@ export function resolvePlayerAttack(params: {
   mob: MobRuntime;
   nowMs: number;
   rng: SeededRng;
+  attackerPAtk?: number;
 }): PlayerAttackResult {
-  const { sessionId, playerX, playerZ, combat, mob, nowMs, rng } = params;
+  const {
+    sessionId,
+    playerX,
+    playerZ,
+    combat,
+    mob,
+    nowMs,
+    rng,
+    attackerPAtk = STARTER_COMBAT.pAtk,
+  } = params;
 
   if (!combat.attackPending || combat.targetMobId !== mob.id || mob.hp <= 0) {
     return { damage: 0, killed: false };
@@ -101,7 +111,7 @@ export function resolvePlayerAttack(params: {
 
   const damage = calcMeleeDamage(
     {
-      pAtk: STARTER_COMBAT.pAtk,
+      pAtk: attackerPAtk,
       randomDamage: STARTER_COMBAT.randomDamage,
     },
     { pDef: mob.pDef },
@@ -129,6 +139,7 @@ export function resolvePowerStrike(params: {
   skill: PowerStrikeSkill;
   nowMs: number;
   rng: SeededRng;
+  attackerPAtk?: number;
 }): PowerStrikeResult {
   const {
     sessionId,
@@ -140,6 +151,7 @@ export function resolvePowerStrike(params: {
     skill,
     nowMs,
     rng,
+    attackerPAtk = STARTER_COMBAT.pAtk,
   } = params;
 
   const reject = (): PowerStrikeResult => ({
@@ -174,7 +186,7 @@ export function resolvePowerStrike(params: {
 
   const damage = calcPhysicalSkillDamage(
     {
-      pAtk: STARTER_COMBAT.pAtk,
+      pAtk: attackerPAtk,
       randomDamage: STARTER_COMBAT.randomDamage,
     },
     { pDef: mob.pDef },

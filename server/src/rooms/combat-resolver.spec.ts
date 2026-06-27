@@ -428,6 +428,90 @@ describe('combat-resolver', () => {
     });
   });
 
+  describe('effective pAtk (Squire\'s Sword equipped)', () => {
+    const EQUIPPED_P_ATK = 16;
+
+    it('attackerPAtk=16 deals 27 melee damage vs Gremlin', () => {
+      const mob = gremlinMob();
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.attackPending = true;
+
+      const result = resolvePlayerAttack({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        combat,
+        mob,
+        nowMs: 1000,
+        rng: zeroRng(),
+        attackerPAtk: EQUIPPED_P_ATK,
+      });
+
+      expect(result.damage).toBe(27);
+      expect(mob.hp).toBeCloseTo(41.145 - 27, 3);
+    });
+
+    it('attackerPAtk=16 Power Strike deals 79 damage vs Gremlin', () => {
+      const mob = gremlinMob({ hp: 200, maxHp: 200 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+
+      const result = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+        attackerPAtk: EQUIPPED_P_ATK,
+      });
+
+      expect(result.damage).toBe(79);
+      expect(mob.hp).toBeCloseTo(200 - 79, 3);
+    });
+
+    it('attackerPAtk=10 keeps unarmed anchors at 17 melee and 69 Power Strike', () => {
+      const mob = gremlinMob({ hp: 200, maxHp: 200 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.attackPending = true;
+
+      const melee = resolvePlayerAttack({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        combat,
+        mob,
+        nowMs: 1000,
+        rng: zeroRng(),
+        attackerPAtk: STARTER_COMBAT.pAtk,
+      });
+
+      expect(melee.damage).toBe(17);
+
+      combat.skillPending = true;
+      const skill = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 2000,
+        rng: zeroRng(),
+        attackerPAtk: STARTER_COMBAT.pAtk,
+      });
+
+      expect(skill.damage).toBe(69);
+    });
+  });
+
   describe('peace zone guards', () => {
     it('resolvePlayerAttack at (0,0) returns damage 0', () => {
       const mob = gremlinMob();
