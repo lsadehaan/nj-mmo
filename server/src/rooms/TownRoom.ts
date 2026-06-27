@@ -582,6 +582,9 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.z = character.z;
     player.hp = character.hp;
     player.mp = character.mp;
+    player.maxHp = character.maxHp;
+    player.maxMp = character.maxMp;
+    player.equippedWeaponItemId = character.equippedWeaponItemId ?? 0;
     player.xp = character.xp;
     player.level = character.level;
     player.adena = character.adena;

@@ -9,6 +9,9 @@ export class PlayerState extends Schema {
   @type('number') z = 0;
   @type('number') hp = 100;
   @type('number') mp = 50;
+  @type('number') maxHp = 100;
+  @type('number') maxMp = 50;
+  @type('number') equippedWeaponItemId = 0;
   @type('number') xp = 0;
   @type('number') level = 1;
   @type('number') adena = 1000;
