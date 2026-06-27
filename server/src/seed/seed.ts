@@ -3,6 +3,7 @@ import { monsters, npcs, skills, experience } from '../db/schema';
 import { seedMonsters } from './seeders/monsters.seeder';
 import { seedNpcs } from './seeders/npcs.seeder';
 import { seedSkills } from './seeders/skills.seeder';
+import { seedExperience } from './seeders/experience.seeder';
 import { FIXTURE_DATA_DIR, resolveDataDir } from './paths';
 
 export interface SeedOptions {
@@ -31,7 +32,7 @@ export function runSeed(options: SeedOptions): SeedReport {
       monsters: seedMonsters(tx as unknown as AppDatabase, dataDir),
       npcs: seedNpcs(tx as unknown as AppDatabase, dataDir),
       skills: seedSkills(tx as unknown as AppDatabase, dataDir),
-      experience: 0,
+      experience: seedExperience(tx as unknown as AppDatabase, dataDir),
     };
 
     return report;
