@@ -93,6 +93,14 @@ function applySchema(sqlite: Database.Database): void {
       z REAL NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS items (
+      item_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      p_atk REAL,
+      random_damage INTEGER,
+      body_part TEXT
+    );
     CREATE TABLE IF NOT EXISTS merchant_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       npc_id INTEGER NOT NULL,

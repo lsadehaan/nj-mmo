@@ -66,6 +66,15 @@ export const experience = sqliteTable('experience', {
   trainingRate: real('training_rate').notNull(),
 });
 
+export const items = sqliteTable('items', {
+  itemId: integer('item_id').primaryKey(),
+  name: text('name').notNull(),
+  type: text('type').notNull(),
+  pAtk: real('p_atk'),
+  randomDamage: integer('random_damage'),
+  bodyPart: text('body_part'),
+});
+
 export const merchantItems = sqliteTable('merchant_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   npcId: integer('npc_id').notNull(),
@@ -124,6 +133,8 @@ export type Skill = typeof skills.$inferSelect;
 export type NewSkill = typeof skills.$inferInsert;
 export type ExperienceRow = typeof experience.$inferSelect;
 export type NewExperienceRow = typeof experience.$inferInsert;
+export type Item = typeof items.$inferSelect;
+export type NewItem = typeof items.$inferInsert;
 export type MerchantItem = typeof merchantItems.$inferSelect;
 export type NewMerchantItem = typeof merchantItems.$inferInsert;
 export type NpcSpawn = typeof npcSpawns.$inferSelect;
@@ -140,6 +151,7 @@ export const schema = {
   npcs,
   skills,
   experience,
+  items,
   merchantItems,
   npcSpawns,
   characterItems,

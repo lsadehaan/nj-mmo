@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { getDb } from './client';
-import { characters, mobDrops, mobSpawns, monsters, merchantItems, npcSpawns, characterItems } from './schema';
+import { characters, mobDrops, mobSpawns, monsters, items, merchantItems, npcSpawns, characterItems } from './schema';
 
 describe('characters table', () => {
   let cleanup: () => void;
@@ -58,6 +58,56 @@ describe('combat schema tables', () => {
     expect(row?.aggroRange).toBe(0);
     expect(row?.isAggressive).toBe(false);
     expect(row?.respawnSec).toBe(27);
+  });
+});
+
+describe('items master table', () => {
+  let cleanup: () => void;
+  afterEach(() => { cleanup?.(); });
+  function tempDb() {
+    const dir = mkdtempSync(join(tmpdir(), 'nj-items-schema-'));
+    const dbPath = join(dir, 'test.db');
+    cleanup = () => rmSync(dir, { recursive: true, force: true });
+    return getDb(dbPath);
+  }
+
+  it('round-trips weapon row with combat stats', () => {
+    const db = tempDb();
+    db.insert(items)
+      .values({
+        itemId: 2369,
+        name: "Squire's Sword",
+        type: 'weapon',
+        pAtk: 6,
+        randomDamage: 10,
+        bodyPart: 'rhand',
+      })
+      .run();
+    const row = db.select().from(items).where(eq(items.itemId, 2369)).get();
+    expect(row).toMatchObject({
+      itemId: 2369,
+      name: "Squire's Sword",
+      type: 'weapon',
+      pAtk: 6,
+      randomDamage: 10,
+      bodyPart: 'rhand',
+    });
+  });
+
+  it('round-trips consumable row with null combat columns', () => {
+    const db = tempDb();
+    db.insert(items)
+      .values({ itemId: 1060, name: 'Healing Potion', type: 'consumable' })
+      .run();
+    const row = db.select().from(items).where(eq(items.itemId, 1060)).get();
+    expect(row).toMatchObject({
+      itemId: 1060,
+      name: 'Healing Potion',
+      type: 'consumable',
+      pAtk: null,
+      randomDamage: null,
+      bodyPart: null,
+    });
   });
 });
 
