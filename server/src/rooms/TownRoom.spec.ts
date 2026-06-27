@@ -2,7 +2,7 @@ import { boot, ColyseusTestServer } from '@colyseus/testing';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
@@ -15,6 +15,7 @@ import {
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { TownState } from './schema/TownState';
 import type { MobRuntime } from './spawn-manager';
+import * as mobAi from './mob-ai';
 
 const OUT_OF_PEACE = { x: 30, z: -30 };
 
@@ -1082,6 +1083,36 @@ describe('TownRoom NPC shop and peace zone', () => {
       expect(player.mp).toBe(50);
       await client.leave();
     } finally {
+      cleanup();
+    }
+  });
+
+  it('mob attack inside peace zone deals no player damage', async () => {
+    const tickSpy = vi.spyOn(mobAi, 'tickMobAi').mockImplementation(() => {});
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: () => 0,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      relocateMob(room, gremlin.id, 0, 0);
+      placePlayerNear(room, client.sessionId, 0, 0);
+
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+
+      const hpBefore = player.hp;
+      await room.waitForNextSimulationTick();
+
+      expect(player.hp).toBe(hpBefore);
+      await client.leave();
+    } finally {
+      tickSpy.mockRestore();
       cleanup();
     }
   });
