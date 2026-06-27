@@ -68,7 +68,9 @@ describe('wireRoom player combat sync', () => {
     const { wireRoom } = await import('./room');
     const room = {
       sessionId: 'local-session',
-      state: { mobs: new Map() },
+      state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+      onMessage: vi.fn(),
+      send: vi.fn(),
     };
     wireRoom(room as never, mockGame as never);
 
@@ -116,7 +118,7 @@ describe('wireRoom player combat sync', () => {
     });
 
     const { wireRoom } = await import('./room');
-    wireRoom({ sessionId: 'local-session', state: { mobs: new Map() } } as never, mockGame as never);
+    wireRoom({ sessionId: 'local-session', state: { mobs: new Map(), players: new Map(), npcs: new Map() }, onMessage: vi.fn(), send: vi.fn() } as never, mockGame as never);
 
     expect(mockTriggerSkillFlash).not.toHaveBeenCalled();
 

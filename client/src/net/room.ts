@@ -1,6 +1,13 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { setConnected, setCharacterId, setOthers, setMobs, setPlayer } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
+import {
+  mountShopWindow,
+  renderShopWindow,
+  setShopVisible,
+  isShopVisible,
+  KATERINA_NPC_ID,
+} from '../ui/shop-window';
 
 const DEFAULT_ENDPOINT =
   import.meta.env.VITE_COLYSEUS_ENDPOINT ?? 'http://localhost:2567';
@@ -69,7 +76,9 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     xp: number;
     level: number;
     mp: number;
+    adena: number;
     powerStrikeCooldownEndMs: number;
+    items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
   };
 
   type MobSchema = {
@@ -113,6 +122,28 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   let prevPowerStrikeCooldownEndMs = 0;
+  let localItemCounts: Record<number, number> = {};
+
+  const readItemCounts = (player: PlayerSchema): Record<number, number> => {
+    const counts: Record<number, number> = {};
+    if (!player.items) return counts;
+    for (const [, stack] of player.items.entries()) {
+      counts[stack.itemId] = stack.count;
+    }
+    return counts;
+  };
+
+  const refreshShopDom = (player: PlayerSchema): void => {
+    renderShopWindow({
+      adena: player.adena ?? 0,
+      itemCounts: localItemCounts,
+      visible: isShopVisible(),
+      handlers: {
+        sendBuy: (payload) => room.send('buy', payload),
+        sendSell: (payload) => room.send('sell', payload),
+      },
+    });
+  };
 
   const syncLocal = (player: PlayerSchema): void => {
     if (prevPowerStrikeCooldownEndMs === 0 && player.powerStrikeCooldownEndMs > 0) {
@@ -130,7 +161,30 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       mp: player.mp,
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
     });
+    localItemCounts = readItemCounts(player);
+    refreshShopDom(player);
   };
+
+  mountShopWindow();
+
+  room.onMessage('interactResult', (message: { npcId: number; type: string }) => {
+    if (message.npcId === KATERINA_NPC_ID || message.type === 'Merchant') {
+      const local = room.state.players.get(localId) as PlayerSchema | undefined;
+      if (local) {
+        renderShopWindow({
+          adena: local.adena ?? 0,
+          itemCounts: localItemCounts,
+          visible: true,
+          handlers: {
+            sendBuy: (payload) => room.send('buy', payload),
+            sendSell: (payload) => room.send('sell', payload),
+          },
+        });
+      } else {
+        setShopVisible(true);
+      }
+    }
+  });
 
   callbacks.onAdd('players', (player, sessionId) => {
     const id = sessionId as string;

@@ -5,11 +5,13 @@ import {
   mountPowerStrikeCooldown,
   startPowerStrikeCooldownLoop,
 } from './hud/power-strike-cooldown';
+import { mountShopWindow } from './ui/shop-window';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 
 async function boot(): Promise<void> {
   initGameState();
   mountPowerStrikeCooldown();
+  mountShopWindow();
   startPowerStrikeCooldownLoop(() => getGameState().player.powerStrikeCooldownEndMs);
 
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;

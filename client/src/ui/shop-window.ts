@@ -1,0 +1,147 @@
+export const KATERINA_NPC_ID = 30004;
+
+/** Display catalog — prices validated server-side on buy/sell (AD-001). */
+export const KATERINA_SHOP_ITEMS = [
+  { itemId: 1060, name: 'Healing Potion', buyPrice: 103, sellPrice: 51 },
+  { itemId: 1835, name: 'Soulshot', buyPrice: 8, sellPrice: 4 },
+  { itemId: 17, name: 'Wooden Arrow', buyPrice: 2, sellPrice: 1 },
+] as const;
+
+export interface ShopSendHandlers {
+  sendBuy: (payload: { npcId: number; itemId: number; quantity: number }) => void;
+  sendSell: (payload: { npcId: number; itemId: number; quantity: number }) => void;
+}
+
+export interface ShopRenderOptions {
+  adena: number;
+  itemCounts: Record<number, number>;
+  visible: boolean;
+  handlers: ShopSendHandlers;
+}
+
+const ELEMENT_ID = 'shop-window';
+
+export function mountShopWindow(): HTMLElement {
+  const existing = document.getElementById(ELEMENT_ID);
+  if (existing) return existing;
+
+  const panel = document.createElement('div');
+  panel.id = ELEMENT_ID;
+  panel.hidden = true;
+  panel.style.cssText = [
+    'position:fixed',
+    'top:50%',
+    'left:50%',
+    'transform:translate(-50%,-50%)',
+    'min-width:280px',
+    'padding:16px',
+    'background:rgba(20,16,10,0.92)',
+    'color:#f5e6c8',
+    'border:2px solid #8b7355',
+    'border-radius:6px',
+    'z-index:20',
+    'font:14px/1.4 system-ui,sans-serif',
+  ].join(';');
+
+  const title = document.createElement('h2');
+  title.textContent = 'Katerina — Shop';
+  title.style.margin = '0 0 8px';
+  panel.appendChild(title);
+
+  const adenaRow = document.createElement('div');
+  adenaRow.dataset['role'] = 'adena-row';
+  adenaRow.innerHTML = 'Adena: <span data-adena>0</span>';
+  panel.appendChild(adenaRow);
+
+  const list = document.createElement('div');
+  list.dataset['role'] = 'item-list';
+  panel.appendChild(list);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = 'Close';
+  closeBtn.dataset['action'] = 'close';
+  closeBtn.style.marginTop = '12px';
+  panel.appendChild(closeBtn);
+
+  document.body.appendChild(panel);
+  return panel;
+}
+
+export function renderShopWindow(options: ShopRenderOptions): void {
+  const panel = mountShopWindow();
+  panel.hidden = !options.visible;
+
+  const adenaEl = panel.querySelector('[data-adena]');
+  if (adenaEl) adenaEl.textContent = String(options.adena);
+
+  const list = panel.querySelector('[data-role="item-list"]');
+  if (!list) return;
+  list.innerHTML = '';
+
+  for (const item of KATERINA_SHOP_ITEMS) {
+    const owned = options.itemCounts[item.itemId] ?? 0;
+    const row = document.createElement('div');
+    row.dataset['shopItemId'] = String(item.itemId);
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:6px 0;';
+
+    const label = document.createElement('span');
+    label.style.flex = '1';
+    label.textContent = `${item.name} (owned: ${owned})`;
+    row.appendChild(label);
+
+    const buyPrice = document.createElement('span');
+    buyPrice.dataset['buyPrice'] = 'true';
+    buyPrice.textContent = String(item.buyPrice);
+    buyPrice.hidden = true;
+    row.appendChild(buyPrice);
+
+    const buyBtn = document.createElement('button');
+    buyBtn.type = 'button';
+    buyBtn.dataset['action'] = 'buy';
+    buyBtn.textContent = `Buy ${item.buyPrice}`;
+    buyBtn.addEventListener('click', () => {
+      options.handlers.sendBuy({
+        npcId: KATERINA_NPC_ID,
+        itemId: item.itemId,
+        quantity: 1,
+      });
+    });
+    row.appendChild(buyBtn);
+
+    const sellBtn = document.createElement('button');
+    sellBtn.type = 'button';
+    sellBtn.dataset['action'] = 'sell';
+    sellBtn.textContent = `Sell ${item.sellPrice}`;
+    sellBtn.disabled = owned <= 0;
+    sellBtn.addEventListener('click', () => {
+      options.handlers.sendSell({
+        npcId: KATERINA_NPC_ID,
+        itemId: item.itemId,
+        quantity: 1,
+      });
+    });
+    row.appendChild(sellBtn);
+
+    list.appendChild(row);
+  }
+
+  const closeBtn = panel.querySelector('[data-action="close"]');
+  if (closeBtn && !closeBtn.hasAttribute('data-bound')) {
+    closeBtn.setAttribute('data-bound', 'true');
+    closeBtn.addEventListener('click', () => {
+      panel.hidden = true;
+      panel.dispatchEvent(new CustomEvent('shop-close'));
+    });
+  }
+}
+
+export function setShopVisible(visible: boolean): void {
+  const panel = mountShopWindow();
+  panel.hidden = !visible;
+}
+
+export function isShopVisible(): boolean {
+  const panel = document.getElementById(ELEMENT_ID);
+  return panel !== null && !panel.hidden;
+}
