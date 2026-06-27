@@ -6,12 +6,24 @@
   "fileMap": {
     "nonProjectFiles": [
       {
+        "file": "nx.json",
+        "hash": "2647813677128142069"
+      },
+      {
         "file": ".cursor/skills/spec-driven-execution/SKILL.md",
         "hash": "8722748438527001953"
       },
       {
-        "file": ".gitignore",
-        "hash": "5122235943132042237"
+        "file": ".specs/features/phase-1-2-foundation-world/tasks.md",
+        "hash": "13385721832236253218"
+      },
+      {
+        "file": "package.json",
+        "hash": "4471709520198366476"
+      },
+      {
+        "file": "package-lock.json",
+        "hash": "2383482854794172969"
       },
       {
         "file": ".specs/STATE.md",
@@ -26,31 +38,368 @@
         "hash": "6451900846241453536"
       },
       {
-        "file": ".specs/features/phase-1-2-foundation-world/tasks.md",
-        "hash": "6962952896827747572"
+        "file": ".gitignore",
+        "hash": "13549556648305372895"
       },
       {
         "file": "AGENTS.md",
         "hash": "6303198592252494745"
       },
       {
-        "file": "nx.json",
-        "hash": "2647813677128142069"
-      },
-      {
-        "file": "package-lock.json",
-        "hash": "12362906583597550256"
-      },
-      {
-        "file": "package.json",
-        "hash": "14157305125643901181"
+        "file": "eslint.config.mjs",
+        "hash": "15273964197075091955"
       },
       {
         "file": "tsconfig.base.json",
-        "hash": "15878349208427263949"
+        "hash": "12777027686529110595"
       }
     ],
-    "projectFileMap": {}
+    "projectFileMap": {
+      "client": [
+        {
+          "file": "client/index.html",
+          "hash": "3685086447664517133"
+        },
+        {
+          "file": "client/project.json",
+          "hash": "782086888090022148"
+        },
+        {
+          "file": "client/src/camera/follow-camera.spec.ts",
+          "hash": "16389801588962380394",
+          "deps": [
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "client/src/camera/follow-camera.ts",
+          "hash": "12125062494919350708"
+        },
+        {
+          "file": "client/src/input/click-to-move.spec.ts",
+          "hash": "13277345286039465158",
+          "deps": [
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "client/src/input/click-to-move.ts",
+          "hash": "15238394946025363740"
+        },
+        {
+          "file": "client/src/main.ts",
+          "hash": "3154185583790996144"
+        },
+        {
+          "file": "client/src/movement/movement-system.spec.ts",
+          "hash": "1646845582045021858",
+          "deps": [
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "client/src/movement/movement-system.ts",
+          "hash": "8882483979916331491"
+        },
+        {
+          "file": "client/src/net/room.ts",
+          "hash": "15301179010124498051",
+          "deps": [
+            "npm:@colyseus/sdk"
+          ]
+        },
+        {
+          "file": "client/src/scene/renderer.ts",
+          "hash": "8597049033703241295",
+          "deps": [
+            "npm:three"
+          ]
+        },
+        {
+          "file": "client/src/scene/scatter.spec.ts",
+          "hash": "16442126917967507114",
+          "deps": [
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "client/src/scene/scatter.ts",
+          "hash": "3841499120164003403"
+        },
+        {
+          "file": "client/src/scene/terrain.spec.ts",
+          "hash": "1476234246094307500",
+          "deps": [
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "client/src/scene/terrain.ts",
+          "hash": "14325860820466960014",
+          "deps": [
+            "npm:three"
+          ]
+        },
+        {
+          "file": "client/src/scene/village.spec.ts",
+          "hash": "12463786017987389922",
+          "deps": [
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "client/src/scene/village.ts",
+          "hash": "9546514905313378391"
+        },
+        {
+          "file": "client/src/test-hook.ts",
+          "hash": "7324142103649466532"
+        },
+        {
+          "file": "client/src/vite-env.d.ts",
+          "hash": "12946363841406869089"
+        },
+        {
+          "file": "client/tsconfig.app.json",
+          "hash": "9493741183140770707"
+        },
+        {
+          "file": "client/tsconfig.json",
+          "hash": "8398774554880384645"
+        },
+        {
+          "file": "client/tsconfig.spec.json",
+          "hash": "6466307946152659753"
+        },
+        {
+          "file": "client/vite.config.ts",
+          "hash": "9887497804881980628",
+          "deps": [
+            "npm:vite",
+            "npm:@nx/vite"
+          ]
+        }
+      ],
+      "server": [
+        {
+          "file": "server/drizzle.config.ts",
+          "hash": "4527012260191906163",
+          "deps": [
+            "npm:drizzle-kit"
+          ]
+        },
+        {
+          "file": "server/project.json",
+          "hash": "14515424274221612154"
+        },
+        {
+          "file": "server/src/app.config.ts",
+          "hash": "7865048171006083953",
+          "deps": [
+            "npm:@colyseus/tools",
+            "npm:express"
+          ]
+        },
+        {
+          "file": "server/src/db/client.ts",
+          "hash": "17426454394178294395",
+          "deps": [
+            "npm:better-sqlite3",
+            "npm:drizzle-orm"
+          ]
+        },
+        {
+          "file": "server/src/db/schema.ts",
+          "hash": "14499530365032137747",
+          "deps": [
+            "npm:drizzle-orm"
+          ]
+        },
+        {
+          "file": "server/src/index.ts",
+          "hash": "3443853841410439027",
+          "deps": [
+            "npm:@colyseus/tools"
+          ]
+        },
+        {
+          "file": "server/src/rooms/TownRoom.spec.ts",
+          "hash": "1345747910847923209",
+          "deps": [
+            "npm:@colyseus/testing",
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "server/src/rooms/TownRoom.ts",
+          "hash": "6448035549169721797",
+          "deps": [
+            "npm:colyseus"
+          ]
+        },
+        {
+          "file": "server/src/rooms/schema/TownState.ts",
+          "hash": "640221410517811609",
+          "deps": [
+            "npm:@colyseus/schema"
+          ]
+        },
+        {
+          "file": "server/src/seed/__fixtures__/experience.xml",
+          "hash": "4116492621233012236"
+        },
+        {
+          "file": "server/src/seed/__fixtures__/monsters.xml",
+          "hash": "9402304538747378881"
+        },
+        {
+          "file": "server/src/seed/__fixtures__/npcs.xml",
+          "hash": "10824747055138070856"
+        },
+        {
+          "file": "server/src/seed/__fixtures__/skills.xml",
+          "hash": "6319036734846715966"
+        },
+        {
+          "file": "server/src/seed/parsers/experience.parser.ts",
+          "hash": "12975709073969495331"
+        },
+        {
+          "file": "server/src/seed/parsers/monsters.parser.ts",
+          "hash": "1988703237459920073"
+        },
+        {
+          "file": "server/src/seed/parsers/npcs.parser.ts",
+          "hash": "16180918736505615286"
+        },
+        {
+          "file": "server/src/seed/parsers/parsers.spec.ts",
+          "hash": "9665893602302863453",
+          "deps": [
+            "npm:vitest"
+          ]
+        },
+        {
+          "file": "server/src/seed/parsers/skills.parser.ts",
+          "hash": "1594616747412788319"
+        },
+        {
+          "file": "server/src/seed/parsers/xml-utils.ts",
+          "hash": "9308519337619513225",
+          "deps": [
+            "npm:fast-xml-parser"
+          ]
+        },
+        {
+          "file": "server/src/seed/paths.ts",
+          "hash": "7612623296199628463"
+        },
+        {
+          "file": "server/src/seed/seed.ts",
+          "hash": "1490909936713999616"
+        },
+        {
+          "file": "server/src/seed/seeders/experience.seeder.spec.ts",
+          "hash": "14322973750178886254",
+          "deps": [
+            "npm:vitest",
+            "npm:drizzle-orm"
+          ]
+        },
+        {
+          "file": "server/src/seed/seeders/experience.seeder.ts",
+          "hash": "2036027055840682732"
+        },
+        {
+          "file": "server/src/seed/seeders/monsters.seeder.spec.ts",
+          "hash": "11552700845746913458",
+          "deps": [
+            "npm:vitest",
+            "npm:drizzle-orm"
+          ]
+        },
+        {
+          "file": "server/src/seed/seeders/monsters.seeder.ts",
+          "hash": "16308438762476949985"
+        },
+        {
+          "file": "server/src/seed/seeders/npcs.seeder.spec.ts",
+          "hash": "9744361271679682142",
+          "deps": [
+            "npm:vitest",
+            "npm:drizzle-orm"
+          ]
+        },
+        {
+          "file": "server/src/seed/seeders/npcs.seeder.ts",
+          "hash": "14179049789284831658"
+        },
+        {
+          "file": "server/src/seed/seeders/skills.seeder.spec.ts",
+          "hash": "3898865386508602388",
+          "deps": [
+            "npm:vitest",
+            "npm:drizzle-orm"
+          ]
+        },
+        {
+          "file": "server/src/seed/seeders/skills.seeder.ts",
+          "hash": "14684832368772545220"
+        },
+        {
+          "file": "server/tsconfig.app.json",
+          "hash": "3860056323517933056"
+        },
+        {
+          "file": "server/tsconfig.json",
+          "hash": "9420862676426701392"
+        },
+        {
+          "file": "server/tsconfig.spec.json",
+          "hash": "531841455197531359"
+        },
+        {
+          "file": "server/vitest.config.ts",
+          "hash": "9409965084148758908",
+          "deps": [
+            "npm:vitest",
+            "npm:@nx/vite"
+          ]
+        }
+      ],
+      "client-e2e": [
+        {
+          "file": "client-e2e/playwright.config.ts",
+          "hash": "1339685978282457270",
+          "deps": [
+            "npm:@playwright/test",
+            "npm:@nx/playwright"
+          ]
+        },
+        {
+          "file": "client-e2e/project.json",
+          "hash": "11323558267471358296"
+        },
+        {
+          "file": "client-e2e/src/connect.spec.ts",
+          "hash": "1459916033747902974",
+          "deps": [
+            "npm:@playwright/test"
+          ]
+        },
+        {
+          "file": "client-e2e/src/smoke.spec.ts",
+          "hash": "1003620931983943381",
+          "deps": [
+            "npm:@playwright/test"
+          ]
+        },
+        {
+          "file": "client-e2e/tsconfig.json",
+          "hash": "1285451495369902534"
+        }
+      ]
+    }
   },
-  "externalNodesHash": "12498167228010597312"
+  "externalNodesHash": "15319344008583379016"
 }

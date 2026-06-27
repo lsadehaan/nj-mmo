@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   root,
   cacheDir: '../node_modules/.vite/client',
   server: {

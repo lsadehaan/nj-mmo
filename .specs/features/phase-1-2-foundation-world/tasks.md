@@ -108,9 +108,9 @@ T14,T15,T17,T18 ─────────────→ T19
 **Tools**: MCP: NONE · Skill: `tlc-spec-driven`
 
 **Done when**:
-- [ ] `nx.json`, `tsconfig.base.json`, root `package.json` exist; `npx nx report` runs
-- [ ] No TypeScript/config errors
-- [ ] Gate check passes: `nx run-many -t lint` (no projects yet → clean)
+- [x] `nx.json`, `tsconfig.base.json`, root `package.json` exist; `npx nx report` runs
+- [x] No TypeScript/config errors
+- [x] Gate check passes: `nx run-many -t lint` (no projects yet → clean)
 
 **Tests**: none · **Gate**: build
 **Commit**: `chore(repo): initialize Nx workspace`

@@ -20,7 +20,8 @@ export function step(
   dt: number,
   speed: number = DEFAULT_MOVE_SPEED
 ): PlayerMoveState {
-  let { x, y, z, targetX, targetZ } = state;
+  const { x, y, z } = state;
+  let { targetX, targetZ } = state;
 
   if (intent !== null) {
     targetX = intent.targetX;

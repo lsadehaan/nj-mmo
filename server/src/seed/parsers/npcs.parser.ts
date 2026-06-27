@@ -40,7 +40,7 @@ export function parseNpcs(xml: string, ids: number[]): NewNpc[] {
     }
   }
 
-  return results.sort((a, b) => a.npcId - b.npcId);
+  return results.sort((a, b) => (a.npcId ?? 0) - (b.npcId ?? 0));
 }
 
 function requireAttr(id: string | number, field: string, value: unknown): void {
