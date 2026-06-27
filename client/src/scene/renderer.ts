@@ -7,7 +7,7 @@ import {
   createInitialMoveState,
   type PlayerMoveState,
   type MovementIntent,
-} from '../movement/movement-system';
+} from '@nj/game-core';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
 import { setPlayer, setTarget } from '../test-hook';

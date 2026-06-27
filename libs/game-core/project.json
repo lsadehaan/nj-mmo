@@ -1,0 +1,17 @@
+{
+  "name": "game-core",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/game-core/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "test": {
+      "executor": "@nx/vitest:test",
+      "outputs": ["{workspaceRoot}/coverage/libs/game-core"],
+      "options": {
+        "configFile": "libs/game-core/vitest.config.mts",
+        "reportsDirectory": "../../coverage/libs/game-core"
+      }
+    }
+  }
+}

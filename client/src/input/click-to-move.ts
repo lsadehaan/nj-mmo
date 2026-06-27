@@ -1,4 +1,4 @@
-import type { MovementIntent } from '../movement/movement-system';
+import type { MovementIntent } from '@nj/game-core';
 
 export interface GroundHit {
   x: number;
