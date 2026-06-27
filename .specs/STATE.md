@@ -117,12 +117,31 @@
 
 ## Handoff
 
-**Phase 7 — Progression loop: T13–T16 COMPLETE (Worker C client + e2e).**
-Commits `a7b0b24` (T13), `6b5edf2` (T14), `17121be` (T15), `f494fbd` (T16).
-Gate green: `nx test client` **73/73**; full `nx run-many -t build lint test &&
-nx e2e client-e2e` **13/13** e2e pass. Progression e2e observes starter kit →
-equip 2369 → level 2 → buy potion → adena **897**. **Next:** Verifier on full
-Phase 7 slice.
+**Phase 7 — Progression loop: COMPLETE (Verifier PASS). 🎉 MVP COMPLETE.**
+`.specs/features/phase-7-progression-golive/validation.md` records PASS over diff
+`bfbead0..HEAD`: discrimination sensor 7/7 mutants killed, gate green (game-core
+54, client 73, server 167; `nx e2e client-e2e` 13/13 reliable), full progression
+loop e2e confirmed (starter kit → equip Squire's Sword 2369 → 2 kills → level 2 →
+buy potion → adena 897). ROADMAP Phase 7 flipped to `[x]`.
+
+**ALL ROADMAP PHASES 1–7 ARE NOW `[x]` (in-scope).** The Talking Island vertical
+slice is feature-complete locally: authoritative movement/multiplayer, combat +
+XP/drops, Power Strike, NPCs + shop + peace zone, and inventory/equip +
+death-respawn + level-up. Server-authority (AD-001) held throughout; ~334 tests
+across the four layers (game-core/server/client unit + room-integration + seed +
+Playwright e2e), all green and fast (AD-014).
+
+**Loop status: STOPPED — no unchecked in-scope phases remain.** The autonomous
+`/loop` heartbeat is NOT re-armed.
+
+**Deferred post-MVP (out of current scope):** public production deployment
+(server to Railway/Fly + static client to Vercel + public URL) — removed from
+Phase 7 by decision; needs hosting credentials. Other non-blocking carry-forwards
+recorded per phase's validation.md (e.g. P7 starter-kit 2369 room-layer assert,
+inventory DOM e2e; P6 peace-marker coord assert).
+
+**To resume later:** re-scope a deployment phase (or `/loop` it) when hosting
+credentials are available; otherwise the MVP runs locally via `npm run dev`.
 
 ### Phase 7 deviations (Implementer, Worker C — client T13–T16)
 

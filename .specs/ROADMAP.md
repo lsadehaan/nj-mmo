@@ -72,14 +72,14 @@ Never run phases in parallel.
 - [x] Utility NPC dialog + useful action (heal / starter item)
 - [x] Enforce peace zone (no combat in town)
 
-## Phase 7 — Progression loop `[ ]`
+## Phase 7 — Progression loop `[x]`
 
 > Done when: a player can create a character, claim the starter kit, equip a weapon,
 > kill a mob, level up, die and respawn in town, and buy an item — all running locally.
 > Public deployment is deferred post-MVP.
 
-- [ ] Basic inventory + gold + equip weapon
-- [ ] Death/respawn in town; level-up reward
+- [x] Basic inventory + gold + equip weapon
+- [x] Death/respawn in town; level-up reward
 
 ---
 
