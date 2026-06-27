@@ -2,13 +2,27 @@
 import { defineConfig } from 'vite';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
+const gameCoreSrc = path.resolve(root, '../libs/game-core/src');
 
 export default defineConfig(() => ({
   root,
   cacheDir: '../node_modules/.vite/client',
+  resolve: {
+    alias: [
+      {
+        find: '@nj/game-core',
+        replacement: path.join(gameCoreSrc, 'index.ts'),
+      },
+      {
+        find: /^@nj\/game-core\/(.*)$/,
+        replacement: `${gameCoreSrc}/$1`,
+      },
+    ],
+  },
   server: {
     port: 4200,
     host: 'localhost',
