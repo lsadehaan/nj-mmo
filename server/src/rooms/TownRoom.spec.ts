@@ -913,6 +913,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       placePlayerNearNpcOffset(room, client.sessionId, KATERINA, 3.1);
 
       client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+      await settleRoomMessages(room);
 
       expect(player.adena).toBe(1000);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(0);
