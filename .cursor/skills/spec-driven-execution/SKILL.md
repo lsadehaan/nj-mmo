@@ -176,14 +176,17 @@ sources.
 
 ## Model per role
 
-Do not hard-code model slugs — the available set changes. Apply these
-criteria:
+All three sub-agents run on **`composer-2.5`**. Pass `model: composer-2.5`
+when dispatching each one.
 
-| Role | Criteria |
-|---|---|
-| Planner | Strong reasoning required (spec precision, assumption sweep, research chain). Use the strongest available model. |
-| Implementer | Self-organises from tlc-spec-driven; benefits from a fast, code-fluent model (e.g. Composer-class). Keep the prompt lean. |
-| Verifier | Independent reasoning required (spec-anchored re-derivation, mutation injection). Use a strong model. |
+| Role | Model | Notes |
+|---|---|---|
+| Planner | `composer-2.5` | Give it the ROADMAP goal + the mandated research chain; it grounds and produces spec/design/tasks. |
+| Implementer | `composer-2.5` | Keep the prompt lean ("implement the tasks following tlc-spec-driven"); it self-organises. |
+| Verifier | `composer-2.5` | A fresh agent — author ≠ verifier still holds (different agent instance, same model). |
+
+`composer-2.5` is fast and self-organises well from tlc-spec-driven, so prefer
+lean mandates over long rule lists in every sub-agent prompt.
 
 ---
 
