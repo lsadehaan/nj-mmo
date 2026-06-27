@@ -1489,3 +1489,88 @@ describe('TownRoom player death', () => {
     }
   });
 });
+
+describe('TownRoom level-up reward', () => {
+  async function killGremlin(
+    room: TestRoom,
+    client: TestClient,
+    sessionId: string
+  ) {
+    const gremlin = findMobByNpcId(room, 20001)!;
+    placePlayerAndMobForCombat(room, sessionId, gremlin);
+
+    await deliver(room, client, [['setTarget', { mobId: gremlin.id }]]);
+
+    while (room.state.mobs.has(gremlin.id)) {
+      const combat = room['playerCombat'].get(sessionId)!;
+      combat.nextAttackAtMs = 0;
+      await deliverAndTick(room, client, [['attack', {}]]);
+    }
+  }
+
+  it('single Gremlin kill does not change maxHp or maxMp', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+
+      await killGremlin(room, client, client.sessionId);
+
+      expect(player.level).toBe(1);
+      expect(player.xp).toBe(44);
+      expect(player.maxHp).toBe(100);
+      expect(player.maxMp).toBe(50);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('two Gremlin kills reach level 2 with maxHp 112 and maxMp 55', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+
+      await killGremlin(room, client, client.sessionId);
+      await killGremlin(room, client, client.sessionId);
+
+      expect(player.level).toBe(2);
+      expect(player.xp).toBe(88);
+      expect(player.maxHp).toBe(112);
+      expect(player.maxMp).toBe(55);
+      expect(player.hp).toBe(112);
+      expect(player.mp).toBe(55);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('persists level-up max vitals to DB on kill', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+
+      await killGremlin(room, client, client.sessionId);
+      await killGremlin(room, client, client.sessionId);
+
+      const row = loadCharacter(getDb(dbPath), characterId)!;
+      expect(row).toMatchObject({
+        level: 2,
+        xp: 88,
+        maxHp: 112,
+        maxMp: 55,
+        hp: 112,
+        mp: 55,
+      });
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+});

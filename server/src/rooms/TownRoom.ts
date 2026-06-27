@@ -6,6 +6,7 @@ import {
   createSeededRng,
   STARTER_COMBAT,
   effectivePAtk,
+  applyLevelUpReward,
   resolvePlayerDeath,
   type MovementIntent,
   type PlayerMoveState,
@@ -622,7 +623,10 @@ export class TownRoom extends Room<{ state: TownState }> {
 
   private handleMobKill(killerSessionId: string, runtime: MobRuntime): void {
     const player = this.state.players.get(killerSessionId);
-    if (!player) return;
+    const stored = this.characters.get(killerSessionId);
+    if (!player || !stored) return;
+
+    const prevLevel = player.level;
 
     const kill: KillEvent = {
       mobId: runtime.id,
@@ -634,6 +638,24 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     const dropRows = this.dropsByNpcId.get(runtime.npcId) ?? [];
     applyKillRewards(player, kill, this.experienceCurve, dropRows, this.combatRng);
+
+    if (player.level > prevLevel) {
+      const rewarded = applyLevelUpReward(prevLevel, player.level, {
+        maxHp: player.maxHp,
+        maxMp: player.maxMp,
+        hp: player.hp,
+        mp: player.mp,
+      });
+      player.maxHp = rewarded.maxHp;
+      player.maxMp = rewarded.maxMp;
+      player.hp = rewarded.hp;
+      player.mp = rewarded.mp;
+      stored.maxHp = rewarded.maxHp;
+      stored.maxMp = rewarded.maxMp;
+      stored.hp = rewarded.hp;
+      stored.mp = rewarded.mp;
+    }
+
     this.persistCharacter(killerSessionId);
 
     this.state.mobs.delete(runtime.id);
