@@ -108,13 +108,19 @@
 
 ## Handoff
 
-**Phase 5 — Power Strike (server T1–T5): COMPLETE (Implementer).**
-Server-side formula, seed `powerL1`, combat resolver, schema cooldown field,
-and `useSkill` TownRoom wiring committed (`7019ee4`..`fea1648`). Client tasks
-T6–T10 not started.
+**Phase 5 — Power Strike (client T6–T10): COMPLETE (Implementer).**
+Client hook mp/cooldown sync, hotkey + `__useSkill__`, DOM cooldown bar,
+procedural flash, and e2e committed (`d108fc7`..T10). Server T1–T5 already
+on `master` (`7019ee4`..`fea1648`).
 
-**Next step:** Phase 5 client — T6 `__GAME_STATE__` mp/cooldown sync, T7 hotkey,
-T8 DOM cooldown bar, T9 procedural flash, T10 e2e.
+**Next step:** Phase 5 Verifier — independent validation over full feature diff.
+
+### Phase 5 deviations (Implementer, client T6–T10)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T7 | Extracted `combat-input.ts` from `main.ts` | Unit-test `wireCombatControls` without booting the full app; mirrors Phase 4 hook pattern. |
+| T10 | E2e polls `__useSkill__` repeatedly until MP/cooldown/XP conditions met | Same server tick + `setTarget` latency pattern as `combat.spec.ts` `__attack__` loop; single fire was flaky. |
 
 ### Phase 5 deviations (Implementer, server T1–T5)
 

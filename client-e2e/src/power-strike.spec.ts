@@ -1,0 +1,110 @@
+import { test, expect } from '@playwright/test';
+
+test.describe.configure({ mode: 'serial' });
+
+async function waitReady(page: import('@playwright/test').Page) {
+  await page.waitForFunction(() => window.__GAME_STATE__?.ready === true, undefined, {
+    timeout: 30_000,
+  });
+}
+
+test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
+  await page.goto('/');
+  await waitReady(page);
+
+  await page.waitForFunction(() => (window.__GAME_STATE__?.mobs?.length ?? 0) > 0, undefined, {
+    timeout: 20_000,
+  });
+
+  const initialMp = await page.evaluate(() => window.__GAME_STATE__.player.mp);
+  expect(initialMp).toBe(50);
+
+  const target = await page.evaluate(() => {
+    const mobs = window.__GAME_STATE__.mobs;
+    const player = window.__GAME_STATE__.player;
+    let closest = mobs[0];
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const mob of mobs) {
+      const dist = Math.hypot(mob.x - player.x, mob.z - player.z);
+      if (dist < bestDist) {
+        bestDist = dist;
+        closest = mob;
+      }
+    }
+    return { id: closest.id, x: closest.x, z: closest.z };
+  });
+
+  await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate((mob) => {
+          const player = window.__GAME_STATE__.player;
+          const dist = Math.hypot(player.x - mob.x, player.z - mob.z);
+          if (dist <= 3.5) return true;
+          const dx = mob.x - player.x;
+          const dz = mob.z - player.z;
+          const len = Math.hypot(dx, dz) || 1;
+          const step = Math.max(1, Math.min(len - 2.5, 6));
+          window.__sendMoveIntent__?.(player.x + (dx / len) * step, player.z + (dz / len) * step);
+          return false;
+        }, target),
+      { timeout: 45_000, intervals: [250, 500, 1000] }
+    )
+    .toBe(true);
+
+  await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
+  await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), target.id);
+
+  await page.waitForFunction(
+    (mobId) => window.__GAME_STATE__?.targetMobId === mobId,
+    target.id,
+    { timeout: 5_000 }
+  );
+
+  await page.waitForFunction(() => typeof window.__useSkill__ === 'function');
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate((mobId) => {
+          const state = window.__GAME_STATE__;
+          const cooldownEl = document.getElementById('power-strike-cooldown');
+          const domRemaining = Number(cooldownEl?.getAttribute('data-remaining-ms') ?? 0);
+          const mobAlive = state.mobs.some((m) => m.id === mobId);
+          if (
+            state.player.mp === 41 &&
+            state.player.powerStrikeCooldownRemainingMs > 0 &&
+            domRemaining > 0 &&
+            state.player.xp > 0 &&
+            !mobAlive
+          ) {
+            return state.player.xp;
+          }
+          window.__useSkill__?.();
+          return -1;
+        }, target.id),
+      { timeout: 60_000, intervals: [400, 600, 800] }
+    )
+    .toBeGreaterThan(0);
+
+  const final = await page.evaluate(() => {
+    const state = window.__GAME_STATE__;
+    const cooldownEl = document.getElementById('power-strike-cooldown');
+    return {
+      mp: state.player.mp,
+      xp: state.player.xp,
+      cooldownRemaining: state.player.powerStrikeCooldownRemainingMs,
+      domRemaining: Number(cooldownEl?.getAttribute('data-remaining-ms') ?? 0),
+      mobAlive: state.mobs.some((m) => m.id === state.targetMobId),
+    };
+  });
+
+  expect(final.mp).toBe(41);
+  expect(final.xp).toBeGreaterThan(0);
+  expect(final.cooldownRemaining).toBeGreaterThan(0);
+  expect(final.domRemaining).toBeGreaterThan(0);
+  expect(final.mobAlive).toBe(false);
+});
