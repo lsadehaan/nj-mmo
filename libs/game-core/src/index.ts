@@ -8,3 +8,4 @@ export * from './combat/attack-timing';
 export * from './combat/combat-range';
 export * from './experience';
 export * from './drop-roll';
+export * from './peace-zone';
