@@ -56,12 +56,12 @@ Never run phases in parallel.
 - [x] Death, timed respawn
 - [x] Server-granted XP + drops (seeded RNG)
 
-## Phase 5 — The skill `[ ]`
+## Phase 5 — The skill `[x]`
 
 > Done when: pressing the key deals Power Strike's damage with a visible cooldown.
 
-- [ ] Server validates MP cost + cooldown; applies effect
-- [ ] Client hotkey + cooldown UI + simple flash/particle
+- [x] Server validates MP cost + cooldown; applies effect
+- [x] Client hotkey + cooldown UI + simple flash/particle
 
 ## Phase 6 — NPCs & functional town `[ ]`
 

@@ -108,12 +108,23 @@
 
 ## Handoff
 
-**Phase 5 — Power Strike (client T6–T10): COMPLETE (Implementer).**
-Client hook mp/cooldown sync, hotkey + `__useSkill__`, DOM cooldown bar,
-procedural flash, and e2e committed (`d108fc7`..T10). Server T1–T5 already
-on `master` (`7019ee4`..`fea1648`).
+**Phase 5 — The skill (Power Strike): COMPLETE (Verifier PASS).**
+`.specs/features/phase-5-power-strike/validation.md` records PASS over diff
+`5d68137..HEAD`: 19/19 ACs traced to spec anchors (damage 69/62, MP 50→41,
+cooldown 3000 ms, range 4.0 m, seeded powerL1=30), discrimination sensor
+6/6 mutants killed, server authority (AD-001) confirmed, gate green (game-core
+40, client 39, server all; `nx e2e client-e2e` 9/9 on retry). ROADMAP Phase 5
+flipped to `[x]`. Tasks T1–T10 committed `7019ee4..3b5e69f`.
 
-**Next step:** Phase 5 Verifier — independent validation over full feature diff.
+**Next step:** Phase 6 — NPCs & functional town. Place + render the 2 NPCs
+(Merchant, utility NPC) with proximity interaction; Merchant shop window
+(buy/sell from the seeded item list); utility NPC dialog + action (heal/starter
+item); enforce the peace zone (no combat in town). Build on the authoritative
+combat/skill systems and the seeded npcs table.
+
+Watch item (non-blocking): the Playwright suite shows an intermittent
+`multiplayer.spec.ts` rejoin flake (Nx flagged the suite flaky) — passed on
+retry; stabilize if it recurs in Phase 6+.
 
 ### Phase 5 deviations (Implementer, client T6–T10)
 
