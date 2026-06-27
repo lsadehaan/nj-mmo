@@ -18,6 +18,8 @@ export interface GameState {
   target: { x: number | null; z: number | null };
   others: OtherPlayer[];
   characterId: string | null;
+  /** Stays 0 while movement is server-authoritative (no client step()). */
+  localMovementTicks: number;
 }
 
 declare global {
@@ -35,6 +37,7 @@ const initialState: GameState = {
   target: { x: null, z: null },
   others: [],
   characterId: null,
+  localMovementTicks: 0,
 };
 
 export function initGameState(): GameState {
@@ -44,6 +47,7 @@ export function initGameState(): GameState {
     target: { ...initialState.target },
     others: [],
     characterId: null,
+    localMovementTicks: 0,
   };
   return window.__GAME_STATE__;
 }
@@ -82,4 +86,8 @@ export function setOthers(others: OtherPlayer[]): void {
 
 export function setCharacterId(characterId: string | null): void {
   getGameState().characterId = characterId;
+}
+
+export function recordLocalMovementTick(): void {
+  getGameState().localMovementTicks += 1;
 }

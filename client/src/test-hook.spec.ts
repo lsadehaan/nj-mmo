@@ -24,4 +24,8 @@ describe('test-hook multiplayer state', () => {
     setCharacterId(null);
     expect(window.__GAME_STATE__.characterId).toBeNull();
   });
+
+  it('starts with zero local movement ticks', () => {
+    expect(window.__GAME_STATE__.localMovementTicks).toBe(0);
+  });
 });

@@ -108,7 +108,7 @@
 
 ## Handoff
 
-Phase 3 verifier gaps 1–3 closed (onDrop room test, leave e2e, game-core path fix). Gap 4 in progress.
+Phase 3 verifier gaps 1–4 closed. Ready for re-verification.
 
 ### Phase 3 deviations (Implementer)
 
