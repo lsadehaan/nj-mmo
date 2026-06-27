@@ -1,6 +1,7 @@
 import { boot, ColyseusTestServer } from '@colyseus/testing';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import app from '../app.config';
+import { TownState } from './schema/TownState';
 
 describe('TownRoom', () => {
   let colyseus: ColyseusTestServer;
@@ -106,5 +107,28 @@ describe('TownRoom', () => {
     expect(player.z).toBe(startZ);
 
     await client.leave();
+  });
+
+  it('broadcasts player position changes to other clients', async () => {
+    const room = await colyseus.createRoom('town', {});
+    const clientA = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+    const clientB = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+    const sessionA = clientA.sessionId;
+
+    clientA.send('move', { targetX: 20, targetZ: 0 });
+
+    const deadline = Date.now() + 2000;
+    let remoteOnB = clientB.state.players.get(sessionA);
+    while (Date.now() < deadline && (!remoteOnB || remoteOnB.x <= 0)) {
+      await room.waitForNextSimulationTick();
+      remoteOnB = clientB.state.players.get(sessionA);
+    }
+
+    expect(remoteOnB).toBeDefined();
+    expect(remoteOnB!.x).toBeGreaterThan(0);
+    expect(remoteOnB!.z).toBe(0);
+
+    await clientA.leave();
+    await clientB.leave();
   });
 });
