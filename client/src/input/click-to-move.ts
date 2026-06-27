@@ -25,11 +25,13 @@ export interface TerrainMesh {
 export function ndcFromPointer(
   ev: RaycastInput,
   width: number,
-  height: number
+  height: number,
+  offsetX = 0,
+  offsetY = 0
 ): { x: number; y: number } {
   return {
-    x: (ev.clientX / width) * 2 - 1,
-    y: -(ev.clientY / height) * 2 + 1,
+    x: ((ev.clientX - offsetX) / width) * 2 - 1,
+    y: -((ev.clientY - offsetY) / height) * 2 + 1,
   };
 }
 

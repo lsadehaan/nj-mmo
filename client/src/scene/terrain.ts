@@ -109,10 +109,13 @@ export function createTerrainMesh(
   geometry.setAttribute('position', new THREE.BufferAttribute(terrain.vertices, 3));
   geometry.setIndex(Array.from(terrain.indices));
   geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
 
   const material = new THREE.MeshLambertMaterial({
     color: 0x4a7c3f,
     flatShading: true,
+    side: THREE.DoubleSide,
   });
 
   return new THREE.Mesh(geometry, material);

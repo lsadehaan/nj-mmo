@@ -2,7 +2,12 @@
 import { defineConfig } from 'vite';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('.', import.meta.url));
+
 export default defineConfig(({ mode }) => ({
+  root,
   cacheDir: '../node_modules/.vite/client',
   server: {
     port: 4200,
