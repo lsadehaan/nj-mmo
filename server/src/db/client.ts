@@ -35,7 +35,26 @@ function applySchema(sqlite: Database.Database): void {
       random INTEGER NOT NULL DEFAULT 0,
       critical REAL NOT NULL DEFAULT 0,
       accuracy REAL NOT NULL DEFAULT 0,
-      attack_range INTEGER NOT NULL DEFAULT 0
+      attack_range INTEGER NOT NULL DEFAULT 0,
+      aggro_range INTEGER NOT NULL DEFAULT 0,
+      is_aggressive INTEGER NOT NULL DEFAULT 0,
+      respawn_sec INTEGER NOT NULL DEFAULT 27
+    );
+    CREATE TABLE IF NOT EXISTS mob_drops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      npc_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      min_count INTEGER NOT NULL,
+      max_count INTEGER NOT NULL,
+      chance REAL NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS mob_spawns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      npc_id INTEGER NOT NULL,
+      x REAL NOT NULL,
+      y REAL NOT NULL,
+      z REAL NOT NULL,
+      respawn_sec INTEGER NOT NULL DEFAULT 27
     );
     CREATE TABLE IF NOT EXISTS npcs (
       npc_id INTEGER PRIMARY KEY,
@@ -72,10 +91,10 @@ function applySchema(sqlite: Database.Database): void {
       updated_at INTEGER NOT NULL
     );
   `);
-  migrateMonstersCombatColumns(sqlite);
+  migrateMonstersColumns(sqlite);
 }
 
-function migrateMonstersCombatColumns(sqlite: Database.Database): void {
+function migrateMonstersColumns(sqlite: Database.Database): void {
   const cols = sqlite.pragma('table_info(monsters)') as { name: string }[];
   const names = new Set(cols.map((c) => c.name));
   const adds: [string, string][] = [
@@ -86,6 +105,9 @@ function migrateMonstersCombatColumns(sqlite: Database.Database): void {
     ['critical', 'REAL NOT NULL DEFAULT 0'],
     ['accuracy', 'REAL NOT NULL DEFAULT 0'],
     ['attack_range', 'INTEGER NOT NULL DEFAULT 0'],
+    ['aggro_range', 'INTEGER NOT NULL DEFAULT 0'],
+    ['is_aggressive', 'INTEGER NOT NULL DEFAULT 0'],
+    ['respawn_sec', 'INTEGER NOT NULL DEFAULT 27'],
   ];
   for (const [col, def] of adds) {
     if (!names.has(col)) {

@@ -17,6 +17,27 @@ export const monsters = sqliteTable('monsters', {
   critical: real('critical').notNull(),
   accuracy: real('accuracy').notNull(),
   attackRange: integer('attack_range').notNull(),
+  aggroRange: integer('aggro_range').notNull(),
+  isAggressive: integer('is_aggressive', { mode: 'boolean' }).notNull(),
+  respawnSec: integer('respawn_sec').notNull(),
+});
+
+export const mobDrops = sqliteTable('mob_drops', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  npcId: integer('npc_id').notNull(),
+  itemId: integer('item_id').notNull(),
+  minCount: integer('min_count').notNull(),
+  maxCount: integer('max_count').notNull(),
+  chance: real('chance').notNull(),
+});
+
+export const mobSpawns = sqliteTable('mob_spawns', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  npcId: integer('npc_id').notNull(),
+  x: real('x').notNull(),
+  y: real('y').notNull(),
+  z: real('z').notNull(),
+  respawnSec: integer('respawn_sec').notNull(),
 });
 
 export const npcs = sqliteTable('npcs', {
@@ -59,6 +80,10 @@ export const characters = sqliteTable('characters', {
 
 export type Monster = typeof monsters.$inferSelect;
 export type NewMonster = typeof monsters.$inferInsert;
+export type MobDrop = typeof mobDrops.$inferSelect;
+export type NewMobDrop = typeof mobDrops.$inferInsert;
+export type MobSpawn = typeof mobSpawns.$inferSelect;
+export type NewMobSpawn = typeof mobSpawns.$inferInsert;
 export type Npc = typeof npcs.$inferSelect;
 export type NewNpc = typeof npcs.$inferInsert;
 export type Skill = typeof skills.$inferSelect;
@@ -68,4 +93,4 @@ export type NewExperienceRow = typeof experience.$inferInsert;
 export type Character = typeof characters.$inferSelect;
 export type NewCharacter = typeof characters.$inferInsert;
 
-export const schema = { monsters, npcs, skills, experience, characters };
+export const schema = { monsters, mobDrops, mobSpawns, npcs, skills, experience, characters };
