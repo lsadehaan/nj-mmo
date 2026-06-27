@@ -153,6 +153,8 @@ alias pattern to any future shared lib.
 | ---- | --------- | ------ |
 | T6 | Reverted broken commit `82510c4`; not completed | Concurrent workspace edits caused schema/seed import mismatch; gate red. Reset `master` to `4db16f8`. |
 | T13 | Injectable `nowMs` + `combatRng` room options for deterministic respawn/combat tests | Colyseus `setSimulationInterval` uses wall-clock deltas; fake `nowMs` advances only when tests call `clock.advance()`, making 27 s respawn assertions reliable without waiting. |
+| T14–T16 | `others` hook excludes `connected === false` players; e2e webServer seeds DB before serve; Playwright `workers: 1` | Disconnected sessions from prior e2e tests polluted newcomer detection; committed `data/game.db` lacked mob spawns; shared `town` room needs serial e2e workers once combat joins the suite. |
+| T16 | Added `server/src/seed/cli.ts`; combat e2e uses `__sendMoveIntent__` / `__handleMobTarget__` / `__attack__` hooks (AD-009) | Reliable movement/targeting without canvas pixel reads; seed CLI ensures mob spawns exist for e2e server boot. |
 
 ### Phase 3 deviations (Implementer)
 

@@ -68,15 +68,6 @@ function addBox(spec: SceneObjectSpec): THREE.Mesh {
   mesh.position.set(spec.x, spec.y, spec.z);
   return mesh;
 }
-  const geometry = new THREE.BoxGeometry(spec.width, spec.height, spec.depth);
-  const material = new THREE.MeshLambertMaterial({
-    color: spec.color,
-    flatShading: true,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(spec.x, spec.y, spec.z);
-  return mesh;
-}
 
 function addTree(x: number, y: number, z: number, scale: number): THREE.Group {
   const group = new THREE.Group();

@@ -49,7 +49,10 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   const publishOthers = (): void => {
     setOthers(
       [...room.state.players.entries()]
-        .filter(([sessionId]) => sessionId !== localId)
+        .filter(
+          ([sessionId, player]) =>
+            sessionId !== localId && (player as { connected?: boolean }).connected !== false
+        )
         .map(([sessionId, player]) => ({
           id: sessionId,
           x: (player as { x: number }).x,
@@ -77,8 +80,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   const publishMobs = (): void => {
+    const mobsMap = room.state.mobs;
+    if (!mobsMap) {
+      setMobs([]);
+      return;
+    }
     setMobs(
-      [...room.state.mobs.entries()].map(([id, mob]) => {
+      [...mobsMap.entries()].map(([id, mob]) => {
         const state = mob as MobSchema;
         return {
           id,
@@ -152,6 +160,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     game.removeMob(mobId as string);
     publishMobs();
   });
+
+  if (room.state.mobs) {
+    for (const [id, mob] of room.state.mobs.entries() as Iterable<[string, MobSchema]>) {
+      syncMobFromState(id, mob);
+      callbacks.onChange(mob, () => syncMobFromState(id, mob));
+    }
+  }
 
   publishMobs();
 }
