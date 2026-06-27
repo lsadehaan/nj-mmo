@@ -3,8 +3,12 @@ import {
   step,
   createInitialMoveState,
   isValidMoveIntent,
+  createSeededRng,
   type MovementIntent,
   type PlayerMoveState,
+  type DropRow,
+  type ExperienceCurveRow,
+  type SeededRng,
 } from '@nj/game-core';
 import { getDb, type AppDatabase } from '../db/client';
 import {
@@ -12,16 +16,42 @@ import {
   loadCharacter,
   saveCharacter,
 } from '../db/character-repository';
-import type { Character } from '../db/schema';
+import { experience, mobDrops, type Character } from '../db/schema';
 import { TownState, PlayerState } from './schema/TownState';
+import { MobState } from './schema/MobState';
+import { tickMobAi } from './mob-ai';
+import {
+  createPlayerCombatState,
+  resolvePlayerAttack,
+  resolveMobAttack,
+  applyKillRewards,
+  type PlayerCombatState,
+  type KillEvent,
+} from './combat-resolver';
+import {
+  initializeMobs,
+  syncMobState,
+  loadMobSpawnRow,
+  loadMonsterTemplate,
+  respawnMobRuntime,
+  type MobRuntime,
+} from './spawn-manager';
 
 export interface TownRoomOptions {
   dbPath?: string;
   saveDebounceMs?: number;
+  combatSeed?: number;
+  combatRng?: SeededRng;
+  nowMs?: () => number;
 }
 
 const DEFAULT_DB_PATH = process.env['NJ_DB_PATH'] ?? 'data/game.db';
 const DEFAULT_SAVE_DEBOUNCE_MS = 5000;
+
+interface PendingRespawn {
+  runtime: MobRuntime;
+  respawnAtMs: number;
+}
 
 export class TownRoom extends Room<{ state: TownState }> {
   declare state: TownState;
@@ -33,11 +63,25 @@ export class TownRoom extends Room<{ state: TownState }> {
   private characterIds = new Map<string, string>();
   private characters = new Map<string, Character>();
   private saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private mobRuntime = new Map<string, MobRuntime>();
+  private playerCombat = new Map<string, PlayerCombatState>();
+  private pendingRespawns = new Map<string, PendingRespawn>();
+  private combatRng!: SeededRng;
+  private experienceCurve: ExperienceCurveRow[] = [];
+  private dropsByNpcId = new Map<number, DropRow[]>();
+  private nowMs = () => Date.now();
 
   override onCreate(options: TownRoomOptions = {}): void {
     this.db = getDb(options.dbPath ?? DEFAULT_DB_PATH);
     this.saveDebounceMs = options.saveDebounceMs ?? DEFAULT_SAVE_DEBOUNCE_MS;
+    this.nowMs = options.nowMs ?? (() => Date.now());
+    this.combatRng =
+      options.combatRng ??
+      createSeededRng(options.combatSeed ?? hashRoomId(this.roomId));
+
+    this.loadCombatData();
     this.setState(new TownState());
+    this.mobRuntime = initializeMobs(this.db, this.state);
     this.autoDispose = true;
     this.setSimulationInterval((deltaTimeMs) => this.simulate(deltaTimeMs), 50);
 
@@ -48,10 +92,40 @@ export class TownRoom extends Room<{ state: TownState }> {
         targetZ: message.targetZ,
       });
     });
+
+    this.onMessage('setTarget', (client, message: { mobId: string }) => {
+      const combat = this.playerCombat.get(client.sessionId);
+      const mob = this.mobRuntime.get(message.mobId);
+      if (!combat || !mob || mob.hp <= 0) return;
+      combat.targetMobId = message.mobId;
+    });
+
+    this.onMessage('attack', (client) => {
+      const combat = this.playerCombat.get(client.sessionId);
+      if (!combat || !combat.targetMobId) return;
+      combat.attackPending = true;
+    });
+  }
+
+  private loadCombatData(): void {
+    this.experienceCurve = this.db.select().from(experience).all();
+    this.dropsByNpcId.clear();
+    for (const row of this.db.select().from(mobDrops).all()) {
+      const list = this.dropsByNpcId.get(row.npcId) ?? [];
+      list.push({
+        itemId: row.itemId,
+        minCount: row.minCount,
+        maxCount: row.maxCount,
+        chance: row.chance,
+      });
+      this.dropsByNpcId.set(row.npcId, list);
+    }
   }
 
   private simulate(deltaTimeMs: number): void {
     const dt = deltaTimeMs / 1000;
+    const now = this.nowMs();
+
     for (const [sessionId, player] of this.state.players.entries()) {
       const intent = this.pendingIntents.get(sessionId) ?? null;
       this.pendingIntents.delete(sessionId);
@@ -68,6 +142,116 @@ export class TownRoom extends Room<{ state: TownState }> {
       if (player.x !== beforeX || player.z !== beforeZ) {
         this.scheduleDebouncedSave(sessionId);
       }
+    }
+
+    const aiPlayers = [...this.state.players.entries()].map(([sessionId, player]) => ({
+      sessionId,
+      x: player.x,
+      z: player.z,
+    }));
+
+    for (const runtime of this.mobRuntime.values()) {
+      if (runtime.hp <= 0) continue;
+      tickMobAi(runtime, aiPlayers, dt, this.combatRng, now);
+      const mobState = this.state.mobs.get(runtime.id);
+      if (mobState) syncMobState(mobState, runtime);
+    }
+
+    for (const [sessionId, combat] of this.playerCombat.entries()) {
+      if (!combat.attackPending || !combat.targetMobId) continue;
+      const player = this.state.players.get(sessionId);
+      const runtime = this.mobRuntime.get(combat.targetMobId);
+      if (!player || !runtime) continue;
+
+      const result = resolvePlayerAttack({
+        sessionId,
+        playerX: player.x,
+        playerZ: player.z,
+        combat,
+        mob: runtime,
+        nowMs: now,
+        rng: this.combatRng,
+      });
+
+      if (result.damage > 0) {
+        const mobState = this.state.mobs.get(runtime.id);
+        if (mobState) syncMobState(mobState, runtime);
+        if (result.killed) {
+          this.handleMobKill(sessionId, runtime);
+        }
+      }
+    }
+
+    for (const runtime of this.mobRuntime.values()) {
+      if (!runtime.targetSessionId || runtime.hp <= 0) continue;
+      const target = this.state.players.get(runtime.targetSessionId);
+      if (!target) continue;
+
+      const mobResult = resolveMobAttack({
+        mob: runtime,
+        targetSessionId: runtime.targetSessionId,
+        targetX: target.x,
+        targetZ: target.z,
+        targetHp: target.hp,
+        nowMs: now,
+        rng: this.combatRng,
+      });
+
+      if (mobResult.damage > 0) {
+        target.hp = Math.max(0, target.hp - mobResult.damage);
+      }
+    }
+
+    this.processRespawns(now);
+  }
+
+  private handleMobKill(killerSessionId: string, runtime: MobRuntime): void {
+    const player = this.state.players.get(killerSessionId);
+    if (!player) return;
+
+    const kill: KillEvent = {
+      mobId: runtime.id,
+      npcId: runtime.npcId,
+      killerSessionId,
+      exp: runtime.exp,
+      drops: [],
+    };
+
+    const dropRows = this.dropsByNpcId.get(runtime.npcId) ?? [];
+    applyKillRewards(player, kill, this.experienceCurve, dropRows, this.combatRng);
+    this.persistCharacter(killerSessionId);
+
+    this.state.mobs.delete(runtime.id);
+    this.mobRuntime.delete(runtime.id);
+
+    this.pendingRespawns.set(runtime.id, {
+      runtime: { ...runtime },
+      respawnAtMs: this.nowMs() + runtime.respawnSec * 1000,
+    });
+  }
+
+  private processRespawns(now: number): void {
+    for (const [id, pending] of this.pendingRespawns.entries()) {
+      if (now < pending.respawnAtMs) continue;
+
+      const spawn = loadMobSpawnRow(this.db, pending.runtime.spawnRowId);
+      const template = loadMonsterTemplate(this.db, pending.runtime.npcId);
+      if (!spawn || !template) {
+        this.pendingRespawns.delete(id);
+        continue;
+      }
+
+      const runtime: MobRuntime = { ...pending.runtime };
+      respawnMobRuntime(runtime, template, spawn);
+
+      const mobState = new MobState();
+      mobState.id = id;
+      mobState.npcId = runtime.npcId;
+      syncMobState(mobState, runtime);
+
+      this.state.mobs.set(id, mobState);
+      this.mobRuntime.set(id, runtime);
+      this.pendingRespawns.delete(id);
     }
   }
 
@@ -97,6 +281,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       client.sessionId,
       createInitialMoveState(character.x, character.y, character.z)
     );
+    this.playerCombat.set(client.sessionId, createPlayerCombatState());
 
     client.send('characterId', character.id);
   }
@@ -137,6 +322,16 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.characterIds.delete(sessionId);
     this.characters.delete(sessionId);
     this.saveTimers.delete(sessionId);
+    this.playerCombat.delete(sessionId);
+
+    for (const runtime of this.mobRuntime.values()) {
+      if (runtime.targetSessionId === sessionId) {
+        runtime.targetSessionId = null;
+      }
+      if (runtime.lastAttackerSessionId === sessionId) {
+        runtime.lastAttackerSessionId = null;
+      }
+    }
   }
 
   private persistCharacter(sessionId: string): void {
@@ -173,4 +368,12 @@ export class TownRoom extends Room<{ state: TownState }> {
       this.saveTimers.delete(sessionId);
     }
   }
+}
+
+function hashRoomId(roomId: string): number {
+  let hash = 0;
+  for (let i = 0; i < roomId.length; i++) {
+    hash = (hash * 31 + roomId.charCodeAt(i)) >>> 0;
+  }
+  return hash || 1;
 }

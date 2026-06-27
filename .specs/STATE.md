@@ -108,21 +108,51 @@
 
 ## Handoff
 
-**Phase 3 — Authoritative server + multiplayer: COMPLETE (Verifier PASS).**
-`.specs/features/phase-3-authoritative-server/validation.md` records PASS over
-diff `48e00e4..HEAD` (22 commits): 19/19 ACs traced, discrimination sensor
-10/10 mutants killed, full gate + `nx e2e client-e2e` green. ROADMAP Phase 3
-flipped to `[x]`.
+> **LOOP HALTED 2026-06-27 ~13:52 (not re-armed).** A second, concurrent agent
+> is actively writing Phase 4 files in this same workspace (new `drops.parser.ts`,
+> `spawns.parser.ts`, `drops.seeder.ts`, `spawns.seeder.ts`, `mob_spawns.json`
+> appeared while this loop's reverts were in flight). Two implementers on one
+> working tree produce nondeterministic corruption (skill: never run phases in
+> parallel). **Decision needed from human:** stop the other session (or let it
+> finish Phase 4), then resume this loop on a clean single-writer tree. This loop
+> did NOT commit anything and did NOT re-arm the heartbeat.
 
-**Next step:** Phase 4 — Combat on the server (server-side melee, mob
-spawning/aggro/respawn, server-granted XP + drops via seeded RNG). Build on the
-authoritative `TownRoom` tick, `PlayerState` stats, and character persistence
-delivered in Phase 3. Translate combat rules/values from the L2J Classic
-reference tree.
+**Phase 4 — Combat on the server: IN PROGRESS (Implementer blocked).**
+
+**Completed tasks (committed on `master` @ `4db16f8`):**
+
+| Task | Commit | Tests added | Gate |
+| ---- | ------ | ----------- | ---- |
+| T1 SeededRng | `0235b77` | 3+ unit (game-core) | `nx test game-core` PASS |
+| T2 L2J melee formulas | `015116a` | 8+ unit (game-core) | `nx test game-core` PASS |
+| T3 XP grant + level-up | `a5725bc` | 6+ unit (game-core) | `nx test game-core` PASS |
+| T4 Drop roll | `c114c5b` | 4 unit (game-core) | `nx test game-core` PASS |
+| T5 Monster combat seed cols | `4db16f8` | 4+ seed (server) | `nx test server` PASS |
+
+**Current gate @ `4db16f8`:** `nx test game-core` PASS (37 tests); `nx test server` PASS.
+
+**Blocked at T6.** A concurrent implementer/process repeatedly overwrote
+`server/src/db/schema.ts`, `server/src/seed/seed.ts`, and deleted T6/T7 seed
+files mid-session (alternating `mob_drops`/`items`+`monster_drops` schemas).
+Attempted T6 commit `82510c4` landed with schema/seed mismatch (red gate) and was
+**reset away** — do not cherry-pick it.
+
+**Resume from T6** (items + monster_drops seed per tasks.md), then T7→T18.
+Ensure only one Implementer runs in the repo workspace at a time.
+
+**Next step:** Re-implement T6 with unified schema (`items`, `monster_drops`,
+`mob_spawns` per design.md) and green `nx test server` before T7.
 
 Lesson L-001 (vitest must resolve `@nj/game-core` from source via
 `resolve.alias`, not built `dist/`) is recorded and resolved — apply the same
 alias pattern to any future shared lib.
+
+### Phase 4 deviations (Implementer)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T6 | Reverted broken commit `82510c4`; not completed | Concurrent workspace edits caused schema/seed import mismatch; gate red. Reset `master` to `4db16f8`. |
+| T13 | Injectable `nowMs` + `combatRng` room options for deterministic respawn/combat tests | Colyseus `setSimulationInterval` uses wall-clock deltas; fake `nowMs` advances only when tests call `clock.advance()`, making 27 s respawn assertions reliable without waiting. |
 
 ### Phase 3 deviations (Implementer)
 
@@ -131,3 +161,10 @@ alias pattern to any future shared lib.
 | T10 | Debounced save uses wall-clock `setTimeout` instead of `room.clock.setTimeout` | Colyseus clock timers only advance on `clock.tick()`; trailing debounce during continuous movement never fired in room-integration tests. Wall-clock debounce matches spec intent (5 s after last change) for I/O. |
 | T12 | `getDb()` mkdir parent dir; added `game-core:build` + `server:build` dependsOn; `tsconfig.base` dual path for `@nj/game-core` | Fresh e2e failed without `data/` directory; `server:build` failed with path-mapped lib under wrong `rootDir` — required for full gate. **Post-verify fix (gap 3):** `tsconfig.base.json` maps `@nj/game-core` → source only (vitest/tests); `server/tsconfig.app.json` overrides → `dist/` for `tsc` build (`rootDir` constraint). **Fix iteration 2 (gap 1):** explicit `resolve.alias` in `server/vitest.config.ts` + `client/vite.config.ts` — tsconfig paths alone insufficient (L-001). |
 | T15 | Multiplayer e2e uses `test.describe.configure({ mode: 'serial' })` and matches moved player by id delta | Parallel Playwright workers share one `town` room; `others[0]` was not always browser A. **Fix iteration 2 (gap 2):** leave test joins B before A, tracks newcomer session id, polls `others` with `expect.poll`. |
+
+### Phase 4 seed deviations (Implementer, T5–T8)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T7/T8 | Idempotent re-seed tests compare drop/spawn rows **without** autoincrement `id` | SQLite `AUTOINCREMENT` advances on re-insert; row content is stable but surrogate ids differ. |
+| T5–T8 | Used `mob_drops` / `mob_spawns` tables per `phase-4-server-combat` spec (not `items` + `monster_drops` from parallel `phase-4-combat` draft) | Task scope is `phase-4-server-combat`; drop rows reference `itemId` only (no items FK until Phase 7). |
