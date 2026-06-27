@@ -37,17 +37,64 @@ sub-agent orchestration, Nx wiring, the test gate, and the loop driver.
    delete tests to make them pass.
 5. **Author ≠ Verifier.** The Verifier is always a fresh sub-agent and runs
    automatically after the last task — never skipped, never prompted.
+6. **Autonomous by default.** Make reasoned decisions and document them; only
+   halt for the human when **genuinely stuck** (see Autonomy & decision-making).
+   Asking for approval on something a reasonable assumption could resolve is a
+   defect, not caution.
+
+---
+
+## Autonomy & decision-making
+
+This skill is **autonomous-first**. Human approval is the exception, reserved
+for genuine blockers — not a routine checkpoint.
+
+### Decide, don't ask
+
+When you hit ambiguity or a choice point, pick the most reasonable option
+grounded in: the research chain (codebase → `STATE.md` decisions → `AGENTS.md`
+→ L2J Classic tree → Context7), the active `AD-NNN` decisions, and the
+**confirmed lessons** playbook. Then **document the decision** and proceed —
+never block waiting for confirmation.
+
+### Document every decision (two channels)
+
+- **Forward-looking choices / ambiguities** → an assumption row in the
+  feature's `spec.md` "Assumptions & Open Questions" (chosen default +
+  rationale). This is the Planner's job.
+- **Grounded failures** (an AC gap, a surviving mutant, a spec-precision gap,
+  a `SPEC_DEVIATION`, or a gate failure recorded in `validation.md`) → a
+  **LESSON** via the tlc-spec-driven LESSONS mechanism (`scripts/lessons.py
+  add ...`), creating the store (`.specs/lessons.json` / `.specs/LESSONS.md`)
+  on first use. The Verifier distills these from `validation.md`; the Planner
+  **loads confirmed lessons** (`scripts/lessons.py list --status confirmed`) at
+  Specify/Design and applies them. No signal → no lesson.
+
+### Halt ONLY when genuinely stuck
+
+Stop the loop and surface to the human **only** when a decision is beyond
+reasonable autonomous resolution:
+
+- Contradictory or unsatisfiable requirements that no reasonable assumption
+  resolves.
+- A required external secret/credential/paid resource is missing.
+- A destructive or irreversible action outside the repo would be needed
+  (force-push, production deploy, data deletion).
+- The Verifier still returns **FAIL after the 3 fix → re-verify iterations**.
+- A prerequisite phase is missing/incomplete (dependency-order violation).
+
+When stuck: write the blocker + the exact decision needed to `STATE.md`
+`## Handoff`, stop the loop (do not re-arm), and surface a concise summary.
+Everything else: decide, document, continue.
 
 ---
 
 ## The three sub-agents
 
-In **interactive mode**: offer-then-confirm before dispatching (per
-tlc-spec-driven). Run sequentially; each reports a compact summary before the
-next starts.
-
-In **autonomous loop mode**: dispatch sequentially without confirmation. See
-"Autonomous Loop Mode" below.
+**Default = autonomous** (no confirmation gates). **Interactive mode** is an
+explicit opt-in for when a human wants to approve each step: offer-then-confirm
+before dispatching, per tlc-spec-driven. Either way, run sequentially; each
+reports a compact summary before the next starts.
 
 ### 1. Planner
 
@@ -116,9 +163,10 @@ unattended. No human gates — the skill drives the full cycle.
    processes are holding ports 2567 or 4200. Kill any stale process on those
    ports (`lsof -ti :2567 | xargs kill -9` and `:4200` equivalent) and wait
    for the port to be free.
-4. **Run Planner → Implementer → Verifier** with no confirmation gates. The
-   Planner logs assumptions instead of asking the user (per tlc-spec-driven's
-   assumption mechanism).
+4. **Run Planner → Implementer → Verifier** with no confirmation gates. Every
+   decision point is resolved autonomously and documented (assumptions in
+   `spec.md`; grounded failures as LESSONS) — see Autonomy & decision-making.
+   The Planner loads confirmed lessons; the Verifier distills new ones.
 5. **Completion detection.** Read `.specs/features/<feature>/validation.md`.
    Only a recorded **PASS** authorises marking done.
 6. **On PASS:**
@@ -153,8 +201,11 @@ sources.
   always log an assumption if something genuinely cannot be determined.
 - The locked stack (AD-007) and server-authority constraint (AD-001) as hard
   constraints; the Planner must not re-litigate them.
-- Instruction to log all assumptions in the spec's "Assumptions & Open
-  Questions" section rather than asking the user.
+- Instruction to **load confirmed lessons** first (`scripts/lessons.py list
+  --status confirmed`, filtered by the area this phase touches) and apply them
+  while planning.
+- Instruction to **decide autonomously and log all assumptions** in the spec's
+  "Assumptions & Open Questions" section rather than asking the user.
 
 ### Implementer prompt must include
 
@@ -169,6 +220,9 @@ sources.
   the feature, and the test files in scope.
 - Instruction to run `validate.md` as an independent fresh-eyes pass (no code
   changes, mutations in scratch state only).
+- Instruction to **distill lessons** from the `validation.md` signals via
+  `scripts/lessons.py add ...` (create the store if absent) — one terse
+  codebase-general lesson per grounded signal; a clean PASS records nothing.
 - Specific items to scrutinise (e.g. any deviations flagged by the Implementer
   in its summary).
 
@@ -269,6 +323,7 @@ Rules:
 - [ ] Planner → research + ground → spec.md / design.md / tasks.md (no gates)
 - [ ] Implementer → per-task commits (auto), gate green each task (no gates)
 - [ ] Verifier (fresh) → spec-anchored check + sensor → validation.md
+- [ ] Decisions made autonomously + documented (assumptions / LESSONS); never paused for approval
 - [ ] On PASS: flip ROADMAP [x], update STATE Handoff, commit, re-arm loop
-- [ ] On FAIL after 3 iterations: write blocker to STATE Handoff, STOP loop
+- [ ] Halt ONLY if genuinely stuck (see Autonomy & decision-making) or FAIL after 3 iterations → blocker to STATE Handoff, STOP loop
 ```
