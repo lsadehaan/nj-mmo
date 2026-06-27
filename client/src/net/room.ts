@@ -1,5 +1,5 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
 import {
   mountShopWindow,
@@ -137,6 +137,20 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     const player = getGameState().player;
     const nearest = findNearestInteractableNpc({ x: player.x, z: player.z }, npcPresences);
     setInteractPromptVisible(Boolean(nearest?.canInteract));
+    setNearbyNpc(nearest?.canInteract ? nearest.npcId : null, Boolean(nearest?.canInteract));
+  };
+
+  const publishNpcsToHook = (): void => {
+    setNpcs(
+      npcPresences.map((npc) => ({
+        npcId: npc.npcId,
+        name: npc.name,
+        type: npc.type,
+        x: npc.x,
+        y: npc.y,
+        z: npc.z,
+      }))
+    );
   };
 
   const readItemCounts = (player: PlayerSchema): Record<number, number> => {
@@ -177,6 +191,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
     });
     localItemCounts = readItemCounts(player);
+    setAdena(player.adena ?? 0);
+    setItems(localItemCounts);
     refreshShopDom(player);
     updateInteractPrompt();
   };
@@ -190,6 +206,18 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   window.__interact__ = sendInteract;
+  window.__buyItem__ = (npcId, itemId, quantity = 1) => {
+    room.send('buy', { npcId, itemId, quantity });
+  };
+  window.__sellItem__ = (npcId, itemId, quantity = 1) => {
+    room.send('sell', { npcId, itemId, quantity });
+  };
+  window.__npcAction__ = (npcId, action) => {
+    room.send('npcAction', { npcId, action });
+  };
+
+  const shopPanel = mountShopWindow();
+  shopPanel.addEventListener('shop-close', () => setShopOpen(false));
 
   const onInteractKey = (ev: KeyboardEvent): void => {
     if (ev.key !== 'e' && ev.key !== 'E') return;
@@ -218,10 +246,12 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         } else {
           setShopVisible(true);
         }
+        setShopOpen(true);
         setNpcDialogVisible(false);
       },
       openDialog: (npcId, name) => {
         setShopVisible(false);
+        setShopOpen(false);
         renderNpcDialog({
           npcId,
           name,
@@ -304,6 +334,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     const idx = npcPresences.findIndex((entry) => entry.npcId === npc.npcId);
     const presence: NpcPresence = {
       npcId: npc.npcId,
+      name: npc.name,
       x: npc.x,
       y: npc.y,
       z: npc.z,
@@ -311,6 +342,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     };
     if (idx >= 0) npcPresences[idx] = presence;
     else npcPresences.push(presence);
+    publishNpcsToHook();
     updateInteractPrompt();
   };
 

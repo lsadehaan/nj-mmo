@@ -5,6 +5,7 @@ export const ROXXY_NPC_ID = 30006;
 
 export interface NpcPresence {
   npcId: number;
+  name: string;
   x: number;
   y: number;
   z: number;

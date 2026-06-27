@@ -6,6 +6,11 @@ import {
   setOthers,
   setPlayer,
   setTargetMobId,
+  setAdena,
+  setItems,
+  setNpcs,
+  setNearbyNpc,
+  setShopOpen,
 } from './test-hook';
 
 describe('test-hook multiplayer state', () => {
@@ -103,5 +108,62 @@ describe('test-hook multiplayer state', () => {
       10_000
     );
     expect(window.__GAME_STATE__.player.powerStrikeCooldownRemainingMs).toBe(0);
+  });
+});
+
+describe('test-hook town economy and NPC state', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('initializes adena to 0 until server sync (join contract expects 1000 from server)', () => {
+    expect(window.__GAME_STATE__.adena).toBe(0);
+    setAdena(1000);
+    expect(window.__GAME_STATE__.adena).toBe(1000);
+  });
+
+  it('stores item counts from server snapshots without aliasing', () => {
+    setItems({ 1060: 1, 1835: 2 });
+    const state = window.__GAME_STATE__;
+    expect(state.items).toEqual({ 1060: 1, 1835: 2 });
+    state.items[1060] = 99;
+    setItems({ 1060: 1, 1835: 2 });
+    expect(window.__GAME_STATE__.items[1060]).toBe(1);
+  });
+
+  it('tracks npc list, proximity, and shop-open flags for e2e observers', () => {
+    setNpcs([
+      { npcId: 30004, name: 'Katerina', type: 'Merchant', x: -6, y: 4.26, z: -8 },
+    ]);
+    setNearbyNpc(30004, true);
+    setShopOpen(true);
+
+    const state = window.__GAME_STATE__;
+    expect(state.npcs).toHaveLength(1);
+    expect(state.nearbyNpcId).toBe(30004);
+    expect(state.canInteract).toBe(true);
+    expect(state.shopOpen).toBe(true);
+  });
+
+  it('exposes Playwright-callable commerce and NPC action hooks on window', () => {
+    const calls: unknown[] = [];
+    window.__interact__ = (npcId) => calls.push(['interact', npcId]);
+    window.__buyItem__ = (npcId, itemId, quantity = 1) =>
+      calls.push(['buy', npcId, itemId, quantity]);
+    window.__sellItem__ = (npcId, itemId, quantity = 1) =>
+      calls.push(['sell', npcId, itemId, quantity]);
+    window.__npcAction__ = (npcId, action) => calls.push(['npcAction', npcId, action]);
+
+    window.__interact__?.(30004);
+    window.__buyItem__?.(30004, 1060);
+    window.__sellItem__?.(30004, 1060);
+    window.__npcAction__?.(30006, 'heal');
+
+    expect(calls).toEqual([
+      ['interact', 30004],
+      ['buy', 30004, 1060, 1],
+      ['sell', 30004, 1060, 1],
+      ['npcAction', 30006, 'heal'],
+    ]);
   });
 });

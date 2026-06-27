@@ -9,8 +9,8 @@ import {
 
 describe('npc-interaction proximity', () => {
   const npcs = [
-    { npcId: KATERINA_NPC_ID, x: -6, y: 4.26, z: -8, type: 'Merchant' },
-    { npcId: ROXXY_NPC_ID, x: 4, y: 4.26, z: 10, type: 'Teleporter' },
+    { npcId: KATERINA_NPC_ID, name: 'Katerina', x: -6, y: 4.26, z: -8, type: 'Merchant' },
+    { npcId: ROXXY_NPC_ID, name: 'Roxxy', x: 4, y: 4.26, z: 10, type: 'Teleporter' },
   ];
 
   it('enables interact within NPC_INTERACT_RADIUS (3.0 m)', () => {

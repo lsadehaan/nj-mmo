@@ -31,6 +31,15 @@ export interface OtherPlayer {
   z: number;
 }
 
+export interface GameStateNpc {
+  npcId: number;
+  name: string;
+  type: string;
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface GameState {
   connected: boolean;
   ready: boolean;
@@ -38,6 +47,12 @@ export interface GameState {
   target: { x: number | null; z: number | null };
   others: OtherPlayer[];
   mobs: GameStateMob[];
+  npcs: GameStateNpc[];
+  adena: number;
+  items: Record<number, number>;
+  nearbyNpcId: number | null;
+  canInteract: boolean;
+  shopOpen: boolean;
   targetMobId: string | null;
   characterId: string | null;
   /** Stays 0 while movement is server-authoritative (no client step()). */
@@ -53,6 +68,9 @@ declare global {
     __attack__?: () => void;
     __useSkill__?: () => void;
     __interact__?: (npcId: number) => void;
+    __buyItem__?: (npcId: number, itemId: number, quantity?: number) => void;
+    __sellItem__?: (npcId: number, itemId: number, quantity?: number) => void;
+    __npcAction__?: (npcId: number, action: 'heal' | 'starterKit') => void;
     __consentLeave__?: () => Promise<void>;
   }
 }
@@ -64,6 +82,12 @@ const initialState: GameState = {
   target: { x: null, z: null },
   others: [],
   mobs: [],
+  npcs: [],
+  adena: 0,
+  items: {},
+  nearbyNpcId: null,
+  canInteract: false,
+  shopOpen: false,
   targetMobId: null,
   characterId: null,
   localMovementTicks: 0,
@@ -76,6 +100,12 @@ export function initGameState(): GameState {
     target: { ...initialState.target },
     others: [],
     mobs: [],
+    npcs: [],
+    adena: 0,
+    items: {},
+    nearbyNpcId: null,
+    canInteract: false,
+    shopOpen: false,
     targetMobId: null,
     characterId: null,
     localMovementTicks: 0,
@@ -147,4 +177,26 @@ export function setCharacterId(characterId: string | null): void {
 
 export function recordLocalMovementTick(): void {
   getGameState().localMovementTicks += 1;
+}
+
+export function setAdena(adena: number): void {
+  getGameState().adena = adena;
+}
+
+export function setItems(items: Record<number, number>): void {
+  getGameState().items = { ...items };
+}
+
+export function setNpcs(npcs: GameStateNpc[]): void {
+  getGameState().npcs = npcs.map((npc) => ({ ...npc }));
+}
+
+export function setNearbyNpc(nearbyNpcId: number | null, canInteract: boolean): void {
+  const state = getGameState();
+  state.nearbyNpcId = nearbyNpcId;
+  state.canInteract = canInteract;
+}
+
+export function setShopOpen(shopOpen: boolean): void {
+  getGameState().shopOpen = shopOpen;
 }
