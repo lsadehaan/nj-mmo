@@ -108,6 +108,22 @@
 
 ## Handoff
 
+**Phase 5 — Power Strike (server T1–T5): COMPLETE (Implementer).**
+Server-side formula, seed `powerL1`, combat resolver, schema cooldown field,
+and `useSkill` TownRoom wiring committed (`7019ee4`..pending T5). Client tasks
+T6–T10 not started.
+
+**Next step:** Phase 5 client — T6 `__GAME_STATE__` mp/cooldown sync, T7 hotkey,
+T8 DOM cooldown bar, T9 procedural flash, T10 e2e.
+
+### Phase 5 deviations (Implementer, server T1–T5)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T5 | `TownRoom.ensurePowerStrikeSeeded()` lazy-seeds Power Strike from fixtures when `skills` row missing (`:memory:` rooms) | Phase 1–4 room tests use `:memory:` without full seed; room boot must not throw on empty `skills` table. |
+| T5 | Room-integration Gremlin damage tests assert `mp=41` + kill (`mobs` entry removed, `xp=44`) instead of post-tick HP delta | 69 damage one-shots Gremlin (41 HP); `handleMobKill` removes mob from schema before HP delta is readable. Unit/resolver layers assert exact 69. |
+| T5 | Cooldown accept/reject room test targets Goblin (survives first 69-damage hit) | Gremlin cannot survive first cast for a second-cast cooldown exercise. |
+
 **Phase 4 — Combat on the server: COMPLETE (Verifier PASS).**
 `.specs/features/phase-4-server-combat/validation.md` records PASS over diff
 `f5ba027..HEAD`: 19/19 ACs traced to the L2J-derived values, discrimination

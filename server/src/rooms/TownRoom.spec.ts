@@ -586,3 +586,211 @@ describe('TownRoom combat', () => {
     }
   });
 });
+
+describe('TownRoom Power Strike', () => {
+  async function castPowerStrike(
+    client: Awaited<ReturnType<ColyseusTestServer['connectTo']>>,
+    room: Awaited<ReturnType<ColyseusTestServer['createRoom']>>,
+    mobId: string
+  ) {
+    client.send('setTarget', { mobId });
+    client.send('useSkill', { skillId: 3 });
+    await room.waitForNextSimulationTick();
+  }
+
+  it('useSkill in range deals 69 damage and reduces MP from 50 to 41', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+
+      await castPowerStrike(client, room, gremlin.id);
+
+      expect(player.mp).toBe(41);
+      expect(room.state.mobs.has(gremlin.id)).toBe(false);
+      expect(player.xp).toBe(44);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('useSkill at 4.1 m does not change mob HP or player MP', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerNear(room, client.sessionId, gremlin.x + 4.1, gremlin.z);
+      const hpBefore = gremlin.hp;
+      const mpBefore = player.mp;
+
+      await castPowerStrike(client, room, gremlin.id);
+
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
+      expect(player.mp).toBe(mpBefore);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('useSkill at 3.9 m succeeds', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerNear(room, client.sessionId, gremlin.x + 3.9, gremlin.z);
+
+      await castPowerStrike(client, room, gremlin.id);
+
+      expect(player.mp).toBe(41);
+      expect(room.state.mobs.has(gremlin.id)).toBe(false);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('useSkill rejects when player MP is below 9', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      player.mp = 8;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+      const hpBefore = gremlin.hp;
+
+      await castPowerStrike(client, room, gremlin.id);
+
+      expect(player.mp).toBe(8);
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('sets powerStrikeCooldownEndMs to nowMs + 3000 on success', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(5000);
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: clock.now,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+
+      await castPowerStrike(client, room, gremlin.id);
+
+      expect(player.powerStrikeCooldownEndMs).toBe(8000);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects second useSkill at t+2999 and accepts at t+3000', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(1000);
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: clock.now,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const goblin = findMobByNpcId(room, 20003)!;
+      placePlayerNear(room, client.sessionId, goblin.x, goblin.z);
+
+      await castPowerStrike(client, room, goblin.id);
+      const hpAfterFirst = room.state.mobs.get(goblin.id)!.hp;
+      expect(player.mp).toBe(41);
+
+      clock.advance(2999);
+      await castPowerStrike(client, room, goblin.id);
+      expect(room.state.mobs.get(goblin.id)!.hp).toBeCloseTo(hpAfterFirst, 3);
+      expect(player.mp).toBe(41);
+
+      clock.advance(1);
+      await castPowerStrike(client, room, goblin.id);
+      expect(player.mp).toBe(32);
+      const goblinAfter = room.state.mobs.get(goblin.id);
+      if (goblinAfter) {
+        expect(hpAfterFirst - goblinAfter.hp).toBeCloseTo(69, 3);
+      } else {
+        expect(hpAfterFirst).toBeLessThanOrEqual(69);
+      }
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('ignores useSkill without target, on dead mob, and unknown skillId', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerNear(room, client.sessionId, gremlin.x, gremlin.z);
+      const hpBefore = gremlin.hp;
+      const mpBefore = player.mp;
+
+      client.send('useSkill', { skillId: 3 });
+      await room.waitForNextSimulationTick();
+      expect(player.mp).toBe(mpBefore);
+      expect(gremlin.hp).toBeCloseTo(hpBefore, 3);
+
+      client.send('setTarget', { mobId: gremlin.id });
+      client.send('useSkill', { skillId: 99 });
+      await room.waitForNextSimulationTick();
+      expect(player.mp).toBe(mpBefore);
+
+      while (room.state.mobs.has(gremlin.id)) {
+        const combat = room['playerCombat'].get(client.sessionId)!;
+        combat.nextAttackAtMs = 0;
+        client.send('attack', {});
+        await room.waitForNextSimulationTick();
+      }
+
+      client.send('setTarget', { mobId: gremlin.id });
+      client.send('useSkill', { skillId: 3 });
+      await room.waitForNextSimulationTick();
+      expect(player.mp).toBe(mpBefore);
+
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+});

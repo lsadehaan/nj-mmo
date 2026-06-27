@@ -16,17 +16,22 @@ import {
   loadCharacter,
   saveCharacter,
 } from '../db/character-repository';
-import { experience, mobDrops, type Character } from '../db/schema';
+import { experience, mobDrops, skills, type Character } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { FIXTURE_DATA_DIR } from '../seed/seed';
+import { seedSkills } from '../seed/seeders/skills.seeder';
 import { TownState, PlayerState } from './schema/TownState';
 import { MobState } from './schema/MobState';
 import { tickMobAi } from './mob-ai';
 import {
   createPlayerCombatState,
   resolvePlayerAttack,
+  resolvePowerStrike,
   resolveMobAttack,
   applyKillRewards,
   type PlayerCombatState,
   type KillEvent,
+  type PowerStrikeSkill,
 } from './combat-resolver';
 import {
   initializeMobs,
@@ -69,6 +74,7 @@ export class TownRoom extends Room<{ state: TownState }> {
   private combatRng!: SeededRng;
   private experienceCurve: ExperienceCurveRow[] = [];
   private dropsByNpcId = new Map<number, DropRow[]>();
+  private powerStrikeSkill!: PowerStrikeSkill;
   private nowMs = () => Date.now();
 
   override onCreate(options: TownRoomOptions = {}): void {
@@ -105,6 +111,15 @@ export class TownRoom extends Room<{ state: TownState }> {
       if (!combat || !combat.targetMobId) return;
       combat.attackPending = true;
     });
+
+    this.onMessage('useSkill', (client, message: { skillId: number }) => {
+      if (message.skillId !== 3) return;
+      const combat = this.playerCombat.get(client.sessionId);
+      if (!combat || !combat.targetMobId) return;
+      const mob = this.mobRuntime.get(combat.targetMobId);
+      if (!mob || mob.hp <= 0) return;
+      combat.skillPending = true;
+    });
   }
 
   private loadCombatData(): void {
@@ -120,6 +135,24 @@ export class TownRoom extends Room<{ state: TownState }> {
       });
       this.dropsByNpcId.set(row.npcId, list);
     }
+
+    const powerStrike =
+      this.db.select().from(skills).where(eq(skills.skillId, 3)).get() ??
+      this.ensurePowerStrikeSeeded();
+    if (!powerStrike) {
+      throw new Error('Power Strike (skillId 3) not found in database');
+    }
+    this.powerStrikeSkill = {
+      powerL1: powerStrike.powerL1,
+      mpConsumeL1: powerStrike.mpConsumeL1,
+      reuseDelay: powerStrike.reuseDelay,
+      castRange: powerStrike.castRange,
+    };
+  }
+
+  private ensurePowerStrikeSeeded() {
+    seedSkills(this.db, FIXTURE_DATA_DIR);
+    return this.db.select().from(skills).where(eq(skills.skillId, 3)).get();
   }
 
   private simulate(deltaTimeMs: number): void {
@@ -155,6 +188,39 @@ export class TownRoom extends Room<{ state: TownState }> {
       tickMobAi(runtime, aiPlayers, dt, this.combatRng, now);
       const mobState = this.state.mobs.get(runtime.id);
       if (mobState) syncMobState(mobState, runtime);
+    }
+
+    for (const [sessionId, combat] of this.playerCombat.entries()) {
+      if (!combat.skillPending || !combat.targetMobId) continue;
+      const player = this.state.players.get(sessionId);
+      const runtime = this.mobRuntime.get(combat.targetMobId);
+      if (!player || !runtime) continue;
+
+      const result = resolvePowerStrike({
+        sessionId,
+        playerX: player.x,
+        playerZ: player.z,
+        playerMp: player.mp,
+        combat,
+        mob: runtime,
+        skill: this.powerStrikeSkill,
+        nowMs: now,
+        rng: this.combatRng,
+      });
+
+      if (result.mpCost > 0) {
+        player.mp -= result.mpCost;
+        player.powerStrikeCooldownEndMs = result.cooldownEndMs;
+        this.scheduleDebouncedSave(sessionId);
+      }
+
+      if (result.damage > 0) {
+        const mobState = this.state.mobs.get(runtime.id);
+        if (mobState) syncMobState(mobState, runtime);
+        if (result.killed) {
+          this.handleMobKill(sessionId, runtime);
+        }
+      }
     }
 
     for (const [sessionId, combat] of this.playerCombat.entries()) {
