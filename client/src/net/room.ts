@@ -1,5 +1,5 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
-import { setConnected, setCharacterId, setOthers } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
 
 const DEFAULT_ENDPOINT =
@@ -59,13 +59,54 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     );
   };
 
-  const syncLocal = (player: { x: number; y: number; z: number }): void => {
+  type PlayerSchema = {
+    x: number;
+    y: number;
+    z: number;
+    xp: number;
+    level: number;
+  };
+
+  type MobSchema = {
+    npcId: number;
+    x: number;
+    y: number;
+    z: number;
+    hp: number;
+    maxHp: number;
+  };
+
+  const publishMobs = (): void => {
+    setMobs(
+      [...room.state.mobs.entries()].map(([id, mob]) => {
+        const state = mob as MobSchema;
+        return {
+          id,
+          npcId: state.npcId,
+          x: state.x,
+          y: state.y,
+          z: state.z,
+          hp: state.hp,
+          maxHp: state.maxHp,
+        };
+      })
+    );
+  };
+
+  const syncLocal = (player: PlayerSchema): void => {
     game.syncLocalPlayer(player.x, player.y, player.z);
+    setPlayer({
+      x: player.x,
+      y: player.y,
+      z: player.z,
+      xp: player.xp,
+      level: player.level,
+    });
   };
 
   callbacks.onAdd('players', (player, sessionId) => {
     const id = sessionId as string;
-    const state = player as { x: number; y: number; z: number };
+    const state = player as PlayerSchema;
     if (id === localId) {
       syncLocal(state);
       callbacks.onChange(state, () => syncLocal(state));
@@ -88,8 +129,6 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     }
   });
 
-  type MobSchema = { x: number; y: number; z: number; hp: number; maxHp: number };
-
   const syncMobFromState = (mobId: string, mob: MobSchema): void => {
     game.syncMob({
       id: mobId,
@@ -99,6 +138,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       hp: mob.hp,
       maxHp: mob.maxHp,
     });
+    publishMobs();
   };
 
   callbacks.onAdd('mobs', (mob, mobId) => {
@@ -110,5 +150,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
 
   callbacks.onRemove('mobs', (_mob, mobId) => {
     game.removeMob(mobId as string);
+    publishMobs();
   });
+
+  publishMobs();
 }

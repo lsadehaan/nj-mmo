@@ -2,6 +2,18 @@ export interface GameStatePlayer {
   x: number;
   y: number;
   z: number;
+  xp: number;
+  level: number;
+}
+
+export interface GameStateMob {
+  id: string;
+  npcId: number;
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  maxHp: number;
 }
 
 export interface OtherPlayer {
@@ -17,6 +29,8 @@ export interface GameState {
   player: GameStatePlayer;
   target: { x: number | null; z: number | null };
   others: OtherPlayer[];
+  mobs: GameStateMob[];
+  targetMobId: string | null;
   characterId: string | null;
   /** Stays 0 while movement is server-authoritative (no client step()). */
   localMovementTicks: number;
@@ -26,6 +40,9 @@ declare global {
   interface Window {
     __GAME_STATE__: GameState;
     __handleGroundClick__?: (clientX: number, clientY: number) => void;
+    __handleMobTarget__?: (mobId: string) => void;
+    __sendMoveIntent__?: (targetX: number, targetZ: number) => void;
+    __attack__?: () => void;
     __consentLeave__?: () => Promise<void>;
   }
 }
@@ -33,9 +50,11 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0 },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1 },
   target: { x: null, z: null },
   others: [],
+  mobs: [],
+  targetMobId: null,
   characterId: null,
   localMovementTicks: 0,
 };
@@ -46,6 +65,8 @@ export function initGameState(): GameState {
     player: { ...initialState.player },
     target: { ...initialState.target },
     others: [],
+    mobs: [],
+    targetMobId: null,
     characterId: null,
     localMovementTicks: 0,
   };
@@ -78,6 +99,16 @@ export function setPlayer(player: GameStatePlayer): void {
   state.player.x = player.x;
   state.player.y = player.y;
   state.player.z = player.z;
+  state.player.xp = player.xp;
+  state.player.level = player.level;
+}
+
+export function setMobs(mobs: GameStateMob[]): void {
+  getGameState().mobs = mobs.map((mob) => ({ ...mob }));
+}
+
+export function setTargetMobId(targetMobId: string | null): void {
+  getGameState().targetMobId = targetMobId;
 }
 
 export function setOthers(others: OtherPlayer[]): void {

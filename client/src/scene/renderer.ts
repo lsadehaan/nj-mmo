@@ -5,7 +5,7 @@ import { scatterProps } from './scatter';
 import { type MovementIntent } from '@nj/game-core';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
-import { setPlayer, setTarget } from '../test-hook';
+import { getGameState, setPlayer, setTarget } from '../test-hook';
 import {
   removeRemotePlayer,
   upsertRemotePlayer,
@@ -13,6 +13,7 @@ import {
 } from './remote-players';
 import {
   faceHpBarsToCamera,
+  listMobMeshes,
   mobStateToVisual,
   removeMob,
   syncMobVisual,
@@ -43,10 +44,30 @@ export interface GameRenderer {
   }) => void;
   removeMob: (mobId: string) => void;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
+  setMobTargetHandler: (handler: (mobId: string) => void) => void;
   dispose: () => void;
 }
 
+function findMobId(object: THREE.Object3D): string | null {
+  let current: THREE.Object3D | null = object;
+  while (current) {
+    const mobId = current.userData['mobId'];
+    if (typeof mobId === 'string' && mobId.length > 0) return mobId;
+    current = current.parent;
+  }
+  return null;
+}
+
 function addBox(spec: SceneObjectSpec): THREE.Mesh {
+  const geometry = new THREE.BoxGeometry(spec.width, spec.height, spec.depth);
+  const material = new THREE.MeshLambertMaterial({
+    color: spec.color,
+    flatShading: true,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(spec.x, spec.y, spec.z);
+  return mesh;
+}
   const geometry = new THREE.BoxGeometry(spec.width, spec.height, spec.depth);
   const material = new THREE.MeshLambertMaterial({
     color: spec.color,
@@ -132,6 +153,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
   let moveIntentHandler: ((intent: MovementIntent) => void) | null = null;
+  let mobTargetHandler: ((mobId: string) => void) | null = null;
   const remoteMeshes: RemotePlayerMeshMap = new Map();
   const mobMeshes: MobMeshMap = new Map();
 
@@ -150,11 +172,16 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       { x, y, z },
       DEFAULT_CAMERA_OFFSET
     );
-    setPlayer({ x, y, z });
+    const player = getGameState().player;
+    setPlayer({ ...player, x, y, z });
   };
 
   const setMoveIntentHandler = (handler: (intent: MovementIntent) => void): void => {
     moveIntentHandler = handler;
+  };
+
+  const setMobTargetHandler = (handler: (mobId: string) => void): void => {
+    mobTargetHandler = handler;
   };
 
   const syncRemotePlayer = (sessionId: string, x: number, y: number, z: number): void => {
@@ -200,6 +227,22 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       rect.top
     );
     raycaster.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera);
+
+    const mobGroups = listMobMeshes(mobMeshes);
+    if (mobGroups.length > 0) {
+      for (const group of mobGroups) {
+        group.updateMatrixWorld(true);
+      }
+      const mobHits = raycaster.intersectObjects(mobGroups, true);
+      if (mobHits.length > 0) {
+        const mobId = findMobId(mobHits[0].object);
+        if (mobId) {
+          mobTargetHandler?.(mobId);
+          return;
+        }
+      }
+    }
+
     let hits = raycaster.intersectObject(terrainMesh, false);
 
     if (hits.length === 0) {
@@ -241,6 +284,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     syncMob,
     removeMob: removeMobById,
     setMoveIntentHandler,
+    setMobTargetHandler,
     dispose,
   };
 }
