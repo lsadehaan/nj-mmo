@@ -2,6 +2,7 @@ import { Room, Client } from 'colyseus';
 import {
   step,
   createInitialMoveState,
+  isValidMoveIntent,
   type MovementIntent,
   type PlayerMoveState,
   SPAWN_X,
@@ -24,6 +25,14 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.setState(new TownState());
     this.autoDispose = true;
     this.setSimulationInterval((deltaTimeMs) => this.simulate(deltaTimeMs), 50);
+
+    this.onMessage('move', (client, message: { targetX: number; targetZ: number }) => {
+      if (!isValidMoveIntent(message.targetX, message.targetZ)) return;
+      this.pendingIntents.set(client.sessionId, {
+        targetX: message.targetX,
+        targetZ: message.targetZ,
+      });
+    });
   }
 
   private simulate(deltaTimeMs: number): void {

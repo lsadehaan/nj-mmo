@@ -70,4 +70,41 @@ describe('TownRoom', () => {
 
     await client.leave();
   });
+
+  it('moves the player when a valid move intent is received', async () => {
+    const room = await colyseus.createRoom('town', {});
+    const client = await colyseus.connectTo(room);
+    const player = room.state.players.get(client.sessionId)!;
+
+    client.send('move', { targetX: 20, targetZ: 0 });
+
+    for (let i = 0; i < 10; i++) {
+      await room.waitForNextSimulationTick();
+    }
+
+    expect(player.x).toBeGreaterThan(0);
+    expect(player.z).toBe(0);
+
+    await client.leave();
+  });
+
+  it('ignores invalid move intents without changing position', async () => {
+    const room = await colyseus.createRoom('town', {});
+    const client = await colyseus.connectTo(room);
+    const player = room.state.players.get(client.sessionId)!;
+    const startX = player.x;
+    const startZ = player.z;
+
+    client.send('move', { targetX: Number.NaN, targetZ: 0 });
+    client.send('move', { targetX: 200, targetZ: 0 });
+
+    for (let i = 0; i < 5; i++) {
+      await room.waitForNextSimulationTick();
+    }
+
+    expect(player.x).toBe(startX);
+    expect(player.z).toBe(startZ);
+
+    await client.leave();
+  });
 });
