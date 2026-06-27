@@ -46,6 +46,7 @@ declare global {
     __handleMobTarget__?: (mobId: string) => void;
     __sendMoveIntent__?: (targetX: number, targetZ: number) => void;
     __attack__?: () => void;
+    __useSkill__?: () => void;
     __consentLeave__?: () => Promise<void>;
   }
 }
