@@ -34,5 +34,12 @@ export default defineConfig({
     passWithNoTests: true,
     include: ['src/**/*.spec.ts'],
     testTimeout: 30000,
+    // Room-integration tests drive TownRoom.simulate() manually and
+    // synchronously (see the `tick()`/`deliver()` helpers), so the background
+    // simulation interval is disabled here. This removes wall-clock tick sleeps
+    // and the transport/tick races they caused. Production still ticks at 50 ms.
+    env: {
+      NJ_AUTOSIM: '0',
+    },
   },
 });

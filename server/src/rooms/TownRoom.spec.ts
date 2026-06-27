@@ -13,6 +13,7 @@ import {
   loadCharacterItems,
 } from '../db/character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
+import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
 import { TownState } from './schema/TownState';
 import type { MobRuntime } from './spawn-manager';
 import * as mobAi from './mob-ai';
@@ -141,10 +142,49 @@ function placePlayerAndMobForCombat(
   placePlayerNear(room, sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
 }
 
-async function settleRoomMessages(
-  room: Awaited<ReturnType<ColyseusTestServer['createRoom']>>
-) {
-  await room.waitForNextSimulationTick();
+type TestRoom = Awaited<ReturnType<ColyseusTestServer['createRoom']>>;
+type TestClient = { send: (type: string, payload?: unknown) => void };
+
+// Tests run with NJ_AUTOSIM=0, so TownRoom has no background simulation
+// interval. They advance the world by calling simulate() directly — fully
+// deterministic and synchronous, with no wall-clock sleeps or tick/transport
+// races.
+const SIM_DELTA_MS = DEFAULT_SIM_INTERVAL_MS;
+
+/** Advance the authoritative simulation by exactly one fixed tick. */
+function tick(room: TestRoom): void {
+  (room as unknown as { simulate(deltaMs: number): void }).simulate(SIM_DELTA_MS);
+}
+
+/**
+ * Deterministically deliver one or more client→server messages. `waitForMessage`
+ * resolves only after the room has RECEIVED and run the handler for the final
+ * message, so the caller never races the async transport. Messages are ordered,
+ * so awaiting the last one guarantees the earlier ones were handled too.
+ */
+async function deliver(
+  room: TestRoom,
+  client: TestClient,
+  messages: Array<[string, unknown]>
+): Promise<void> {
+  const lastType = messages[messages.length - 1][0];
+  const delivered = room.waitForMessage(lastType);
+  for (const [type, payload] of messages) client.send(type, payload);
+  await delivered;
+}
+
+/**
+ * Deliver intent messages then advance exactly one simulation tick so the room's
+ * `simulate()` consumes the resulting pending flags. Combines deterministic
+ * delivery with deterministic processing.
+ */
+async function deliverAndTick(
+  room: TestRoom,
+  client: TestClient,
+  messages: Array<[string, unknown]>
+): Promise<void> {
+  await deliver(room, client, messages);
+  tick(room);
 }
 
 describe('TownRoom', () => {
@@ -197,7 +237,7 @@ describe('TownRoom', () => {
     room['pendingIntents'].set(client.sessionId, { targetX: 20, targetZ: 0 });
 
     for (let i = 0; i < 10; i++) {
-      await room.waitForNextSimulationTick();
+      tick(room);
     }
 
     expect(player.x).toBeGreaterThan(0);
@@ -211,10 +251,10 @@ describe('TownRoom', () => {
     const client = await colyseus.connectTo(room);
     const player = room.state.players.get(client.sessionId)!;
 
-    client.send('move', { targetX: 20, targetZ: 0 });
+    await deliver(room, client, [['move', { targetX: 20, targetZ: 0 }]]);
 
     for (let i = 0; i < 10; i++) {
-      await room.waitForNextSimulationTick();
+      tick(room);
     }
 
     expect(player.x).toBeGreaterThan(0);
@@ -230,11 +270,13 @@ describe('TownRoom', () => {
     const startX = player.x;
     const startZ = player.z;
 
-    client.send('move', { targetX: Number.NaN, targetZ: 0 });
-    client.send('move', { targetX: 200, targetZ: 0 });
+    await deliver(room, client, [
+      ['move', { targetX: Number.NaN, targetZ: 0 }],
+      ['move', { targetX: 200, targetZ: 0 }],
+    ]);
 
     for (let i = 0; i < 5; i++) {
-      await room.waitForNextSimulationTick();
+      tick(room);
     }
 
     expect(player.x).toBe(startX);
@@ -249,12 +291,15 @@ describe('TownRoom', () => {
     const clientB = await colyseus.sdk.joinById(room.roomId, {}, TownState);
     const sessionA = clientA.sessionId;
 
-    clientA.send('move', { targetX: 20, targetZ: 0 });
+    await deliver(room, clientA, [['move', { targetX: 20, targetZ: 0 }]]);
+    // Advance the server synchronously so A actually moves...
+    for (let i = 0; i < 10; i++) tick(room);
 
+    // ...then wait (bounded) for the state patch to propagate to B's client.
     const deadline = Date.now() + 2000;
     let remoteOnB = clientB.state.players.get(sessionA);
     while (Date.now() < deadline && (!remoteOnB || remoteOnB.x <= 0)) {
-      await room.waitForNextSimulationTick();
+      await new Promise((resolve) => setTimeout(resolve, 20));
       remoteOnB = clientB.state.players.get(sessionA);
     }
 
@@ -321,9 +366,9 @@ describe('TownRoom', () => {
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       const characterId = await client.waitForMessage('characterId');
 
-      client.send('move', { targetX: 10, targetZ: 5 });
+      await deliver(room, client, [['move', { targetX: 10, targetZ: 5 }]]);
       for (let i = 0; i < 20; i++) {
-        await room.waitForNextSimulationTick();
+        tick(room);
       }
 
       const player = room.state.players.get(client.sessionId)!;
@@ -350,9 +395,9 @@ describe('TownRoom', () => {
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       const characterId = await client.waitForMessage('characterId');
 
-      client.send('move', { targetX: 10, targetZ: 5 });
+      await deliver(room, client, [['move', { targetX: 10, targetZ: 5 }]]);
       for (let i = 0; i < 20; i++) {
-        await room.waitForNextSimulationTick();
+        tick(room);
       }
 
       const player = room.state.players.get(client.sessionId)!;
@@ -407,9 +452,9 @@ describe('TownRoom', () => {
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       const characterId = await client.waitForMessage('characterId');
 
-      client.send('move', { targetX: 10, targetZ: 0 });
+      await deliver(room, client, [['move', { targetX: 10, targetZ: 0 }]]);
       for (let i = 0; i < 15; i++) {
-        await room.waitForNextSimulationTick();
+        tick(room);
       }
 
       const player = room.state.players.get(client.sessionId)!;
@@ -435,8 +480,8 @@ describe('TownRoom', () => {
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       const characterId = await client.waitForMessage('characterId');
 
-      client.send('move', { targetX: 0.3, targetZ: 0 });
-      await room.waitForNextSimulationTick();
+      await deliver(room, client, [['move', { targetX: 0.3, targetZ: 0 }]]);
+      tick(room);
 
       const movedX = room.state.players.get(client.sessionId)!.x;
       expect(movedX).toBeGreaterThan(0);
@@ -474,9 +519,10 @@ describe('TownRoom combat', () => {
       placePlayerAndMobForCombat(room, client.sessionId, gremlin);
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
-      client.send('setTarget', { mobId: gremlin.id });
-      client.send('attack', {});
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
 
       const gremlinAfter = room.state.mobs.get(gremlin.id)!;
       expect(hpBefore - gremlinAfter.hp).toBeCloseTo(17, 3);
@@ -497,9 +543,10 @@ describe('TownRoom combat', () => {
       placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 20, OUT_OF_PEACE.z);
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
-      client.send('setTarget', { mobId: gremlin.id });
-      client.send('attack', {});
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
       await client.leave();
@@ -515,13 +562,12 @@ describe('TownRoom combat', () => {
     const gremlin = findMobByNpcId(room, 20001)!;
     placePlayerAndMobForCombat(room, client.sessionId, gremlin);
 
-    client.send('setTarget', { mobId: gremlin.id });
+    await deliver(room, client, [['setTarget', { mobId: gremlin.id }]]);
 
     while (room.state.mobs.has(gremlin.id)) {
       const combat = room['playerCombat'].get(client.sessionId)!;
       combat.nextAttackAtMs = 0;
-      client.send('attack', {});
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [['attack', {}]]);
     }
   }
 
@@ -595,11 +641,11 @@ describe('TownRoom combat', () => {
       expect(room.state.mobs.has(gremlinId)).toBe(false);
 
       clock.advance(26_999);
-      await room.waitForNextSimulationTick();
+      tick(room);
       expect(room.state.mobs.has(gremlinId)).toBe(false);
 
       clock.advance(1);
-      await room.waitForNextSimulationTick();
+      tick(room);
       expect(room.state.mobs.has(gremlinId)).toBe(true);
       expect(room.state.mobs.get(gremlinId)!.hp).toBeCloseTo(41.145, 3);
 
@@ -617,7 +663,7 @@ describe('TownRoom combat', () => {
       const goblin = findMobByNpcId(room, 20003)!;
       placePlayerNear(room, client.sessionId, goblin.x + 40, goblin.z);
 
-      await room.waitForNextSimulationTick();
+      tick(room);
 
       const runtime = room['mobRuntime'].get(goblin.id)!;
       expect(runtime.targetSessionId).toBe(client.sessionId);
@@ -636,19 +682,20 @@ describe('TownRoom combat', () => {
       placePlayerNear(room, client.sessionId, gremlin.x + 5, gremlin.z);
       relocateMob(room, gremlin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
 
-      await room.waitForNextSimulationTick();
+      tick(room);
       let runtime = room['mobRuntime'].get(gremlin.id)!;
       expect(runtime.targetSessionId).toBeNull();
 
       placePlayerAndMobForCombat(room, client.sessionId, gremlin);
-      client.send('setTarget', { mobId: gremlin.id });
-      client.send('attack', {});
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
 
       runtime = room['mobRuntime'].get(gremlin.id)!;
       expect(runtime.wasDamaged).toBe(true);
 
-      await room.waitForNextSimulationTick();
+      tick(room);
       runtime = room['mobRuntime'].get(gremlin.id)!;
       expect(runtime.targetSessionId).toBe(client.sessionId);
       await client.leave();
@@ -664,9 +711,10 @@ describe('TownRoom Power Strike', () => {
     room: Awaited<ReturnType<ColyseusTestServer['createRoom']>>,
     mobId: string
   ) {
-    client.send('setTarget', { mobId });
-    client.send('useSkill', { skillId: 3 });
-    await room.waitForNextSimulationTick();
+    await deliverAndTick(room, client, [
+      ['setTarget', { mobId }],
+      ['useSkill', { skillId: 3 }],
+    ]);
   }
 
   it('useSkill in range deals 69 damage and reduces MP from 50 to 41', async () => {
@@ -839,26 +887,26 @@ describe('TownRoom Power Strike', () => {
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
       const mpBefore = player.mp;
 
-      client.send('useSkill', { skillId: 3 });
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [['useSkill', { skillId: 3 }]]);
       expect(player.mp).toBe(mpBefore);
       expect(gremlin.hp).toBeCloseTo(hpBefore, 3);
 
-      client.send('setTarget', { mobId: gremlin.id });
-      client.send('useSkill', { skillId: 99 });
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 99 }],
+      ]);
       expect(player.mp).toBe(mpBefore);
 
       while (room.state.mobs.has(gremlin.id)) {
         const combat = room['playerCombat'].get(client.sessionId)!;
         combat.nextAttackAtMs = 0;
-        client.send('attack', {});
-        await room.waitForNextSimulationTick();
+        await deliverAndTick(room, client, [['attack', {}]]);
       }
 
-      client.send('setTarget', { mobId: gremlin.id });
-      client.send('useSkill', { skillId: 3 });
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 3 }],
+      ]);
       expect(player.mp).toBe(mpBefore);
 
       await client.leave();
@@ -894,8 +942,9 @@ describe('TownRoom NPC shop and peace zone', () => {
       const player = room.state.players.get(client.sessionId)!;
       placePlayerAtNpc(room, client.sessionId, KATERINA);
 
-      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
-      await settleRoomMessages(room);
+      await deliver(room, client, [
+        ['buy', { npcId: KATERINA, itemId: POTION, quantity: 1 }],
+      ]);
 
       expect(player.adena).toBe(897);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(1);
@@ -913,8 +962,9 @@ describe('TownRoom NPC shop and peace zone', () => {
       const player = room.state.players.get(client.sessionId)!;
       placePlayerNearNpcOffset(room, client.sessionId, KATERINA, 3.1);
 
-      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
-      await settleRoomMessages(room);
+      await deliver(room, client, [
+        ['buy', { npcId: KATERINA, itemId: POTION, quantity: 1 }],
+      ]);
 
       expect(player.adena).toBe(1000);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(0);
@@ -933,7 +983,9 @@ describe('TownRoom NPC shop and peace zone', () => {
       player.adena = 50;
       placePlayerAtNpc(room, client.sessionId, KATERINA);
 
-      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+      await deliver(room, client, [
+        ['buy', { npcId: KATERINA, itemId: POTION, quantity: 1 }],
+      ]);
 
       expect(player.adena).toBe(50);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(0);
@@ -975,8 +1027,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       client.onMessage('interactResult', () => {
         received = true;
       });
-      client.send('interact', { npcId: ROXXY });
-      await settleRoomMessages(room);
+      await deliver(room, client, [['interact', { npcId: ROXXY }]]);
 
       expect(received).toBe(false);
       await client.leave();
@@ -993,14 +1044,16 @@ describe('TownRoom NPC shop and peace zone', () => {
       const player = room.state.players.get(client.sessionId)!;
       placePlayerAtNpc(room, client.sessionId, KATERINA);
 
-      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
-      await settleRoomMessages(room);
+      await deliver(room, client, [
+        ['buy', { npcId: KATERINA, itemId: POTION, quantity: 1 }],
+      ]);
       expect(player.adena).toBe(897);
       room['playerItems'].set(client.sessionId, { [POTION]: 2 });
       room['syncItemsToPlayerState'](client.sessionId);
 
-      client.send('sell', { npcId: KATERINA, itemId: POTION, quantity: 1 });
-      await settleRoomMessages(room);
+      await deliver(room, client, [
+        ['sell', { npcId: KATERINA, itemId: POTION, quantity: 1 }],
+      ]);
 
       expect(player.adena).toBe(948);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(1);
@@ -1019,8 +1072,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       player.hp = 40;
       placePlayerAtNpc(room, client.sessionId, ROXXY);
 
-      client.send('npcAction', { npcId: ROXXY, action: 'heal' });
-      await settleRoomMessages(room);
+      await deliver(room, client, [['npcAction', { npcId: ROXXY, action: 'heal' }]]);
 
       expect(player.hp).toBe(100);
       await client.leave();
@@ -1036,8 +1088,9 @@ describe('TownRoom NPC shop and peace zone', () => {
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       placePlayerAtNpc(room, client.sessionId, ROXXY);
 
-      client.send('npcAction', { npcId: ROXXY, action: 'starterKit' });
-      await settleRoomMessages(room);
+      await deliver(room, client, [
+        ['npcAction', { npcId: ROXXY, action: 'starterKit' }],
+      ]);
 
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(3);
       const characterId = room['characterIds'].get(client.sessionId)!;
@@ -1055,10 +1108,12 @@ describe('TownRoom NPC shop and peace zone', () => {
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       placePlayerAtNpc(room, client.sessionId, ROXXY);
 
-      client.send('npcAction', { npcId: ROXXY, action: 'starterKit' });
-      await settleRoomMessages(room);
-      client.send('npcAction', { npcId: ROXXY, action: 'starterKit' });
-      await settleRoomMessages(room);
+      await deliver(room, client, [
+        ['npcAction', { npcId: ROXXY, action: 'starterKit' }],
+      ]);
+      await deliver(room, client, [
+        ['npcAction', { npcId: ROXXY, action: 'starterKit' }],
+      ]);
 
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(3);
       await client.leave();
@@ -1075,7 +1130,9 @@ describe('TownRoom NPC shop and peace zone', () => {
       const characterId = await client.waitForMessage('characterId');
       placePlayerAtNpc(room, client.sessionId, KATERINA);
 
-      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+      await deliver(room, client, [
+        ['buy', { npcId: KATERINA, itemId: POTION, quantity: 1 }],
+      ]);
       await client.leave(true);
 
       expect(loadCharacter(getDb(dbPath), characterId)!.adena).toBe(897);
@@ -1095,9 +1152,10 @@ describe('TownRoom NPC shop and peace zone', () => {
       placePlayerNear(room, client.sessionId, 0, 0);
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
-      client.send('setTarget', { mobId: gremlin.id });
-      client.send('attack', {});
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
       await client.leave();
@@ -1117,9 +1175,10 @@ describe('TownRoom NPC shop and peace zone', () => {
       placePlayerNear(room, client.sessionId, 0, 0);
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
-      client.send('setTarget', { mobId: gremlin.id });
-      client.send('useSkill', { skillId: 3 });
-      await room.waitForNextSimulationTick();
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 3 }],
+      ]);
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
       expect(player.mp).toBe(50);
@@ -1151,7 +1210,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       runtime.nextAttackAtMs = 0;
 
       const hpBefore = player.hp;
-      await room.waitForNextSimulationTick();
+      tick(room);
 
       expect(player.hp).toBe(hpBefore);
       await client.leave();

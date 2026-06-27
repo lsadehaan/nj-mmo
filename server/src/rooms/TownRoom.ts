@@ -55,10 +55,26 @@ export interface TownRoomOptions {
   combatSeed?: number;
   combatRng?: SeededRng;
   nowMs?: () => number;
+  /** Wall-clock period (ms) of the authoritative simulation tick. Default 50. */
+  simulationIntervalMs?: number;
+  /**
+   * When false, the room does NOT start a background simulation interval. Tests
+   * set this (via the `NJ_AUTOSIM=0` env) so they can drive `simulate()`
+   * deterministically and synchronously, eliminating the wall-clock
+   * tick/transport races that made room-integration tests slow and flaky.
+   * Production leaves it `true`.
+   */
+  autoSimulate?: boolean;
 }
 
 const DEFAULT_DB_PATH = process.env['NJ_DB_PATH'] ?? 'data/game.db';
 const DEFAULT_SAVE_DEBOUNCE_MS = 5000;
+export const DEFAULT_SIM_INTERVAL_MS = 50;
+
+function resolveSimIntervalMs(option?: number): number {
+  if (typeof option === 'number' && option > 0) return option;
+  return DEFAULT_SIM_INTERVAL_MS;
+}
 
 interface PendingRespawn {
   runtime: MobRuntime;
@@ -99,7 +115,13 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.initializeNpcs();
     this.mobRuntime = initializeMobs(this.db, this.state);
     this.autoDispose = true;
-    this.setSimulationInterval((deltaTimeMs) => this.simulate(deltaTimeMs), 50);
+    const autoSimulate = options.autoSimulate ?? process.env['NJ_AUTOSIM'] !== '0';
+    if (autoSimulate) {
+      this.setSimulationInterval(
+        (deltaTimeMs) => this.simulate(deltaTimeMs),
+        resolveSimIntervalMs(options.simulationIntervalMs)
+      );
+    }
 
     this.onMessage('move', (client, message: { targetX: number; targetZ: number }) => {
       if (!isValidMoveIntent(message.targetX, message.targetZ)) return;
