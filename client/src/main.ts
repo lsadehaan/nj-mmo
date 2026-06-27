@@ -6,6 +6,7 @@ import {
   startPowerStrikeCooldownLoop,
 } from './hud/power-strike-cooldown';
 import { mountShopWindow } from './ui/shop-window';
+import { mountInventoryWindow } from './ui/inventory-window';
 import { mountNpcDialog } from './ui/npc-dialog';
 import { mountInteractPrompt } from './npc-interaction';
 import { createRenderer, startRenderLoop } from './scene/renderer';
@@ -14,6 +15,7 @@ async function boot(): Promise<void> {
   initGameState();
   mountPowerStrikeCooldown();
   mountShopWindow();
+  mountInventoryWindow();
   mountNpcDialog();
   mountInteractPrompt();
   startPowerStrikeCooldownLoop(() => getGameState().player.powerStrikeCooldownEndMs);

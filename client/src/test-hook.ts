@@ -71,6 +71,8 @@ declare global {
     __buyItem__?: (npcId: number, itemId: number, quantity?: number) => void;
     __sellItem__?: (npcId: number, itemId: number, quantity?: number) => void;
     __npcAction__?: (npcId: number, action: 'heal' | 'starterKit') => void;
+    __equipItem__?: (itemId: number) => void;
+    __openInventory__?: () => void;
     __consentLeave__?: () => Promise<void>;
   }
 }

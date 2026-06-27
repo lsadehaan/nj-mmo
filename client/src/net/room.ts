@@ -7,6 +7,12 @@ import {
   setShopVisible,
   isShopVisible,
 } from '../ui/shop-window';
+import {
+  mountInventoryWindow,
+  renderInventoryWindow,
+  setInventoryVisible,
+  isInventoryVisible,
+} from '../ui/inventory-window';
 import { mountNpcDialog, renderNpcDialog, setNpcDialogVisible } from '../ui/npc-dialog';
 import {
   findNearestInteractableNpc,
@@ -100,8 +106,12 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     z: number;
     xp: number;
     level: number;
+    hp: number;
+    maxHp: number;
     mp: number;
+    maxMp: number;
     adena: number;
+    equippedWeaponItemId: number;
     powerStrikeCooldownEndMs: number;
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
   };
@@ -191,6 +201,17 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     });
   };
 
+  const refreshInventoryDom = (player: PlayerSchema): void => {
+    renderInventoryWindow({
+      itemCounts: localItemCounts,
+      equippedWeaponItemId: player.equippedWeaponItemId ?? 0,
+      visible: isInventoryVisible(),
+      handlers: {
+        sendEquip: (payload) => room.send('equip', payload),
+      },
+    });
+  };
+
   const syncLocal = (player: PlayerSchema): void => {
     if (prevPowerStrikeCooldownEndMs === 0 && player.powerStrikeCooldownEndMs > 0) {
       game.triggerSkillFlash();
@@ -211,10 +232,12 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     setAdena(player.adena ?? 0);
     setItems(localItemCounts);
     refreshShopDom(player);
+    refreshInventoryDom(player);
     updateInteractPrompt();
   };
 
   mountShopWindow();
+  mountInventoryWindow();
   mountNpcDialog();
   mountInteractPrompt();
 
@@ -232,6 +255,24 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   window.__npcAction__ = (npcId, action) => {
     room.send('npcAction', { npcId, action });
   };
+  window.__equipItem__ = (itemId) => {
+    room.send('equip', { itemId });
+  };
+  window.__openInventory__ = () => {
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    if (local) {
+      renderInventoryWindow({
+        itemCounts: localItemCounts,
+        equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
+        visible: true,
+        handlers: {
+          sendEquip: (payload) => room.send('equip', payload),
+        },
+      });
+    } else {
+      setInventoryVisible(true);
+    }
+  };
 
   const shopPanel = mountShopWindow();
   shopPanel.addEventListener('shop-close', () => setShopOpen(false));
@@ -245,6 +286,26 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     sendInteract(nearest.npcId);
   };
   window.addEventListener('keydown', onInteractKey);
+
+  const onInventoryKey = (ev: KeyboardEvent): void => {
+    if (ev.key !== 'i' && ev.key !== 'I') return;
+    ev.preventDefault();
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    const nextVisible = !isInventoryVisible();
+    if (local) {
+      renderInventoryWindow({
+        itemCounts: localItemCounts,
+        equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
+        visible: nextVisible,
+        handlers: {
+          sendEquip: (payload) => room.send('equip', payload),
+        },
+      });
+    } else {
+      setInventoryVisible(nextVisible);
+    }
+  };
+  window.addEventListener('keydown', onInventoryKey);
 
   room.onMessage('interactResult', (message: { npcId: number; type: string; name: string }) => {
     openNpcUiForInteract(message, {
