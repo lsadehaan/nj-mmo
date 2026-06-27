@@ -195,4 +195,113 @@ describe('TownRoom', () => {
       cleanup();
     }
   });
+
+  it('persists updated coordinates on consented leave', async () => {
+    const { dbPath, cleanup } = tempDbPath();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+
+      client.send('move', { targetX: 10, targetZ: 5 });
+      for (let i = 0; i < 20; i++) {
+        await room.waitForNextSimulationTick();
+      }
+
+      const player = room.state.players.get(client.sessionId)!;
+      expect(player.x).not.toBe(SPAWN_X);
+
+      await client.leave(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const row = loadCharacter(getDb(dbPath), characterId);
+      expect(row!.x).toBeCloseTo(player.x, 3);
+      expect(row!.z).toBeCloseTo(player.z, 3);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('preserves session slot when client reconnects within the window', async () => {
+    const { dbPath, cleanup } = tempDbPath();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const sessionId = client.sessionId;
+      const reconnectionToken = client.reconnectionToken;
+
+      await client.leave(false);
+
+      const dropDeadline = Date.now() + 2000;
+      while (
+        Date.now() < dropDeadline &&
+        room.state.players.get(sessionId)?.connected !== false
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      expect(room.state.players.has(sessionId)).toBe(true);
+      expect(room.state.players.get(sessionId)!.connected).toBe(false);
+
+      const reconnected = await colyseus.sdk.reconnect(reconnectionToken, TownState);
+      expect(reconnected.sessionId).toBe(sessionId);
+      expect(room.state.players.get(sessionId)!.connected).toBe(true);
+
+      await reconnected.leave(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('keeps hp/mp/xp/level unchanged after movement and persistence', async () => {
+    const { dbPath, cleanup } = tempDbPath();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+
+      client.send('move', { targetX: 10, targetZ: 0 });
+      for (let i = 0; i < 15; i++) {
+        await room.waitForNextSimulationTick();
+      }
+
+      const player = room.state.players.get(client.sessionId)!;
+      expect(player.hp).toBe(100);
+      expect(player.mp).toBe(50);
+      expect(player.xp).toBe(0);
+      expect(player.level).toBe(1);
+
+      await client.leave(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const row = loadCharacter(getDb(dbPath), characterId);
+      expect(row).toMatchObject({ hp: 100, mp: 50, xp: 0, level: 1 });
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('debounces persistence while position changes', async () => {
+    const { dbPath, cleanup } = tempDbPath();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, saveDebounceMs: 100 });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+
+      client.send('move', { targetX: 0.3, targetZ: 0 });
+      await room.waitForNextSimulationTick();
+
+      const movedX = room.state.players.get(client.sessionId)!.x;
+      expect(movedX).toBeGreaterThan(0);
+      expect(loadCharacter(getDb(dbPath), characterId)!.x).toBe(SPAWN_X);
+
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const player = room.state.players.get(client.sessionId)!;
+      expect(loadCharacter(getDb(dbPath), characterId)!.x).toBeCloseTo(player.x, 3);
+
+      await client.leave(true);
+    } finally {
+      cleanup();
+    }
+  });
 });

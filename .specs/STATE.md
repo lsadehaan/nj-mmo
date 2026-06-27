@@ -108,4 +108,10 @@
 
 ## Handoff
 
-(empty — planning artifacts authored; no implementation started)
+(empty — Phase 2 server authority T5–T10 complete; Phase 3 client work next)
+
+### Phase 3 deviations (Implementer)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T10 | Debounced save uses wall-clock `setTimeout` instead of `room.clock.setTimeout` | Colyseus clock timers only advance on `clock.tick()`; trailing debounce during continuous movement never fired in room-integration tests. Wall-clock debounce matches spec intent (5 s after last change) for I/O. |
