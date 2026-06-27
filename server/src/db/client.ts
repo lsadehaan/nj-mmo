@@ -86,6 +86,9 @@ function applySchema(sqlite: Database.Database): void {
       xp INTEGER NOT NULL,
       hp REAL NOT NULL,
       mp REAL NOT NULL,
+      max_hp REAL NOT NULL DEFAULT 100,
+      max_mp REAL NOT NULL DEFAULT 50,
+      equipped_weapon_item_id INTEGER,
       adena INTEGER NOT NULL DEFAULT 1000,
       starter_kit_granted INTEGER NOT NULL DEFAULT 0,
       x REAL NOT NULL,
@@ -146,6 +149,15 @@ function migrateCharactersColumns(sqlite: Database.Database): void {
     sqlite.exec(
       'ALTER TABLE characters ADD COLUMN starter_kit_granted INTEGER NOT NULL DEFAULT 0'
     );
+  }
+  if (!names.has('max_hp')) {
+    sqlite.exec('ALTER TABLE characters ADD COLUMN max_hp REAL NOT NULL DEFAULT 100');
+  }
+  if (!names.has('max_mp')) {
+    sqlite.exec('ALTER TABLE characters ADD COLUMN max_mp REAL NOT NULL DEFAULT 50');
+  }
+  if (!names.has('equipped_weapon_item_id')) {
+    sqlite.exec('ALTER TABLE characters ADD COLUMN equipped_weapon_item_id INTEGER');
   }
 }
 

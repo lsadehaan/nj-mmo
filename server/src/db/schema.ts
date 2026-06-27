@@ -111,6 +111,9 @@ export const characters = sqliteTable('characters', {
   xp: integer('xp').notNull(),
   hp: real('hp').notNull(),
   mp: real('mp').notNull(),
+  maxHp: real('max_hp').notNull().default(100),
+  maxMp: real('max_mp').notNull().default(50),
+  equippedWeaponItemId: integer('equipped_weapon_item_id'),
   adena: integer('adena').notNull().default(1000),
   starterKitGranted: integer('starter_kit_granted', { mode: 'boolean' })
     .notNull()

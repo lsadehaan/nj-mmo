@@ -32,6 +32,9 @@ describe('character repository', () => {
       xp: 0,
       hp: 100,
       mp: 50,
+      maxHp: 100,
+      maxMp: 50,
+      equippedWeaponItemId: null,
       adena: 1000,
       starterKitGranted: false,
       x: SPAWN_X,
@@ -122,5 +125,48 @@ describe('character repository', () => {
     saveCharacterItems(db, created.id, { 1060: 1, 17: 3 });
     saveCharacterItems(db, created.id, { 17: 3 });
     expect(loadCharacterItems(db, created.id)).toEqual({ 17: 3 });
+  });
+
+  it('saveCharacter round-trips maxHp, maxMp, and equipped weapon', () => {
+    const db = tempDb();
+    const created = createCharacter(db);
+    const updated = {
+      ...created,
+      maxHp: 112,
+      maxMp: 55,
+      hp: 112,
+      mp: 55,
+      equippedWeaponItemId: 2369,
+    };
+    saveCharacter(db, updated);
+    const loaded = loadCharacter(db, created.id);
+    expect(loaded).toMatchObject({
+      maxHp: 112,
+      maxMp: 55,
+      hp: 112,
+      mp: 55,
+      equippedWeaponItemId: 2369,
+    });
+  });
+
+  it('createCharacter defaults max vitals and null equipped weapon', () => {
+    const db = tempDb();
+    const row = createCharacter(db);
+    expect(row.maxHp).toBe(100);
+    expect(row.maxMp).toBe(50);
+    expect(row.equippedWeaponItemId).toBeNull();
+  });
+
+  it('migrated characters table defaults max vitals on insert without explicit columns', () => {
+    const db = tempDb();
+    const now = Date.now();
+    db.run(
+      `INSERT INTO characters (id, name, level, xp, hp, mp, x, y, z, updated_at)
+       VALUES ('legacy-1', 'Legacy', 1, 0, 100, 50, 0, 4.26, 0, ${now})`
+    );
+    const loaded = loadCharacter(db, 'legacy-1');
+    expect(loaded?.maxHp).toBe(100);
+    expect(loaded?.maxMp).toBe(50);
+    expect(loaded?.equippedWeaponItemId).toBeNull();
   });
 });

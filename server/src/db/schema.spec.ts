@@ -18,7 +18,7 @@ describe('characters table', () => {
   it('round-trips insert and select on characters', () => {
     const db = getDb(tempDbPath());
     const now = Date.now();
-    const row = { id: 'test-uuid-1', name: 'Adventurer', level: 1, xp: 0, hp: 100, mp: 50, adena: 1000, starterKitGranted: false, x: 0, y: 4.26, z: 0, updatedAt: now };
+    const row = { id: 'test-uuid-1', name: 'Adventurer', level: 1, xp: 0, hp: 100, mp: 50, maxHp: 100, maxMp: 50, equippedWeaponItemId: null, adena: 1000, starterKitGranted: false, x: 0, y: 4.26, z: 0, updatedAt: now };
     db.insert(characters).values(row).run();
     const loaded = db.select().from(characters).where(eq(characters.id, row.id)).get();
     expect(loaded).toMatchObject(row);
@@ -154,6 +154,9 @@ describe('phase 6 economy schema tables', () => {
         xp: 0,
         hp: 100,
         mp: 50,
+        maxHp: 100,
+        maxMp: 50,
+        equippedWeaponItemId: null,
         x: 0,
         y: 4.26,
         z: 0,
