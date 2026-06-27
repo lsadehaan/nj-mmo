@@ -39,6 +39,7 @@
     "better-sqlite3": "^12.11.1",
     "colyseus": "^0.17.10",
     "drizzle-orm": "^0.45.2",
+    "fast-xml-parser": "^5.9.3",
     "three": "^0.185.0"
   }
 }

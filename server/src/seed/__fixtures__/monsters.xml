@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../xsd/npcs.xsd">
+	<npc id="20001" level="1" type="Monster" name="Gremlin">
+		<!-- L2wiki: https://l2wiki.com/classic/Gremlin -->
+		<race>FAIRY</race>
+		<sex>MALE</sex>
+		<acquire exp="44" sp="0" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="41.145" hpRegen="2" mp="44.247" mpRegen="0.9" />
+			<attack physical="8.47458" magical="5.78704" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="44.44444" magical="32.52252" />
+			<speed>
+				<walk ground="20" />
+				<run ground="50" />
+			</speed>
+			<hitTime>370</hitTime>
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4408" level="1" /> <!-- HP Increase (1x) -->
+			<skill id="4409" level="1" /> <!-- MP Increase (1x) -->
+			<skill id="4410" level="11" /> <!-- Average P. Atk. -->
+			<skill id="4411" level="11" /> <!-- Average M. Atk. -->
+			<skill id="4412" level="11" /> <!-- Average P. Def. -->
+			<skill id="4413" level="11" /> <!-- Average M. Def. -->
+			<skill id="4414" level="2" /> <!-- Standard Type -->
+			<skill id="4415" level="3" /> <!-- One-handed Sword -->
+			<skill id="4416" level="13" /> <!-- Fairies -->
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai clanHelpRange="300" />
+		<collision>
+			<radius normal="10" />
+			<height normal="15" />
+		</collision>
+	</npc>
+	<npc id="20003" level="5" type="Monster" name="Goblin">
+		<parameters>
+			<param name="MoveAroundSocial" value="42" />
+			<param name="MoveAroundSocial1" value="42" />
+			<param name="MoveAroundSocial2" value="42" />
+		</parameters>
+		<race>HUMANOID</race>
+		<sex>MALE</sex>
+		<equipment rhand="4" /> <!-- Club -->
+		<acquire exp="220" sp="6" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="84.189" hpRegen="2" mp="76.755" mpRegen="0.9" />
+			<attack physical="12.34006" magical="8.42666" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="51.60553" magical="37.76269" />
+			<speed>
+				<walk ground="40" />
+				<run ground="110" />
+			</speed>
+			<hitTime>320</hitTime>
+			<abnormalResist physical="10" magical="10" />
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="6" /> <!-- Humanoid -->
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai clanHelpRange="300" aggroRange="450">
+			<clanList>
+				<clan>GOBLIN</clan>
+			</clanList>
+		</ai>
+		<collision>
+			<radius normal="10" />
+			<height normal="16.5" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="116" min="1" max="1" chance="7.071" /> <!-- Magic Ring -->
+				<item id="118" min="1" max="1" chance="5.697" /> <!-- Magic Necklace -->
+				<item id="112" min="1" max="1" chance="2.163" /> <!-- Apprentice's Earring -->
+				<item id="57" min="13" max="30" chance="70" /> <!-- Adena -->
+				<item id="17" min="10" max="30" chance="14.98" /> <!-- Wooden Arrow -->
+				<item id="1868" min="1" max="1" chance="6.19" /> <!-- Thread -->
+				<item id="1867" min="1" max="1" chance="4.171" /> <!-- Animal Skin -->
+				<item id="1871" min="1" max="1" chance="3.174" /> <!-- Charcoal -->
+				<item id="1788" min="1" max="1" chance="2.548" /> <!-- Recipe: Bow -->
+			</drop>
+			<spoil>
+				<item id="116" min="1" max="1" chance="75.06" /> <!-- Magic Ring -->
+				<item id="1871" min="1" max="1" chance="12.32" /> <!-- Charcoal -->
+			</spoil>
+		</dropLists>
+	</npc>
+	<npc id="20120" level="4" type="Monster" name="Wolf">
+		<parameters>
+			<param name="MoveAroundSocial" value="60" />
+			<param name="MoveAroundSocial1" value="60" />
+			<param name="MoveAroundSocial2" value="60" />
+		</parameters>
+		<race>ANIMAL</race>
+		<sex>MALE</sex>
+		<acquire exp="176" sp="5" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="70.896" hpRegen="2" mp="68.628" mpRegen="0.9" />
+			<attack physical="11.24892" magical="7.68155" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="49.73343" magical="36.39277" />
+			<speed>
+				<walk ground="24" />
+				<run ground="110" />
+			</speed>
+			<hitTime>390</hitTime>
+			<abnormalResist physical="10" magical="10" />
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="4" /> <!-- Animals -->
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai clanHelpRange="300" aggroRange="450" />
+		<collision>
+			<radius normal="13" />
+			<height normal="9" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="13" min="1" max="1" chance="4.988" /> <!-- Short Bow -->
+				<item id="57" min="8" max="20" chance="70" /> <!-- Adena -->
+				<item id="1868" min="1" max="1" chance="7.174" /> <!-- Thread -->
+				<item id="1871" min="1" max="1" chance="3.511" /> <!-- Charcoal -->
+				<item id="1786" min="1" max="1" chance="2.918" /> <!-- Recipe: Broadsword -->
+			</drop>
+			<spoil>
+				<item id="1864" min="1" max="1" chance="17.73" /> <!-- Stem -->
+				<item id="1787" min="1" max="1" chance="6.949" /> <!-- Recipe: Willow Staff -->
+			</spoil>
+		</dropLists>
+	</npc>
+	<npc id="20481" level="1" type="Monster" name="Bearded Keltir">
+		<parameters>
+			<param name="MoveAroundSocial" value="0" />
+			<param name="MoveAroundSocial1" value="0" />
+			<param name="MoveAroundSocial2" value="0" />
+		</parameters>
+		<race>ANIMAL</race>
+		<sex>MALE</sex>
+		<acquire exp="44" sp="1" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="41.145" hpRegen="2" mp="44.247" mpRegen="0.9" />
+			<attack physical="8.47458" magical="5.78704" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="44.44444" magical="32.52252" />
+			<speed>
+				<walk ground="23" />
+				<run ground="110" />
+			</speed>
+			<hitTime>370</hitTime>
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="4" /> <!-- Animals -->
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai aggroRange="500" clanHelpRange="300" isAggressive="false" />
+		<collision>
+			<radius normal="9.5" />
+			<height normal="10" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="462" min="1" max="1" chance="8.572" /> <!-- Stockings -->
+				<item id="426" min="1" max="1" chance="5.455" /> <!-- Tunic -->
+				<item id="57" min="4" max="8" chance="70" /> <!-- Adena -->
+				<item id="1868" min="1" max="1" chance="2.99" /> <!-- Thread -->
+				<item id="1867" min="1" max="1" chance="1.99" /> <!-- Animal Skin -->
+				<item id="1871" min="1" max="1" chance="1.464" /> <!-- Charcoal -->
+			</drop>
+			<spoil>
+				<item id="1788" min="1" max="1" chance="5.738" /> <!-- Recipe: Bow -->
+			</spoil>
+		</dropLists>
+	</npc>
+</list>
