@@ -51,6 +51,18 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     if (sessionId === localId) {
       syncLocal(state);
       callbacks.onChange(state, () => syncLocal(state));
+      return;
+    }
+
+    game.syncRemotePlayer(sessionId, state.x, state.y, state.z);
+    callbacks.onChange(state, () => {
+      game.syncRemotePlayer(sessionId, state.x, state.y, state.z);
+    });
+  });
+
+  callbacks.onRemove('players', (_player, sessionId) => {
+    if (sessionId !== localId) {
+      game.removeRemotePlayer(sessionId);
     }
   });
 }

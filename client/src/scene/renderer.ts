@@ -6,6 +6,11 @@ import { type MovementIntent } from '@nj/game-core';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
 import { setPlayer, setTarget } from '../test-hook';
+import {
+  removeRemotePlayer,
+  upsertRemotePlayer,
+  type RemotePlayerMeshMap,
+} from './remote-players';
 
 const WORLD_SEED = 42;
 const TERRAIN_OPTS = { size: 200, segments: 64, heightScale: 10, seed: WORLD_SEED };
@@ -19,6 +24,8 @@ export interface GameRenderer {
   render: () => void;
   handleClick: (ev: RaycastInput) => void;
   syncLocalPlayer: (x: number, y: number, z: number) => void;
+  syncRemotePlayer: (sessionId: string, x: number, y: number, z: number) => void;
+  removeRemotePlayer: (sessionId: string) => void;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   dispose: () => void;
 }
@@ -109,6 +116,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
   let moveIntentHandler: ((intent: MovementIntent) => void) | null = null;
+  const remoteMeshes: RemotePlayerMeshMap = new Map();
 
   const raycaster = new THREE.Raycaster();
 
@@ -130,6 +138,14 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const setMoveIntentHandler = (handler: (intent: MovementIntent) => void): void => {
     moveIntentHandler = handler;
+  };
+
+  const syncRemotePlayer = (sessionId: string, x: number, y: number, z: number): void => {
+    upsertRemotePlayer(remoteMeshes, sessionId, x, y, z, scene);
+  };
+
+  const removeRemotePlayerById = (sessionId: string): void => {
+    removeRemotePlayer(remoteMeshes, sessionId, scene);
   };
 
   const tick = (_dt: number): void => {
@@ -188,6 +204,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     render,
     handleClick,
     syncLocalPlayer,
+    syncRemotePlayer,
+    removeRemotePlayer: removeRemotePlayerById,
     setMoveIntentHandler,
     dispose,
   };
