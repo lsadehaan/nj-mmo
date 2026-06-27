@@ -846,27 +846,27 @@ describe('TownRoom Power Strike', () => {
       });
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
-      const goblin = findMobByNpcId(room, 20003)!;
-      placePlayerNear(room, client.sessionId, goblin.x, goblin.z);
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
 
-      await castPowerStrike(client, room, goblin.id);
-      const hpAfterFirst = room.state.mobs.get(goblin.id)!.hp;
+      await castPowerStrike(client, room, gremlin.id);
+      const hpAfterFirst = room.state.mobs.get(gremlin.id)!.hp;
       expect(player.mp).toBe(41);
 
       clock.advance(2999);
-      await castPowerStrike(client, room, goblin.id);
-      expect(room.state.mobs.get(goblin.id)!.hp).toBeCloseTo(hpAfterFirst, 3);
+      await castPowerStrike(client, room, gremlin.id);
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpAfterFirst, 3);
       expect(player.mp).toBe(41);
 
       clock.advance(1);
-      await castPowerStrike(client, room, goblin.id);
+      await castPowerStrike(client, room, gremlin.id);
       expect(player.mp).toBe(32);
-      const goblinAfter = room.state.mobs.get(goblin.id);
-      if (goblinAfter) {
-        expect(hpAfterFirst - goblinAfter.hp).toBeCloseTo(69, 3);
-      } else {
-        expect(hpAfterFirst).toBeLessThanOrEqual(69);
-      }
+      const gremlinAfter = room.state.mobs.get(gremlin.id)!;
+      expect(hpAfterFirst - gremlinAfter.hp).toBeCloseTo(69, 3);
       await client.leave();
     } finally {
       cleanup();
@@ -1216,6 +1216,136 @@ describe('TownRoom NPC shop and peace zone', () => {
       await client.leave();
     } finally {
       tickSpy.mockRestore();
+      cleanup();
+    }
+  });
+});
+
+const ROXXY_NPC = 30006;
+const SQUIRES_SWORD = 2369;
+const HEALING_POTION = 1060;
+
+async function claimStarterKit(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string
+): Promise<void> {
+  placePlayerAtNpc(room, sessionId, ROXXY_NPC);
+  await deliver(room, client, [
+    ['npcAction', { npcId: ROXXY_NPC, action: 'starterKit' }],
+  ]);
+}
+
+describe('TownRoom equip', () => {
+  it('equipping Squire\'s Sword then melee deals 27 damage to Gremlin', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      await claimStarterKit(room, client, client.sessionId);
+
+      await deliver(room, client, [['equip', { itemId: SQUIRES_SWORD }]]);
+      expect(room.state.players.get(client.sessionId)!.equippedWeaponItemId).toBe(
+        SQUIRES_SWORD
+      );
+
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
+
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(27, 3);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects equipping a consumable (item 1060)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      await claimStarterKit(room, client, client.sessionId);
+      const player = room.state.players.get(client.sessionId)!;
+
+      await deliver(room, client, [['equip', { itemId: HEALING_POTION }]]);
+
+      expect(player.equippedWeaponItemId).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects equipping Squire\'s Sword without owning it', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+
+      await deliver(room, client, [['equip', { itemId: SQUIRES_SWORD }]]);
+
+      expect(player.equippedWeaponItemId).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('persists equipped weapon on reconnect', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+      await claimStarterKit(room, client, client.sessionId);
+
+      await deliver(room, client, [['equip', { itemId: SQUIRES_SWORD }]]);
+      await client.leave(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(loadCharacter(getDb(dbPath), characterId)!.equippedWeaponItemId).toBe(
+        SQUIRES_SWORD
+      );
+
+      const room2 = await colyseus.createRoom('town', { dbPath });
+      const client2 = await colyseus.sdk.joinById(
+        room2.roomId,
+        { characterId },
+        TownState
+      );
+      expect(room2.state.players.get(client2.sessionId)!.equippedWeaponItemId).toBe(
+        SQUIRES_SWORD
+      );
+      await client2.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('debounced save persists equipped_weapon_item_id after equip', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, saveDebounceMs: 100 });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+      await claimStarterKit(room, client, client.sessionId);
+
+      await deliver(room, client, [['equip', { itemId: SQUIRES_SWORD }]]);
+      expect(loadCharacter(getDb(dbPath), characterId)!.equippedWeaponItemId).toBeNull();
+
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(loadCharacter(getDb(dbPath), characterId)!.equippedWeaponItemId).toBe(
+        SQUIRES_SWORD
+      );
+      await client.leave();
+    } finally {
       cleanup();
     }
   });

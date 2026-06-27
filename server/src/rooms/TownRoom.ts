@@ -4,6 +4,8 @@ import {
   createInitialMoveState,
   isValidMoveIntent,
   createSeededRng,
+  STARTER_COMBAT,
+  effectivePAtk,
   type MovementIntent,
   type PlayerMoveState,
   type DropRow,
@@ -19,7 +21,7 @@ import {
   saveCharacterItems,
   type CharacterItemCounts,
 } from '../db/character-repository';
-import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, type Character, type MerchantItem } from '../db/schema';
+import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, type Character, type MerchantItem, type Item } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
@@ -47,6 +49,7 @@ import {
   type MobRuntime,
 } from './spawn-manager';
 import { buyItem, sellItem } from './shop-transaction';
+import { validateEquip, applyEquip } from './equip-transaction';
 import { canInteract, applyHeal, applyStarterKit } from './npc-actions';
 
 export interface TownRoomOptions {
@@ -97,6 +100,7 @@ export class TownRoom extends Room<{ state: TownState }> {
   private combatRng!: SeededRng;
   private experienceCurve: ExperienceCurveRow[] = [];
   private dropsByNpcId = new Map<number, DropRow[]>();
+  private itemsById = new Map<number, Item>();
   private powerStrikeSkill!: PowerStrikeSkill;
   private nowMs = () => Date.now();
   private playerItems = new Map<string, CharacterItemCounts>();
@@ -177,6 +181,10 @@ export class TownRoom extends Room<{ state: TownState }> {
         this.handleNpcAction(client.sessionId, message.npcId, message.action);
       }
     );
+
+    this.onMessage('equip', (client, message: { itemId: number }) => {
+      this.handleEquip(client.sessionId, message.itemId);
+    });
   }
 
   private initializeNpcs(): void {
@@ -253,6 +261,39 @@ export class TownRoom extends Room<{ state: TownState }> {
 
   private getItemCount(sessionId: string, itemId: number): number {
     return this.playerItems.get(sessionId)?.[itemId] ?? 0;
+  }
+
+  private getPlayerPAtk(player: PlayerState): number {
+    const weaponId = player.equippedWeaponItemId || null;
+    const weapon = weaponId ? this.itemsById.get(weaponId) : undefined;
+    return effectivePAtk(
+      STARTER_COMBAT.pAtk,
+      weaponId,
+      weapon?.pAtk ?? undefined
+    );
+  }
+
+  private handleEquip(sessionId: string, itemId: number): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored || player.hp <= 0) return;
+
+    const item = this.itemsById.get(itemId);
+    const currentEquipped = stored.equippedWeaponItemId;
+    const result = validateEquip({
+      itemId,
+      itemType: item?.type,
+      bodyPart: item?.bodyPart,
+      ownedCount: this.getItemCount(sessionId, itemId),
+      currentEquippedWeaponItemId: currentEquipped,
+    });
+
+    const equipped = applyEquip(currentEquipped, result);
+    if (!result.ok) return;
+
+    stored.equippedWeaponItemId = equipped;
+    player.equippedWeaponItemId = equipped ?? 0;
+    this.scheduleDebouncedSave(sessionId);
   }
 
   private setItemCount(sessionId: string, itemId: number, count: number): void {
@@ -379,6 +420,11 @@ export class TownRoom extends Room<{ state: TownState }> {
       this.dropsByNpcId.set(row.npcId, list);
     }
 
+    this.itemsById.clear();
+    for (const row of this.db.select().from(items).all()) {
+      this.itemsById.set(row.itemId, row);
+    }
+
     const powerStrike =
       this.db.select().from(skills).where(eq(skills.skillId, 3)).get() ??
       this.ensurePowerStrikeSeeded();
@@ -449,6 +495,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         skill: this.powerStrikeSkill,
         nowMs: now,
         rng: this.combatRng,
+        attackerPAtk: this.getPlayerPAtk(player),
       });
 
       if (result.mpCost > 0) {
@@ -480,6 +527,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         mob: runtime,
         nowMs: now,
         rng: this.combatRng,
+        attackerPAtk: this.getPlayerPAtk(player),
       });
 
       if (result.damage > 0) {
@@ -508,6 +556,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
       if (mobResult.damage > 0) {
         target.hp = Math.max(0, target.hp - mobResult.damage);
+        this.scheduleDebouncedSave(runtime.targetSessionId);
       }
     }
 
@@ -662,6 +711,9 @@ export class TownRoom extends Room<{ state: TownState }> {
       xp: player.xp,
       hp: player.hp,
       mp: player.mp,
+      maxHp: player.maxHp,
+      maxMp: player.maxMp,
+      equippedWeaponItemId: stored.equippedWeaponItemId,
       adena: player.adena,
       starterKitGranted: stored.starterKitGranted,
       x: player.x,
