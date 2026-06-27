@@ -11,6 +11,7 @@ import {
 import {
   createPlayerCombatState,
   resolvePlayerAttack,
+  resolvePowerStrike,
   resolveMobAttack,
   applyKillRewards,
   type KillEvent,
@@ -54,6 +55,19 @@ function gremlinMob(overrides: Partial<MobRuntime> = {}): MobRuntime {
     ...overrides,
   };
 }
+
+const POWER_STRIKE_SKILL = {
+  powerL1: 30,
+  mpConsumeL1: 9,
+  reuseDelay: 3000,
+  castRange: 40,
+};
+
+const zeroRng = () => ({
+  nextFloat: () => 0,
+  nextInt: () => 0,
+  nextDamageOffset: () => 0,
+});
 
 describe('combat-resolver', () => {
   it('player attack with RNG offset 0 reduces Gremlin HP by 17', () => {
@@ -237,5 +251,178 @@ describe('combat-resolver', () => {
     applyKillRewards({ level: 1, xp: 0 }, kill, TEST_CURVE, drops, rng);
 
     expect(kill.drops).toEqual([{ itemId: 57, count: 22 }]);
+  });
+
+  describe('resolvePowerStrike', () => {
+    it('successful cast deals 69 damage, costs 9 MP, sets cooldown to nowMs+3000', () => {
+      const mob = gremlinMob({ hp: 200, maxHp: 200 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+
+      const result = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(69);
+      expect(result.mpCost).toBe(9);
+      expect(result.killed).toBe(false);
+      expect(result.cooldownEndMs).toBe(4000);
+      expect(combat.powerStrikeCooldownEndMs).toBe(4000);
+      expect(mob.hp).toBeCloseTo(200 - 69, 3);
+    });
+
+    it('rejects when player MP is below mpConsumeL1', () => {
+      const mob = gremlinMob();
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+      const hpBefore = mob.hp;
+
+      const result = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 8,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(0);
+      expect(result.mpCost).toBe(0);
+      expect(mob.hp).toBeCloseTo(hpBefore, 3);
+    });
+
+    it('rejects when target is out of cast range', () => {
+      const mob = gremlinMob();
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+      const hpBefore = mob.hp;
+
+      const result = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x + 4.1,
+        playerZ: mob.z,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(0);
+      expect(result.mpCost).toBe(0);
+      expect(mob.hp).toBeCloseTo(hpBefore, 3);
+    });
+
+    it('rejects at t+2999 ms after a successful cast', () => {
+      const mob = gremlinMob({ hp: 200, maxHp: 200 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+
+      resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      const hpAfterFirst = mob.hp;
+      combat.skillPending = true;
+      const second = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 41,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 3999,
+        rng: zeroRng(),
+      });
+
+      expect(second.damage).toBe(0);
+      expect(second.mpCost).toBe(0);
+      expect(mob.hp).toBeCloseTo(hpAfterFirst, 3);
+    });
+
+    it('succeeds at t+3000 ms after a successful cast', () => {
+      const mob = gremlinMob({ hp: 200, maxHp: 200 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      combat.skillPending = true;
+
+      resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      const hpAfterFirst = mob.hp;
+      combat.skillPending = true;
+      const second = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 41,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 4000,
+        rng: zeroRng(),
+      });
+
+      expect(second.damage).toBe(69);
+      expect(second.mpCost).toBe(9);
+      expect(mob.hp).toBeCloseTo(hpAfterFirst - 69, 3);
+    });
+
+    it('rejects when skillPending is false', () => {
+      const mob = gremlinMob();
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+      const hpBefore = mob.hp;
+
+      const result = resolvePowerStrike({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 50,
+        combat,
+        mob,
+        skill: POWER_STRIKE_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.damage).toBe(0);
+      expect(result.mpCost).toBe(0);
+      expect(mob.hp).toBeCloseTo(hpBefore, 3);
+    });
   });
 });

@@ -1,6 +1,7 @@
 import {
   STARTER_COMBAT,
   calcMeleeDamage,
+  calcPhysicalSkillDamage,
   calculateAttackIntervalMs,
   isInMeleeRange,
   grantXp,
@@ -15,6 +16,22 @@ export interface PlayerCombatState {
   targetMobId: string | null;
   nextAttackAtMs: number;
   attackPending: boolean;
+  skillPending: boolean;
+  powerStrikeCooldownEndMs: number;
+}
+
+export interface PowerStrikeSkill {
+  powerL1: number;
+  mpConsumeL1: number;
+  reuseDelay: number;
+  castRange: number;
+}
+
+export interface PowerStrikeResult {
+  damage: number;
+  mpCost: number;
+  killed: boolean;
+  cooldownEndMs: number;
 }
 
 export interface KillEvent {
@@ -39,6 +56,8 @@ export function createPlayerCombatState(): PlayerCombatState {
     targetMobId: null,
     nextAttackAtMs: 0,
     attackPending: false,
+    skillPending: false,
+    powerStrikeCooldownEndMs: 0,
   };
 }
 
@@ -93,6 +112,81 @@ export function resolvePlayerAttack(params: {
 
   const killed = mob.hp <= 0;
   return { damage, killed };
+}
+
+export function resolvePowerStrike(params: {
+  sessionId: string;
+  playerX: number;
+  playerZ: number;
+  playerMp: number;
+  combat: PlayerCombatState;
+  mob: MobRuntime;
+  skill: PowerStrikeSkill;
+  nowMs: number;
+  rng: SeededRng;
+}): PowerStrikeResult {
+  const {
+    sessionId,
+    playerX,
+    playerZ,
+    playerMp,
+    combat,
+    mob,
+    skill,
+    nowMs,
+    rng,
+  } = params;
+
+  const reject = (): PowerStrikeResult => ({
+    damage: 0,
+    mpCost: 0,
+    killed: false,
+    cooldownEndMs: combat.powerStrikeCooldownEndMs,
+  });
+
+  if (!combat.skillPending || combat.targetMobId !== mob.id || mob.hp <= 0) {
+    return reject();
+  }
+
+  combat.skillPending = false;
+
+  if (nowMs < combat.powerStrikeCooldownEndMs) {
+    return reject();
+  }
+
+  if (playerMp < skill.mpConsumeL1) {
+    return reject();
+  }
+
+  const castRangeWorld = skill.castRange / 10;
+  if (!isInMeleeRange(playerX, playerZ, mob.x, mob.z, castRangeWorld)) {
+    return reject();
+  }
+
+  const damage = calcPhysicalSkillDamage(
+    {
+      pAtk: STARTER_COMBAT.pAtk,
+      randomDamage: STARTER_COMBAT.randomDamage,
+    },
+    { pDef: mob.pDef },
+    skill.powerL1,
+    { rng }
+  );
+
+  const cooldownEndMs = nowMs + skill.reuseDelay;
+  combat.powerStrikeCooldownEndMs = cooldownEndMs;
+
+  mob.hp = Math.max(0, mob.hp - damage);
+  mob.wasDamaged = true;
+  mob.lastAttackerSessionId = sessionId;
+
+  const killed = mob.hp <= 0;
+  return {
+    damage,
+    mpCost: skill.mpConsumeL1,
+    killed,
+    cooldownEndMs,
+  };
 }
 
 export function resolveMobAttack(params: {
