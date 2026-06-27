@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../xsd/buylist.xsd">
+	<item id="1060" price="103" /> <!-- Healing Potion -->
+	<item id="1835" price="8" /> <!-- Soulshot (No-grade) -->
+	<item id="17" price="2" /> <!-- Wooden Arrow -->
+</list>
