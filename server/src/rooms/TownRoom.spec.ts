@@ -943,6 +943,48 @@ describe('TownRoom NPC shop and peace zone', () => {
     }
   });
 
+  it('accepts interact with Roxxy within 3.0 m', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      placePlayerAtNpc(room, client.sessionId, ROXXY);
+
+      client.send('interact', { npcId: ROXXY });
+      const result = await client.waitForMessage('interactResult');
+
+      expect(result).toMatchObject({
+        npcId: ROXXY,
+        name: 'Roxxy',
+        type: 'Teleporter',
+      });
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects interact from 3.1 m away from Roxxy', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      placePlayerNearNpcOffset(room, client.sessionId, ROXXY, 3.1);
+
+      let received = false;
+      client.onMessage('interactResult', () => {
+        received = true;
+      });
+      client.send('interact', { npcId: ROXXY });
+      await settleRoomMessages(room);
+
+      expect(received).toBe(false);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('sell 1× potion adds adena 897→948', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
@@ -1088,7 +1130,9 @@ describe('TownRoom NPC shop and peace zone', () => {
   });
 
   it('mob attack inside peace zone deals no player damage', async () => {
-    const tickSpy = vi.spyOn(mobAi, 'tickMobAi').mockImplementation(() => {});
+    const tickSpy = vi.spyOn(mobAi, 'tickMobAi').mockImplementation(() => {
+      /* keep mob target for peace-zone mob-attack room test */
+    });
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', {
