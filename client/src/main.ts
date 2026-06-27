@@ -1,10 +1,16 @@
-import { initGameState, setReady } from './test-hook';
+import { initGameState, setReady, getGameState } from './test-hook';
 import { connectSafe, wireRoom } from './net/room';
 import { wireCombatControls } from './combat-input';
+import {
+  mountPowerStrikeCooldown,
+  startPowerStrikeCooldownLoop,
+} from './hud/power-strike-cooldown';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 
 async function boot(): Promise<void> {
   initGameState();
+  mountPowerStrikeCooldown();
+  startPowerStrikeCooldownLoop(() => getGameState().player.powerStrikeCooldownEndMs);
 
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;
   if (!canvas) {

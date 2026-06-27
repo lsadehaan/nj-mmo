@@ -1,3 +1,5 @@
+import { updatePowerStrikeCooldown } from './hud/power-strike-cooldown';
+
 export interface GameStatePlayer {
   x: number;
   y: number;
@@ -118,6 +120,9 @@ export function setPlayer(player: GameStatePlayer, nowMs = Date.now()): void {
     player.powerStrikeCooldownEndMs,
     nowMs
   );
+  if (typeof document !== 'undefined') {
+    updatePowerStrikeCooldown(player.powerStrikeCooldownEndMs, nowMs);
+  }
 }
 
 export function setMobs(mobs: GameStateMob[]): void {
