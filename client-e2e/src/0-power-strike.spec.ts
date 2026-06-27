@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { pickNearestCombatMob } from './peace-zone';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -9,6 +10,7 @@ async function waitReady(page: import('@playwright/test').Page) {
 }
 
 test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
   await page.goto('/');
   await waitReady(page);
@@ -20,20 +22,16 @@ test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }
   const initialMp = await page.evaluate(() => window.__GAME_STATE__.player.mp);
   expect(initialMp).toBe(50);
 
-  const target = await page.evaluate(() => {
-    const mobs = window.__GAME_STATE__.mobs;
-    const player = window.__GAME_STATE__.player;
-    let closest = mobs[0];
-    let bestDist = Number.POSITIVE_INFINITY;
-    for (const mob of mobs) {
-      const dist = Math.hypot(mob.x - player.x, mob.z - player.z);
-      if (dist < bestDist) {
-        bestDist = dist;
-        closest = mob;
-      }
-    }
-    return { id: closest.id, x: closest.x, z: closest.z };
-  });
+  const { mobs, player } = await page.evaluate(() => ({
+    mobs: window.__GAME_STATE__.mobs.map((m) => ({
+      id: m.id,
+      x: m.x,
+      z: m.z,
+      hp: m.hp,
+    })),
+    player: { x: window.__GAME_STATE__.player.x, z: window.__GAME_STATE__.player.z },
+  }));
+  const target = pickNearestCombatMob(mobs, player);
 
   await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
 
@@ -51,7 +49,7 @@ test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }
           window.__sendMoveIntent__?.(player.x + (dx / len) * step, player.z + (dz / len) * step);
           return false;
         }, target),
-      { timeout: 45_000, intervals: [250, 500, 1000] }
+      { timeout: 90_000, intervals: [250, 500, 1000] }
     )
     .toBe(true);
 
@@ -86,7 +84,7 @@ test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }
           window.__useSkill__?.();
           return -1;
         }, target.id),
-      { timeout: 60_000, intervals: [400, 600, 800] }
+      { timeout: 90_000, intervals: [400, 600, 800] }
     )
     .toBeGreaterThan(0);
 

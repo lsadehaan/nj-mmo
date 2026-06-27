@@ -59,6 +59,7 @@ describe('npc-renderer', () => {
 function readBodyColor(group: THREE.Group): number {
   const body = group.getObjectByName('body') as THREE.Mesh | null;
   expect(body).not.toBeNull();
-  const material = body!.material as THREE.MeshLambertMaterial;
+  if (!body) return 0;
+  const material = body.material as THREE.MeshLambertMaterial;
   return material.color.getHex();
 }

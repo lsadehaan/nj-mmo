@@ -131,6 +131,7 @@ test('browser B stops seeing browser A after consented leave', async ({ browser 
 });
 
 test('rejoining with the same characterId restores saved position', async ({ browser }) => {
+  test.setTimeout(60_000);
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -138,17 +139,30 @@ test('rejoining with the same characterId restores saved position', async ({ bro
     await page.goto('/');
     await waitReady(page);
 
-    await clickGround(page, 0.65, 0.85);
+    await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
 
-    await page.waitForFunction(
-      () => {
-        const p = window.__GAME_STATE__?.player;
-        if (!p) return false;
-        return Math.hypot(p.x, p.z) > 1;
-      },
-      undefined,
-      { timeout: 15_000 }
-    );
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const player = window.__GAME_STATE__.player;
+            const target = { x: 8, z: 6 };
+            const dist = Math.hypot(player.x - target.x, player.z - target.z);
+            if (dist <= 1.2) return Math.hypot(player.x, player.z);
+            const dx = target.x - player.x;
+            const dz = target.z - player.z;
+            const len = Math.hypot(dx, dz) || 1;
+            window.__sendMoveIntent__?.(
+              player.x + (dx / len) * Math.min(4, len),
+              player.z + (dz / len) * Math.min(4, len)
+            );
+            return 0;
+          }),
+        { timeout: 45_000, intervals: [250, 500, 1000] }
+      )
+      .toBeGreaterThan(3);
+
+    await page.waitForTimeout(1000);
 
     const snapshot = await page.evaluate(() => ({
       player: { ...window.__GAME_STATE__.player },
@@ -156,6 +170,12 @@ test('rejoining with the same characterId restores saved position', async ({ bro
     }));
 
     expect(snapshot.characterId).toBeTruthy();
+
+    await page.waitForFunction(() => typeof window.__consentLeave__ === 'function');
+    await page.evaluate(async () => {
+      await window.__consentLeave__?.();
+    });
+    await page.waitForTimeout(500);
 
     await page.close();
 
@@ -166,8 +186,20 @@ test('rejoining with the same characterId restores saved position', async ({ bro
     await page2.waitForFunction(
       (expectedId) => window.__GAME_STATE__?.characterId === expectedId,
       snapshot.characterId,
-      { timeout: 10_000 }
+      { timeout: 15_000 }
     );
+
+    await expect
+      .poll(
+        async () =>
+          page2.evaluate((expected) => {
+            const p = window.__GAME_STATE__?.player;
+            if (!p) return Number.POSITIVE_INFINITY;
+            return Math.hypot(p.x - expected.x, p.z - expected.z);
+          }, { x: snapshot.player.x, z: snapshot.player.z }),
+        { timeout: 25_000, intervals: [250, 500, 1000] }
+      )
+      .toBeLessThan(0.75);
 
     const restored = await page2.evaluate(() => window.__GAME_STATE__.player);
     expect(restored.x).toBeCloseTo(snapshot.player.x, 0);

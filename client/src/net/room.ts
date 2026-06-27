@@ -131,7 +131,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
 
   let prevPowerStrikeCooldownEndMs = 0;
   let localItemCounts: Record<number, number> = {};
-  let npcPresences: NpcPresence[] = [];
+  const npcPresences: NpcPresence[] = [];
 
   const updateInteractPrompt = (): void => {
     const player = getGameState().player;

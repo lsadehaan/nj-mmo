@@ -108,16 +108,12 @@
 
 ## Handoff
 
-**Phase 6 — NPCs & functional town: foundations (Worker A T1/T2/T3/T7/T9) COMPLETE.**
-Commits `7082e7b` (T1) → `29299aa` (T9). Gates green: `nx test game-core` (44),
-`nx test server` (103), `nx run-many -t build lint --projects=server,game-core`.
-Peace zone, DB economy tables, Katerina shop + NPC spawn seed, Colyseus
-`NpcState`/`PlayerState.adena`/`items`, character-repository adena/items persist.
-**Not done (later workers):** T4–T6/T8 server logic + room wiring; T10–T14 client
-+ e2e.
+**Phase 6 — Worker C (client T10–T14) COMPLETE.** Commits `caf7c39` (test-hook fix)
+→ `03aa309` (T13) → T14 pending commit. Client: NPC renderer, shop/dialog DOM,
+`__GAME_STATE__` town hooks, `town.spec.ts` e2e. Gates green:
+`nx run-many -t build lint test && nx e2e client-e2e` (client 57 unit, 11 e2e).
 
-**Next step:** Worker B — T4 shop-transaction, T5 npc-actions, T6 peace-zone
-combat guards (parallel after T1), then T8 TownRoom wiring (needs T3,T4,T5,T6,T7,T9).
+**Next step:** Verifier on Phase 6 full diff (Workers A+B+C).
 
 ### Phase 6 deviations (Implementer, foundations Worker A)
 
@@ -219,3 +215,14 @@ Lesson L-001 (vitest must resolve `@nj/game-core` from source via
 | T6 | Phase 4/5 combat unit + room tests use `OUT_OF_PEACE` (30, −30) for player/mob placement | TI Gremlin spawns at (−10, −14) and (12, −18) lie inside the peace-zone rectangle; attacker-at-spawn would deal 0 damage after P6-R02 guards. |
 | T6 | `relocateMob` test helper pins wander targets to prevent mob drift during cast-range assertions | Mob AI wander runs before skill resolution in the tick; a 3.9 m edge-case test flaked when the mob moved out of range mid-tick. |
 | T8 | Shop/NPC room tests call `settleRoomMessages` (one simulation tick) after `client.send` | Colyseus `@colyseus/testing` `sdk.joinById` delivers intents asynchronously; immediate reads of server state before the tick were stale. |
+
+### Phase 6 deviations (Implementer, Worker C — client + e2e)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T11 | Client `#shop-window` lists Katerina catalog from a static display constant (matches seed prices); server still validates `buy`/`sell` | `interactResult` does not include `merchant_items`; AD-001 requires server authority on transactions only. |
+| T12 | Roxxy `Teleporter` type mapped client-side to Helper dialog (spec assumption) | MVP utility actions on npc 30006; L2J type differs. |
+| T14 | E2E file `town.spec.ts` (not `town-npc.spec.ts` from tasks matrix) | User/orchestrator prompt path; same AC coverage. |
+| T14 | Phase 4/5 combat e2e target mobs **outside** peace zone via `peace-zone.ts` helper | Nearest TI spawns at (12,−18)/(−10,−14) are inside P6 rectangle; combat would no-op. |
+| T14 | Renamed `power-strike.spec.ts` → `0-power-strike.spec.ts` so it runs before `combat.spec.ts` | Shared room state: combat killing the nearest outside-peace mob caused power-strike flake when run second. |
+| T14 | Multiplayer rejoin e2e uses `__sendMoveIntent__` poll + `__consentLeave__` before reconnect | Single ground click did not reliably persist server position before leave; consented leave triggers `onLeave` persist. |

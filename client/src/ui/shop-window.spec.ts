@@ -4,7 +4,6 @@ import {
   KATERINA_SHOP_ITEMS,
   mountShopWindow,
   renderShopWindow,
-  type ShopSendHandlers,
 } from './shop-window';
 
 describe('shop-window DOM', () => {

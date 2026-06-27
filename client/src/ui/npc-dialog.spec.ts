@@ -3,7 +3,6 @@ import {
   ROXXY_NPC_ID,
   mountNpcDialog,
   renderNpcDialog,
-  type NpcDialogHandlers,
 } from './npc-dialog';
 
 describe('npc-dialog DOM', () => {
