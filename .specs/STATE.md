@@ -110,7 +110,7 @@
 
 **Phase 5 — Power Strike (server T1–T5): COMPLETE (Implementer).**
 Server-side formula, seed `powerL1`, combat resolver, schema cooldown field,
-and `useSkill` TownRoom wiring committed (`7019ee4`..pending T5). Client tasks
+and `useSkill` TownRoom wiring committed (`7019ee4`..`fea1648`). Client tasks
 T6–T10 not started.
 
 **Next step:** Phase 5 client — T6 `__GAME_STATE__` mp/cooldown sync, T7 hotkey,
