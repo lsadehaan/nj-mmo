@@ -10,6 +10,7 @@ export class PlayerState extends Schema {
   @type('number') xp = 0;
   @type('number') level = 1;
   @type('boolean') connected = true;
+  @type('number') powerStrikeCooldownEndMs = 0;
 }
 
 export class TownState extends Schema {
