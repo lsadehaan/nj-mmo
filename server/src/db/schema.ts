@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, real, primaryKey } from 'drizzle-orm/sqlite-core';
 
 export const monsters = sqliteTable('monsters', {
   npcId: integer('npc_id').primaryKey(),
@@ -66,6 +66,35 @@ export const experience = sqliteTable('experience', {
   trainingRate: real('training_rate').notNull(),
 });
 
+export const merchantItems = sqliteTable('merchant_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  npcId: integer('npc_id').notNull(),
+  itemId: integer('item_id').notNull(),
+  name: text('name').notNull(),
+  buyPrice: integer('buy_price').notNull(),
+  sellPrice: integer('sell_price').notNull(),
+});
+
+export const npcSpawns = sqliteTable('npc_spawns', {
+  npcId: integer('npc_id').primaryKey(),
+  x: real('x').notNull(),
+  y: real('y').notNull(),
+  z: real('z').notNull(),
+  heading: real('heading'),
+});
+
+export const characterItems = sqliteTable(
+  'character_items',
+  {
+    characterId: text('character_id').notNull(),
+    itemId: integer('item_id').notNull(),
+    count: integer('count').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.characterId, table.itemId] }),
+  })
+);
+
 export const characters = sqliteTable('characters', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -73,6 +102,10 @@ export const characters = sqliteTable('characters', {
   xp: integer('xp').notNull(),
   hp: real('hp').notNull(),
   mp: real('mp').notNull(),
+  adena: integer('adena').notNull().default(1000),
+  starterKitGranted: integer('starter_kit_granted', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   x: real('x').notNull(),
   y: real('y').notNull(),
   z: real('z').notNull(),
@@ -91,7 +124,24 @@ export type Skill = typeof skills.$inferSelect;
 export type NewSkill = typeof skills.$inferInsert;
 export type ExperienceRow = typeof experience.$inferSelect;
 export type NewExperienceRow = typeof experience.$inferInsert;
+export type MerchantItem = typeof merchantItems.$inferSelect;
+export type NewMerchantItem = typeof merchantItems.$inferInsert;
+export type NpcSpawn = typeof npcSpawns.$inferSelect;
+export type NewNpcSpawn = typeof npcSpawns.$inferInsert;
+export type CharacterItem = typeof characterItems.$inferSelect;
+export type NewCharacterItem = typeof characterItems.$inferInsert;
 export type Character = typeof characters.$inferSelect;
 export type NewCharacter = typeof characters.$inferInsert;
 
-export const schema = { monsters, mobDrops, mobSpawns, npcs, skills, experience, characters };
+export const schema = {
+  monsters,
+  mobDrops,
+  mobSpawns,
+  npcs,
+  skills,
+  experience,
+  merchantItems,
+  npcSpawns,
+  characterItems,
+  characters,
+};

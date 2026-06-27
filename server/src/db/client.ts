@@ -86,14 +86,38 @@ function applySchema(sqlite: Database.Database): void {
       xp INTEGER NOT NULL,
       hp REAL NOT NULL,
       mp REAL NOT NULL,
+      adena INTEGER NOT NULL DEFAULT 1000,
+      starter_kit_granted INTEGER NOT NULL DEFAULT 0,
       x REAL NOT NULL,
       y REAL NOT NULL,
       z REAL NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS merchant_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      npc_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      buy_price INTEGER NOT NULL,
+      sell_price INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS npc_spawns (
+      npc_id INTEGER PRIMARY KEY,
+      x REAL NOT NULL,
+      y REAL NOT NULL,
+      z REAL NOT NULL,
+      heading REAL
+    );
+    CREATE TABLE IF NOT EXISTS character_items (
+      character_id TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      count INTEGER NOT NULL,
+      PRIMARY KEY (character_id, item_id)
+    );
   `);
   migrateMonstersColumns(sqlite);
   migrateSkillsColumns(sqlite);
+  migrateCharactersColumns(sqlite);
 }
 
 function migrateSkillsColumns(sqlite: Database.Database): void {
@@ -101,6 +125,19 @@ function migrateSkillsColumns(sqlite: Database.Database): void {
   const names = new Set(cols.map((c) => c.name));
   if (!names.has('power_l1')) {
     sqlite.exec('ALTER TABLE skills ADD COLUMN power_l1 INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
+function migrateCharactersColumns(sqlite: Database.Database): void {
+  const cols = sqlite.pragma('table_info(characters)') as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  if (!names.has('adena')) {
+    sqlite.exec('ALTER TABLE characters ADD COLUMN adena INTEGER NOT NULL DEFAULT 1000');
+  }
+  if (!names.has('starter_kit_granted')) {
+    sqlite.exec(
+      'ALTER TABLE characters ADD COLUMN starter_kit_granted INTEGER NOT NULL DEFAULT 0'
+    );
   }
 }
 
