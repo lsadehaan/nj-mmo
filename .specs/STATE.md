@@ -118,7 +118,7 @@
 ## Handoff
 
 **Phase 7 — Progression loop: T13–T16 COMPLETE (Worker C client + e2e).**
-Commits `a7b0b24` (T13), `6b5edf2` (T14), `17121be` (T15), T16 pending below.
+Commits `a7b0b24` (T13), `6b5edf2` (T14), `17121be` (T15), `f494fbd` (T16).
 Gate green: `nx test client` **73/73**; full `nx run-many -t build lint test &&
 nx e2e client-e2e` **13/13** e2e pass. Progression e2e observes starter kit →
 equip 2369 → level 2 → buy potion → adena **897**. **Next:** Verifier on full
