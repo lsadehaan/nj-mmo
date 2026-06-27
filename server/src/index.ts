@@ -1,2 +1,4 @@
-// Server entrypoint — TownRoom wiring added in T5.
-console.log('nj server scaffold ready');
+import { listen } from '@colyseus/tools';
+import app from './app.config';
+
+listen(app);
