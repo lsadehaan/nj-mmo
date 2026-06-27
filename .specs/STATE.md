@@ -117,12 +117,28 @@
 
 ## Handoff
 
-**Phase 6 — Worker C (client T10–T14) COMPLETE.** Commits `caf7c39` (test-hook fix)
-→ `03aa309` (T13) → T14 pending commit. Client: NPC renderer, shop/dialog DOM,
-`__GAME_STATE__` town hooks, `town.spec.ts` e2e. Gates green:
-`nx run-many -t build lint test && nx e2e client-e2e` (client 57 unit, 11 e2e).
+**Phase 6 — NPCs & functional town: COMPLETE (Verifier PASS).**
+`.specs/features/phase-6-npcs-town/validation.md` records PASS over diff
+`9813114..HEAD`: 31/32 ACs traced (1 optional cosmetic spec-precision gap —
+peace-marker coords not unit-asserted), discrimination sensor 10/10 mutants
+killed (incl. the `canInteract` proximity mutant now dying at the room layer),
+gate green (game-core 44, client 57, server 135; `nx e2e client-e2e` 12/12,
+reliably, 4 parallel workers). ROADMAP Phase 6 flipped to `[x]`. Server seed+logic
+(Workers A+B) + client/e2e (Worker C) + 4 gap fixes + the AD-014 test-infra
+speedup all landed. Lessons L-002–L-004 recorded.
 
-**Next step:** Verifier on Phase 6 full diff (Workers A+B+C).
+**Next step:** Phase 7 — Progression loop & go-live (FINAL MVP phase). Basic
+inventory + gold + equip weapon; death/respawn in town + level-up reward; deploy
+server (Railway/Fly) + static client (Vercel) → public URL. Builds on the seeded
+items/adena/shop (Phase 6), combat/XP (Phase 4), and skill (Phase 5). NOTE: the
+deploy sub-item needs external hosting credentials/accounts — if those are
+unavailable in autonomous mode, implement inventory/equip/death-respawn/level-up
+reward and STOP at the deploy step with a blocker (per the skill's "missing
+external secret/paid resource" halt condition) rather than fabricating a deploy.
+
+Non-blocking carry-forward: optional `village.spec.ts` peace-marker coord
+assertion; `power-strike.spec` mp===41 assumes nearest out-of-peace mob is a
+Gremlin (resilient now via live-chase, but seed-sensitive).
 
 ### Phase 6 deviations (Implementer, foundations Worker A)
 

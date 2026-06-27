@@ -63,14 +63,14 @@ Never run phases in parallel.
 - [x] Server validates MP cost + cooldown; applies effect
 - [x] Client hotkey + cooldown UI + simple flash/particle
 
-## Phase 6 — NPCs & functional town `[ ]`
+## Phase 6 — NPCs & functional town `[x]`
 
 > Done when: you reach an NPC, open the shop, buy an item, and cannot be attacked in town.
 
-- [ ] Place + render the 2 NPCs (Merchant, utility NPC) with proximity interaction
-- [ ] Merchant shop window: buy/sell from seeded item list
-- [ ] Utility NPC dialog + useful action (heal / starter item)
-- [ ] Enforce peace zone (no combat in town)
+- [x] Place + render the 2 NPCs (Merchant, utility NPC) with proximity interaction
+- [x] Merchant shop window: buy/sell from seeded item list
+- [x] Utility NPC dialog + useful action (heal / starter item)
+- [x] Enforce peace zone (no combat in town)
 
 ## Phase 7 — Progression loop & go live `[ ]`
 
