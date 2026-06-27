@@ -1,7 +1,9 @@
 import { Room, Client } from 'colyseus';
 import { TownState, PlayerState } from './schema/TownState';
 
-export class TownRoom extends Room<TownState> {
+export class TownRoom extends Room {
+  declare state: TownState;
+
   override onCreate(): void {
     this.setState(new TownState());
     this.autoDispose = true;
