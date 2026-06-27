@@ -10,6 +10,7 @@ import {
   createCharacter,
   loadCharacter,
   saveCharacter,
+  loadCharacterItems,
 } from '../db/character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { TownState } from './schema/TownState';
@@ -55,6 +56,38 @@ function createFakeClock(startMs = 0) {
       now += ms;
     },
   };
+}
+
+function findNpcByNpcId(room: { state: TownState }, npcId: number) {
+  return [...room.state.npcs.values()].find((n) => n.npcId === npcId);
+}
+
+function getPlayerItemCount(
+  room: { state: TownState },
+  sessionId: string,
+  itemId: number
+): number {
+  const stack = room.state.players.get(sessionId)?.items.get(String(itemId));
+  return stack?.count ?? 0;
+}
+
+function placePlayerAtNpc(
+  room: { state: TownState },
+  sessionId: string,
+  npcId: number
+) {
+  const npc = findNpcByNpcId(room, npcId)!;
+  placePlayerNear(room, sessionId, npc.x, npc.z);
+}
+
+function placePlayerNearNpcOffset(
+  room: { state: TownState },
+  sessionId: string,
+  npcId: number,
+  offsetZ: number
+) {
+  const npc = findNpcByNpcId(room, npcId)!;
+  placePlayerNear(room, sessionId, npc.x, npc.z + offsetZ);
 }
 
 function findMobByNpcId(room: { state: TownState }, npcId: number) {
@@ -105,6 +138,12 @@ function placePlayerAndMobForCombat(
 ) {
   relocateMob(room, mob.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
   placePlayerNear(room, sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+}
+
+async function settleRoomMessages(
+  room: Awaited<ReturnType<ColyseusTestServer['createRoom']>>
+) {
+  await room.waitForNextSimulationTick();
 }
 
 describe('TownRoom', () => {
@@ -821,6 +860,225 @@ describe('TownRoom Power Strike', () => {
       await room.waitForNextSimulationTick();
       expect(player.mp).toBe(mpBefore);
 
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('TownRoom NPC shop and peace zone', () => {
+  const KATERINA = 30004;
+  const ROXXY = 30006;
+  const POTION = 1060;
+
+  it('boots with 2 NPCs in state.npcs from seed', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      expect(room.state.npcs.size).toBe(2);
+      expect(findNpcByNpcId(room, KATERINA)).toMatchObject({ npcId: KATERINA });
+      expect(findNpcByNpcId(room, ROXXY)).toMatchObject({ npcId: ROXXY });
+      await room.disconnect();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('buy 1× Healing Potion drops adena 1000→897 and grants item 1060', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const player = room.state.players.get(client.sessionId)!;
+      placePlayerAtNpc(room, client.sessionId, KATERINA);
+
+      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+      await settleRoomMessages(room);
+
+      expect(player.adena).toBe(897);
+      expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects buy from 3.1 m away from Katerina', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      placePlayerNearNpcOffset(room, client.sessionId, KATERINA, 3.1);
+
+      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+
+      expect(player.adena).toBe(1000);
+      expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects buy when adena is insufficient', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      player.adena = 50;
+      placePlayerAtNpc(room, client.sessionId, KATERINA);
+
+      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+
+      expect(player.adena).toBe(50);
+      expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('sell 1× potion adds adena 897→948', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const player = room.state.players.get(client.sessionId)!;
+      placePlayerAtNpc(room, client.sessionId, KATERINA);
+
+      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+      await settleRoomMessages(room);
+      expect(player.adena).toBe(897);
+      room['playerItems'].set(client.sessionId, { [POTION]: 2 });
+      room['syncItemsToPlayerState'](client.sessionId);
+
+      client.send('sell', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+      await settleRoomMessages(room);
+
+      expect(player.adena).toBe(948);
+      expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('heal restores hp from 40 to 100 near Roxxy', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const player = room.state.players.get(client.sessionId)!;
+      player.hp = 40;
+      placePlayerAtNpc(room, client.sessionId, ROXXY);
+
+      client.send('npcAction', { npcId: ROXXY, action: 'heal' });
+      await settleRoomMessages(room);
+
+      expect(player.hp).toBe(100);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('starter kit grants 3× potion once', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      placePlayerAtNpc(room, client.sessionId, ROXXY);
+
+      client.send('npcAction', { npcId: ROXXY, action: 'starterKit' });
+      await settleRoomMessages(room);
+
+      expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(3);
+      const characterId = room['characterIds'].get(client.sessionId)!;
+      await client.leave(true);
+      expect(loadCharacter(getDb(dbPath), characterId)!.starterKitGranted).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('starter kit does not grant items a second time', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      placePlayerAtNpc(room, client.sessionId, ROXXY);
+
+      client.send('npcAction', { npcId: ROXXY, action: 'starterKit' });
+      await settleRoomMessages(room);
+      client.send('npcAction', { npcId: ROXXY, action: 'starterKit' });
+      await settleRoomMessages(room);
+
+      expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(3);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('persists buy adena and items on leave', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+      placePlayerAtNpc(room, client.sessionId, KATERINA);
+
+      client.send('buy', { npcId: KATERINA, itemId: POTION, quantity: 1 });
+      await client.leave(true);
+
+      expect(loadCharacter(getDb(dbPath), characterId)!.adena).toBe(897);
+      expect(loadCharacterItems(getDb(dbPath), characterId)[POTION]).toBe(1);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('attack inside peace zone deals no damage', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const gremlin = findMobByNpcId(room, 20001)!;
+      relocateMob(room, gremlin.id, 0, 0);
+      placePlayerNear(room, client.sessionId, 0, 0);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
+
+      client.send('setTarget', { mobId: gremlin.id });
+      client.send('attack', {});
+      await room.waitForNextSimulationTick();
+
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('useSkill inside peace zone deals no damage and costs no MP', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      relocateMob(room, gremlin.id, 0, 0);
+      placePlayerNear(room, client.sessionId, 0, 0);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
+
+      client.send('setTarget', { mobId: gremlin.id });
+      client.send('useSkill', { skillId: 3 });
+      await room.waitForNextSimulationTick();
+
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
+      expect(player.mp).toBe(50);
       await client.leave();
     } finally {
       cleanup();

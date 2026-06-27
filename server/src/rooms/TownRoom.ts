@@ -15,13 +15,18 @@ import {
   createCharacter,
   loadCharacter,
   saveCharacter,
+  loadCharacterItems,
+  saveCharacterItems,
+  type CharacterItemCounts,
 } from '../db/character-repository';
-import { experience, mobDrops, skills, type Character } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, type Character, type MerchantItem } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
 import { TownState, PlayerState } from './schema/TownState';
 import { MobState } from './schema/MobState';
+import { NpcState } from './schema/NpcState';
+import { ItemStackState } from './schema/ItemStackState';
 import { tickMobAi } from './mob-ai';
 import {
   createPlayerCombatState,
@@ -41,6 +46,8 @@ import {
   respawnMobRuntime,
   type MobRuntime,
 } from './spawn-manager';
+import { buyItem, sellItem } from './shop-transaction';
+import { canInteract, applyHeal, applyStarterKit } from './npc-actions';
 
 export interface TownRoomOptions {
   dbPath?: string;
@@ -76,6 +83,8 @@ export class TownRoom extends Room<{ state: TownState }> {
   private dropsByNpcId = new Map<number, DropRow[]>();
   private powerStrikeSkill!: PowerStrikeSkill;
   private nowMs = () => Date.now();
+  private playerItems = new Map<string, CharacterItemCounts>();
+  private npcSpawnsById = new Map<number, { x: number; y: number; z: number }>();
 
   override onCreate(options: TownRoomOptions = {}): void {
     this.db = getDb(options.dbPath ?? DEFAULT_DB_PATH);
@@ -87,6 +96,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     this.loadCombatData();
     this.setState(new TownState());
+    this.initializeNpcs();
     this.mobRuntime = initializeMobs(this.db, this.state);
     this.autoDispose = true;
     this.setSimulationInterval((deltaTimeMs) => this.simulate(deltaTimeMs), 50);
@@ -120,6 +130,217 @@ export class TownRoom extends Room<{ state: TownState }> {
       if (!mob || mob.hp <= 0) return;
       combat.skillPending = true;
     });
+
+    this.onMessage('interact', (client, message: { npcId: number }) => {
+      this.handleInteract(client.sessionId, message.npcId);
+    });
+
+    this.onMessage(
+      'buy',
+      (client, message: { npcId: number; itemId: number; quantity: number }) => {
+        this.handleBuy(client.sessionId, message.npcId, message.itemId, message.quantity);
+      }
+    );
+
+    this.onMessage(
+      'sell',
+      (client, message: { npcId: number; itemId: number; quantity: number }) => {
+        this.handleSell(client.sessionId, message.npcId, message.itemId, message.quantity);
+      }
+    );
+
+    this.onMessage(
+      'npcAction',
+      (client, message: { npcId: number; action: 'heal' | 'starterKit' }) => {
+        this.handleNpcAction(client.sessionId, message.npcId, message.action);
+      }
+    );
+  }
+
+  private initializeNpcs(): void {
+    this.npcSpawnsById.clear();
+    for (const spawn of this.db.select().from(npcSpawns).all()) {
+      this.npcSpawnsById.set(spawn.npcId, { x: spawn.x, y: spawn.y, z: spawn.z });
+      const meta = this.db
+        .select()
+        .from(npcs)
+        .where(eq(npcs.npcId, spawn.npcId))
+        .get();
+      if (!meta) continue;
+
+      const npcState = new NpcState();
+      npcState.id = `npc-${spawn.npcId}`;
+      npcState.npcId = spawn.npcId;
+      npcState.name = meta.name;
+      npcState.title = meta.title;
+      npcState.type = meta.type;
+      npcState.x = spawn.x;
+      npcState.y = spawn.y;
+      npcState.z = spawn.z;
+      this.state.npcs.set(npcState.id, npcState);
+    }
+  }
+
+  private getNpcSpawn(npcId: number): { x: number; y: number; z: number } | undefined {
+    return this.npcSpawnsById.get(npcId);
+  }
+
+  private isNearNpc(
+    sessionId: string,
+    npcId: number
+  ): { ok: true; spawn: { x: number; y: number; z: number } } | { ok: false } {
+    const spawn = this.getNpcSpawn(npcId);
+    const player = this.state.players.get(sessionId);
+    if (!spawn || !player) return { ok: false };
+    if (
+      !canInteract(
+        { playerX: player.x, playerZ: player.z },
+        { npcX: spawn.x, npcZ: spawn.z }
+      )
+    ) {
+      return { ok: false };
+    }
+    return { ok: true, spawn };
+  }
+
+  private getMerchantListing(
+    npcId: number,
+    itemId: number
+  ): MerchantItem | undefined {
+    return this.db
+      .select()
+      .from(merchantItems)
+      .where(and(eq(merchantItems.npcId, npcId), eq(merchantItems.itemId, itemId)))
+      .get();
+  }
+
+  private syncItemsToPlayerState(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const items = this.playerItems.get(sessionId);
+    if (!player || !items) return;
+
+    player.items.clear();
+    for (const [itemId, count] of Object.entries(items)) {
+      if (count <= 0) continue;
+      const stack = new ItemStackState();
+      stack.itemId = Number(itemId);
+      stack.count = count;
+      player.items.set(String(itemId), stack);
+    }
+  }
+
+  private getItemCount(sessionId: string, itemId: number): number {
+    return this.playerItems.get(sessionId)?.[itemId] ?? 0;
+  }
+
+  private setItemCount(sessionId: string, itemId: number, count: number): void {
+    const items = { ...(this.playerItems.get(sessionId) ?? {}) };
+    if (count <= 0) {
+      delete items[itemId];
+    } else {
+      items[itemId] = count;
+    }
+    this.playerItems.set(sessionId, items);
+    this.syncItemsToPlayerState(sessionId);
+  }
+
+  private handleInteract(sessionId: string, npcId: number): void {
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+    const meta = this.db.select().from(npcs).where(eq(npcs.npcId, npcId)).get();
+    if (!meta) return;
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    client?.send('interactResult', { npcId, type: meta.type, name: meta.name });
+  }
+
+  private handleBuy(
+    sessionId: string,
+    npcId: number,
+    itemId: number,
+    quantity: number
+  ): void {
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored) return;
+
+    const listing = this.getMerchantListing(npcId, itemId);
+    if (!listing) return;
+
+    const result = buyItem({
+      adena: player.adena,
+      itemCount: this.getItemCount(sessionId, itemId),
+      listing,
+      quantity,
+      itemId,
+    });
+    if (!result.ok) return;
+
+    player.adena = result.adena;
+    stored.adena = result.adena;
+    this.setItemCount(sessionId, itemId, result.itemCount);
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleSell(
+    sessionId: string,
+    npcId: number,
+    itemId: number,
+    quantity: number
+  ): void {
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored) return;
+
+    const listing = this.getMerchantListing(npcId, itemId);
+    if (!listing) return;
+
+    const result = sellItem({
+      adena: player.adena,
+      itemCount: this.getItemCount(sessionId, itemId),
+      listing,
+      quantity,
+      itemId,
+    });
+    if (!result.ok) return;
+
+    player.adena = result.adena;
+    stored.adena = result.adena;
+    this.setItemCount(sessionId, itemId, result.itemCount);
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleNpcAction(
+    sessionId: string,
+    npcId: number,
+    action: 'heal' | 'starterKit'
+  ): void {
+    if (npcId !== 30006) return;
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored) return;
+
+    if (action === 'heal') {
+      const result = applyHeal({ hp: player.hp });
+      if (!result.ok) return;
+      player.hp = result.hp;
+      stored.hp = result.hp;
+      this.scheduleDebouncedSave(sessionId);
+      return;
+    }
+
+    const result = applyStarterKit({
+      starterKitGranted: stored.starterKitGranted,
+      itemCounts: this.playerItems.get(sessionId) ?? {},
+    });
+    if (!result.ok) return;
+
+    stored.starterKitGranted = result.starterKitGranted;
+    this.playerItems.set(sessionId, result.itemCounts);
+    this.syncItemsToPlayerState(sessionId);
+    this.scheduleDebouncedSave(sessionId);
   }
 
   private loadCombatData(): void {
@@ -341,7 +562,10 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.mp = character.mp;
     player.xp = character.xp;
     player.level = character.level;
+    player.adena = character.adena;
     player.connected = true;
+    this.playerItems.set(client.sessionId, loadCharacterItems(this.db, character.id));
+    this.syncItemsToPlayerState(client.sessionId);
     this.state.players.set(client.sessionId, player);
     this.tickStates.set(
       client.sessionId,
@@ -389,6 +613,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.characters.delete(sessionId);
     this.saveTimers.delete(sessionId);
     this.playerCombat.delete(sessionId);
+    this.playerItems.delete(sessionId);
 
     for (const runtime of this.mobRuntime.values()) {
       if (runtime.targetSessionId === sessionId) {
@@ -412,10 +637,13 @@ export class TownRoom extends Room<{ state: TownState }> {
       xp: player.xp,
       hp: player.hp,
       mp: player.mp,
+      adena: player.adena,
+      starterKitGranted: stored.starterKitGranted,
       x: player.x,
       y: player.y,
       z: player.z,
     });
+    saveCharacterItems(this.db, characterId, this.playerItems.get(sessionId) ?? {});
   }
 
   private scheduleDebouncedSave(sessionId: string): void {

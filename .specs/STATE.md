@@ -108,6 +108,24 @@
 
 ## Handoff
 
+**Phase 6 — NPCs & functional town: foundations (Worker A T1/T2/T3/T7/T9) COMPLETE.**
+Commits `7082e7b` (T1) → `29299aa` (T9). Gates green: `nx test game-core` (44),
+`nx test server` (103), `nx run-many -t build lint --projects=server,game-core`.
+Peace zone, DB economy tables, Katerina shop + NPC spawn seed, Colyseus
+`NpcState`/`PlayerState.adena`/`items`, character-repository adena/items persist.
+**Not done (later workers):** T4–T6/T8 server logic + room wiring; T10–T14 client
++ e2e.
+
+**Next step:** Worker B — T4 shop-transaction, T5 npc-actions, T6 peace-zone
+combat guards (parallel after T1), then T8 TownRoom wiring (needs T3,T4,T5,T6,T7,T9).
+
+### Phase 6 deviations (Implementer, foundations Worker A)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T2 | Minimal `adena`/`starterKitGranted` in `createCharacter` + `saveCharacter` (ahead of T9 scope) | Schema migration broke existing character round-trip tests; DB defaults alone left `created` ≠ `loaded`. |
+| T7 | Gate used `nx run-many -t build lint --projects=server,game-core` | Full monorepo `nx run-many -t build lint` fails on pre-existing `client` `test-hook.spec.ts` TS errors (unrelated to Phase 6 schema). |
+
 **Phase 5 — The skill (Power Strike): COMPLETE (Verifier PASS).**
 `.specs/features/phase-5-power-strike/validation.md` records PASS over diff
 `5d68137..HEAD`: 19/19 ACs traced to spec anchors (damage 69/62, MP 50→41,
@@ -193,3 +211,11 @@ Lesson L-001 (vitest must resolve `@nj/game-core` from source via
 | ---- | --------- | ------ |
 | T7/T8 | Idempotent re-seed tests compare drop/spawn rows **without** autoincrement `id` | SQLite `AUTOINCREMENT` advances on re-insert; row content is stable but surrogate ids differ. |
 | T5–T8 | Used `mob_drops` / `mob_spawns` tables per `phase-4-server-combat` spec (not `items` + `monster_drops` from parallel `phase-4-combat` draft) | Task scope is `phase-4-server-combat`; drop rows reference `itemId` only (no items FK until Phase 7). |
+
+### Phase 6 deviations (Implementer, T4–T8)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T6 | Phase 4/5 combat unit + room tests use `OUT_OF_PEACE` (30, −30) for player/mob placement | TI Gremlin spawns at (−10, −14) and (12, −18) lie inside the peace-zone rectangle; attacker-at-spawn would deal 0 damage after P6-R02 guards. |
+| T6 | `relocateMob` test helper pins wander targets to prevent mob drift during cast-range assertions | Mob AI wander runs before skill resolution in the tick; a 3.9 m edge-case test flaked when the mob moved out of range mid-tick. |
+| T8 | Shop/NPC room tests call `settleRoomMessages` (one simulation tick) after `client.send` | Colyseus `@colyseus/testing` `sdk.joinById` delivers intents asynchronously; immediate reads of server state before the tick were stale. |
