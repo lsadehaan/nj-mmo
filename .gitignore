@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.nx/cache
+*.db
+*.db-journal
+.env
+.DS_Store
+coverage/
+test-results/
+playwright-report/
+blob-report/

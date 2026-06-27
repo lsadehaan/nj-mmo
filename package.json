@@ -1,0 +1,11 @@
+{
+  "name": "nj",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {},
+  "devDependencies": {
+    "nx": "23.0.1",
+    "typescript": "6.0.3"
+  }
+}

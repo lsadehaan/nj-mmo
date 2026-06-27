@@ -1,0 +1,56 @@
+{
+  "version": "6.0",
+  "nxVersion": "23.0.1",
+  "pathMappings": {},
+  "nxJsonPlugins": [],
+  "fileMap": {
+    "nonProjectFiles": [
+      {
+        "file": ".cursor/skills/spec-driven-execution/SKILL.md",
+        "hash": "8722748438527001953"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "5122235943132042237"
+      },
+      {
+        "file": ".specs/STATE.md",
+        "hash": "13091092825348855835"
+      },
+      {
+        "file": ".specs/features/phase-1-2-foundation-world/design.md",
+        "hash": "7734880724142342599"
+      },
+      {
+        "file": ".specs/features/phase-1-2-foundation-world/spec.md",
+        "hash": "6451900846241453536"
+      },
+      {
+        "file": ".specs/features/phase-1-2-foundation-world/tasks.md",
+        "hash": "6962952896827747572"
+      },
+      {
+        "file": "AGENTS.md",
+        "hash": "6303198592252494745"
+      },
+      {
+        "file": "nx.json",
+        "hash": "2647813677128142069"
+      },
+      {
+        "file": "package-lock.json",
+        "hash": "12362906583597550256"
+      },
+      {
+        "file": "package.json",
+        "hash": "14157305125643901181"
+      },
+      {
+        "file": "tsconfig.base.json",
+        "hash": "15878349208427263949"
+      }
+    ],
+    "projectFileMap": {}
+  },
+  "externalNodesHash": "12498167228010597312"
+}
