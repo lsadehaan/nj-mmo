@@ -2,12 +2,14 @@
 import { defineConfig } from 'vite';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 
-export default defineConfig({
-  root: __dirname,
+export default defineConfig(({ mode }) => ({
   cacheDir: '../node_modules/.vite/client',
   server: {
     port: 4200,
     host: 'localhost',
+    fs: {
+      allow: ['..'],
+    },
   },
   preview: {
     port: 4300,
@@ -33,4 +35,4 @@ export default defineConfig({
       provider: 'v8',
     },
   },
-});
+}));
