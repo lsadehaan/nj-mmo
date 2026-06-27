@@ -64,24 +64,26 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   callbacks.onAdd('players', (player, sessionId) => {
+    const id = sessionId as string;
     const state = player as { x: number; y: number; z: number };
-    if (sessionId === localId) {
+    if (id === localId) {
       syncLocal(state);
       callbacks.onChange(state, () => syncLocal(state));
       return;
     }
 
-    game.syncRemotePlayer(sessionId, state.x, state.y, state.z);
+    game.syncRemotePlayer(id, state.x, state.y, state.z);
     publishOthers();
     callbacks.onChange(state, () => {
-      game.syncRemotePlayer(sessionId, state.x, state.y, state.z);
+      game.syncRemotePlayer(id, state.x, state.y, state.z);
       publishOthers();
     });
   });
 
   callbacks.onRemove('players', (_player, sessionId) => {
-    if (sessionId !== localId) {
-      game.removeRemotePlayer(sessionId);
+    const id = sessionId as string;
+    if (id !== localId) {
+      game.removeRemotePlayer(id);
       publishOthers();
     }
   });
