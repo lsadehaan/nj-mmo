@@ -47,5 +47,17 @@ function applySchema(sqlite: Database.Database): void {
       xp_to_next_level INTEGER NOT NULL,
       training_rate REAL NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS characters (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      level INTEGER NOT NULL,
+      xp INTEGER NOT NULL,
+      hp REAL NOT NULL,
+      mp REAL NOT NULL,
+      x REAL NOT NULL,
+      y REAL NOT NULL,
+      z REAL NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 }

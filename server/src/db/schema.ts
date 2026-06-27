@@ -37,6 +37,19 @@ export const experience = sqliteTable('experience', {
   trainingRate: real('training_rate').notNull(),
 });
 
+export const characters = sqliteTable('characters', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  level: integer('level').notNull(),
+  xp: integer('xp').notNull(),
+  hp: real('hp').notNull(),
+  mp: real('mp').notNull(),
+  x: real('x').notNull(),
+  y: real('y').notNull(),
+  z: real('z').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
 export type Monster = typeof monsters.$inferSelect;
 export type NewMonster = typeof monsters.$inferInsert;
 export type Npc = typeof npcs.$inferSelect;
@@ -45,5 +58,7 @@ export type Skill = typeof skills.$inferSelect;
 export type NewSkill = typeof skills.$inferInsert;
 export type ExperienceRow = typeof experience.$inferSelect;
 export type NewExperienceRow = typeof experience.$inferInsert;
+export type Character = typeof characters.$inferSelect;
+export type NewCharacter = typeof characters.$inferInsert;
 
-export const schema = { monsters, npcs, skills, experience };
+export const schema = { monsters, npcs, skills, experience, characters };
