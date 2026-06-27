@@ -106,6 +106,15 @@
 - **Date**: 2026-06-27
 - **Status**: active
 
+### AD-014
+- **Decision**: Test-infrastructure performance + determinism contract. (1) Room-integration tests run with `NJ_AUTOSIM=0` so `TownRoom` starts no background simulation interval; tests advance the world by calling `simulate()` directly (synchronous `tick()` helper) and await real message delivery via `room.waitForMessage` (`deliver()` helper) before processing — no wall-clock tick sleeps, no transport/tick races. Production is unchanged (auto-simulates at 50 ms with the real measured delta). (2) E2E isolates each test in its own Colyseus room via `town`.`filterBy(['instanceKey'])` + a client `?room=<key>` query (production passes no key → shared world); this enables Playwright `fullyParallel` with 4 workers and removes serial mode + the `0-`-prefix ordering hack. (3) E2E serves a prebuilt client (`nx run client:preview`) instead of the dev server to avoid first-request compile contention. (4) E2E combat/skill polls chase the mob's live position (mobs wander) instead of a stale snapshot.
+- **Reason**: `nx test server` was ~9 s (one file, `TownRoom.spec`, was ~7.8 s of it) because `@colyseus/testing`'s `waitForNextSimulationTick` is a `setTimeout(interval)` and the room ticked every 50 ms (~150 serialized sleeps); the e2e suite was serial and flaky from shared-room state bleed + dev-server cold-compile + stale-snapshot mob targeting.
+- **Trade-off**: Tests reach into the room (`simulate`, message helpers) and the client reads a `?room` test param; a small amount of test-only surface in production code (guarded/inert in production).
+- **Scope**: All server room-integration tests + all Playwright e2e.
+- **Date**: 2026-06-27
+- **Status**: active
+- **Result**: `nx test server` ~9.2 s → ~2.3 s; full `nx run-many -t build lint test` ~15.5 s → ~11 s; `nx e2e client-e2e` ~56 s → ~23 s and reliably green (14 consecutive cold runs). All test counts unchanged (game-core 44, client 57, server 135, e2e 12); no tests skipped/weakened; L-001 source resolution preserved (vitest `resolve.alias`, `nx test` has no `^build` dep).
+
 ## Handoff
 
 **Phase 6 — Worker C (client T10–T14) COMPLETE.** Commits `caf7c39` (test-hook fix)
