@@ -103,7 +103,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     );
   };
 
+  let prevPowerStrikeCooldownEndMs = 0;
+
   const syncLocal = (player: PlayerSchema): void => {
+    if (prevPowerStrikeCooldownEndMs === 0 && player.powerStrikeCooldownEndMs > 0) {
+      game.triggerSkillFlash();
+    }
+    prevPowerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
+
     game.syncLocalPlayer(player.x, player.y, player.z);
     setPlayer({
       x: player.x,

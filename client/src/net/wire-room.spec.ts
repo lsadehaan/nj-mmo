@@ -18,12 +18,14 @@ vi.mock('@colyseus/sdk', () => ({
 }));
 
 const mockSyncLocalPlayer = vi.fn();
+const mockTriggerSkillFlash = vi.fn();
 const mockGame = {
   syncLocalPlayer: mockSyncLocalPlayer,
   syncRemotePlayer: vi.fn(),
   removeRemotePlayer: vi.fn(),
   syncMob: vi.fn(),
   removeMob: vi.fn(),
+  triggerSkillFlash: mockTriggerSkillFlash,
 };
 
 describe('wireRoom player combat sync', () => {
@@ -33,6 +35,7 @@ describe('wireRoom player combat sync', () => {
     mockOnChange.mockReset();
     mockOnRemove.mockReset();
     mockSyncLocalPlayer.mockReset();
+    mockTriggerSkillFlash.mockReset();
     vi.resetModules();
   });
 
@@ -81,5 +84,41 @@ describe('wireRoom player combat sync', () => {
     expect(window.__GAME_STATE__.player.mp).toBe(32);
     expect(window.__GAME_STATE__.player.powerStrikeCooldownEndMs).toBe(0);
     expect(window.__GAME_STATE__.player.powerStrikeCooldownRemainingMs).toBe(0);
+  });
+
+  it('triggers skill flash when powerStrikeCooldownEndMs transitions from 0 to active', async () => {
+    let localPlayer: Record<string, unknown> | null = null;
+    let localOnChange: (() => void) | null = null;
+
+    mockOnAdd.mockImplementation((collection: string, handler: (item: unknown, id: string) => void) => {
+      if (collection !== 'players') return;
+      const player = {
+        x: 0,
+        y: 0,
+        z: 0,
+        xp: 0,
+        level: 1,
+        mp: 50,
+        powerStrikeCooldownEndMs: 0,
+      };
+      localPlayer = player;
+      handler(player, 'local-session');
+    });
+
+    mockOnChange.mockImplementation((target: unknown, handler: () => void) => {
+      if (target === localPlayer) {
+        localOnChange = handler;
+      }
+    });
+
+    const { wireRoom } = await import('./room');
+    wireRoom({ sessionId: 'local-session', state: { mobs: new Map() } } as never, mockGame as never);
+
+    expect(mockTriggerSkillFlash).not.toHaveBeenCalled();
+
+    (localPlayer as { powerStrikeCooldownEndMs: number }).powerStrikeCooldownEndMs = Date.now() + 3_000;
+    localOnChange?.();
+
+    expect(mockTriggerSkillFlash).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,7 @@ import { type MovementIntent } from '@nj/game-core';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
 import { getGameState, setPlayer, setTarget } from '../test-hook';
+import { createSkillFlash } from './skill-flash';
 import {
   removeRemotePlayer,
   upsertRemotePlayer,
@@ -45,6 +46,7 @@ export interface GameRenderer {
   removeMob: (mobId: string) => void;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   setMobTargetHandler: (handler: (mobId: string) => void) => void;
+  triggerSkillFlash: () => void;
   dispose: () => void;
 }
 
@@ -175,6 +177,18 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     mobTargetHandler = handler;
   };
 
+  const triggerSkillFlash = (): void => {
+    const state = getGameState();
+    const mob = state.mobs.find((entry) => entry.id === state.targetMobId);
+    if (!mob) return;
+    const player = state.player;
+    createSkillFlash(
+      scene,
+      { x: player.x, y: player.y, z: player.z },
+      { x: mob.x, y: mob.y, z: mob.z }
+    );
+  };
+
   const syncRemotePlayer = (sessionId: string, x: number, y: number, z: number): void => {
     upsertRemotePlayer(remoteMeshes, sessionId, x, y, z, scene);
   };
@@ -276,6 +290,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     removeMob: removeMobById,
     setMoveIntentHandler,
     setMobTargetHandler,
+    triggerSkillFlash,
     dispose,
   };
 }
