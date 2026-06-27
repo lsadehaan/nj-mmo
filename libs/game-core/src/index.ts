@@ -2,3 +2,7 @@ export * from './movement-system';
 export * from './world-constants';
 export * from './validate-move-intent';
 export * from './seeded-rng';
+export * from './combat/starter-combat';
+export * from './combat/melee-damage';
+export * from './combat/attack-timing';
+export * from './combat/combat-range';
