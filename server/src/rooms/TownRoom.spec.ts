@@ -1350,3 +1350,142 @@ describe('TownRoom equip', () => {
     }
   });
 });
+
+describe('TownRoom player death', () => {
+  it('mob kill respawns player at spawn with full HP and unchanged xp', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: () => 0,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+
+      player.xp = 44;
+      room['characters'].get(client.sessionId)!.xp = 44;
+      player.hp = 1;
+
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+
+      tick(room);
+
+      expect(player.hp).toBe(player.maxHp);
+      expect(player.mp).toBe(player.maxMp);
+      expect(player.x).toBe(SPAWN_X);
+      expect(player.y).toBeCloseTo(SPAWN_Y, 5);
+      expect(player.z).toBe(SPAWN_Z);
+      expect(player.xp).toBe(44);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('death clears player combat target and mob aggro', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: () => 0,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+
+      await deliver(room, client, [['setTarget', { mobId: gremlin.id }]]);
+      const combat = room['playerCombat'].get(client.sessionId)!;
+      expect(combat.targetMobId).toBe(gremlin.id);
+
+      player.hp = 1;
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+      tick(room);
+
+      expect(combat.targetMobId).toBeNull();
+      expect(runtime.targetSessionId).toBeNull();
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('persists respawn position and full HP on leave after death', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: () => 0,
+      });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+
+      player.hp = 1;
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+      tick(room);
+
+      await client.leave(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const row = loadCharacter(getDb(dbPath), characterId)!;
+      expect(row.x).toBe(SPAWN_X);
+      expect(row.z).toBe(SPAWN_Z);
+      expect(row.hp).toBe(row.maxHp);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('reconnect after death restores spawn position and full HP', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: () => 0,
+      });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+
+      player.hp = 1;
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+      tick(room);
+
+      await client.leave(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const room2 = await colyseus.createRoom('town', { dbPath });
+      const client2 = await colyseus.sdk.joinById(
+        room2.roomId,
+        { characterId },
+        TownState
+      );
+      const rejoined = room2.state.players.get(client2.sessionId)!;
+      expect(rejoined.x).toBe(SPAWN_X);
+      expect(rejoined.z).toBe(SPAWN_Z);
+      expect(rejoined.hp).toBe(rejoined.maxHp);
+      await client2.leave();
+    } finally {
+      cleanup();
+    }
+  });
+});

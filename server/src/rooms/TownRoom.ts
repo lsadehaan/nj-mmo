@@ -6,6 +6,7 @@ import {
   createSeededRng,
   STARTER_COMBAT,
   effectivePAtk,
+  resolvePlayerDeath,
   type MovementIntent,
   type PlayerMoveState,
   type DropRow,
@@ -560,7 +561,63 @@ export class TownRoom extends Room<{ state: TownState }> {
       }
     }
 
+    for (const [sessionId, player] of this.state.players.entries()) {
+      if (player.hp <= 0) {
+        this.handlePlayerDeath(sessionId);
+      }
+    }
+
     this.processRespawns(now);
+  }
+
+  private handlePlayerDeath(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored) return;
+
+    const death = resolvePlayerDeath({
+      level: player.level,
+      xp: player.xp,
+      maxHp: player.maxHp,
+      maxMp: player.maxMp,
+    });
+
+    player.xp = death.xp;
+    player.x = death.x;
+    player.y = death.y;
+    player.z = death.z;
+    player.hp = death.hp;
+    player.mp = death.mp;
+
+    stored.xp = death.xp;
+    stored.x = death.x;
+    stored.y = death.y;
+    stored.z = death.z;
+    stored.hp = death.hp;
+    stored.mp = death.mp;
+
+    const combat = this.playerCombat.get(sessionId);
+    if (combat) {
+      combat.targetMobId = null;
+      combat.attackPending = false;
+      combat.skillPending = false;
+    }
+
+    for (const runtime of this.mobRuntime.values()) {
+      if (runtime.targetSessionId === sessionId) {
+        runtime.targetSessionId = null;
+      }
+    }
+
+    const tickState = this.tickStates.get(sessionId);
+    if (tickState) {
+      tickState.x = death.x;
+      tickState.z = death.z;
+      tickState.targetX = null;
+      tickState.targetZ = null;
+    }
+
+    this.persistCharacter(sessionId);
   }
 
   private handleMobKill(killerSessionId: string, runtime: MobRuntime): void {
