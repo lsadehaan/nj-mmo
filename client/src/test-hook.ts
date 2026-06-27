@@ -24,6 +24,7 @@ declare global {
   interface Window {
     __GAME_STATE__: GameState;
     __handleGroundClick__?: (clientX: number, clientY: number) => void;
+    __consentLeave__?: () => Promise<void>;
   }
 }
 

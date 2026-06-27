@@ -32,6 +32,7 @@ async function boot(): Promise<void> {
       room.send('move', { targetX: intent.targetX, targetZ: intent.targetZ });
     });
     wireRoom(room, game);
+    (window as Window).__consentLeave__ = () => room.leave(true);
   } else {
     console.warn('Failed to connect to game server');
   }

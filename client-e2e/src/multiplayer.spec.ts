@@ -80,6 +80,54 @@ test('browser B sees browser A move in __GAME_STATE__.others', async ({ browser 
   }
 });
 
+test('browser B stops seeing browser A after consented leave', async ({ browser }) => {
+  const contextA = await browser.newContext();
+  const contextB = await browser.newContext();
+  const pageA = await contextA.newPage();
+  const pageB = await contextB.newPage();
+
+  try {
+    await pageA.goto('/');
+    await pageB.goto('/');
+    await waitReady(pageA);
+    await waitReady(pageB);
+
+    const aIdOnB = await pageB.waitForFunction(
+      () => {
+        const others = window.__GAME_STATE__?.others ?? [];
+        return others.length >= 1 ? others[0].id : null;
+      },
+      undefined,
+      { timeout: 15_000 }
+    );
+    const leaverId = (await aIdOnB.jsonValue()) as string;
+    expect(leaverId).toBeTruthy();
+
+    await pageA.waitForFunction(() => typeof window.__consentLeave__ === 'function');
+    await pageA.evaluate(async () => {
+      await window.__consentLeave__?.();
+    });
+
+    await pageB.waitForFunction(
+      (id) => {
+        const others = window.__GAME_STATE__?.others ?? [];
+        return !others.some((o) => o.id === id);
+      },
+      leaverId,
+      { timeout: 15_000 }
+    );
+
+    const othersAfterLeave = await pageB.evaluate(
+      (id) => (window.__GAME_STATE__?.others ?? []).some((o) => o.id === id),
+      leaverId
+    );
+    expect(othersAfterLeave).toBe(false);
+  } finally {
+    await contextA.close();
+    await contextB.close();
+  }
+});
+
 test('rejoining with the same characterId restores saved position', async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
