@@ -1,9 +1,11 @@
 import { getDb, type AppDatabase } from '../db/client';
-import { monsters, npcs, skills, experience } from '../db/schema';
+import { monsters, npcs, skills, experience, mobDrops, mobSpawns } from '../db/schema';
 import { seedMonsters } from './seeders/monsters.seeder';
 import { seedNpcs } from './seeders/npcs.seeder';
 import { seedSkills } from './seeders/skills.seeder';
 import { seedExperience } from './seeders/experience.seeder';
+import { seedMobDrops } from './seeders/drops.seeder';
+import { seedMobSpawns } from './seeders/spawns.seeder';
 import { FIXTURE_DATA_DIR, resolveDataDir } from './paths';
 
 export interface SeedOptions {
@@ -16,6 +18,8 @@ export interface SeedReport {
   npcs: number;
   skills: number;
   experience: number;
+  mobDrops: number;
+  mobSpawns: number;
 }
 
 export function runSeed(options: SeedOptions): SeedReport {
@@ -23,6 +27,8 @@ export function runSeed(options: SeedOptions): SeedReport {
   const db = getDb(options.dbPath);
 
   return db.transaction((tx) => {
+    tx.delete(mobSpawns).run();
+    tx.delete(mobDrops).run();
     tx.delete(experience).run();
     tx.delete(skills).run();
     tx.delete(npcs).run();
@@ -30,6 +36,8 @@ export function runSeed(options: SeedOptions): SeedReport {
 
     const report: SeedReport = {
       monsters: seedMonsters(tx as unknown as AppDatabase, dataDir),
+      mobDrops: seedMobDrops(tx as unknown as AppDatabase, dataDir),
+      mobSpawns: seedMobSpawns(tx as unknown as AppDatabase, dataDir),
       npcs: seedNpcs(tx as unknown as AppDatabase, dataDir),
       skills: seedSkills(tx as unknown as AppDatabase, dataDir),
       experience: seedExperience(tx as unknown as AppDatabase, dataDir),
