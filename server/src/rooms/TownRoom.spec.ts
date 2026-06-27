@@ -196,6 +196,35 @@ describe('TownRoom', () => {
     }
   });
 
+  it('persists updated coordinates on unclean disconnect (onDrop)', async () => {
+    const { dbPath, cleanup } = tempDbPath();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+
+      client.send('move', { targetX: 10, targetZ: 5 });
+      for (let i = 0; i < 20; i++) {
+        await room.waitForNextSimulationTick();
+      }
+
+      const player = room.state.players.get(client.sessionId)!;
+      expect(player.x).not.toBe(SPAWN_X);
+      const movedX = player.x;
+      const movedZ = player.z;
+
+      await client.leave(false);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const row = loadCharacter(getDb(dbPath), characterId);
+      expect(row!.x).toBeCloseTo(movedX, 3);
+      expect(row!.z).toBeCloseTo(movedZ, 3);
+      expect(room.state.players.has(client.sessionId)).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('persists updated coordinates on consented leave', async () => {
     const { dbPath, cleanup } = tempDbPath();
     try {
