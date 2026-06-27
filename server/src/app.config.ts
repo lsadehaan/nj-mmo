@@ -1,12 +1,13 @@
 import config from '@colyseus/tools';
 import type { Request, Response } from 'express';
+import { TownRoom } from './rooms/TownRoom';
 
 export default config({
   options: {
     devMode: true,
   },
-  initializeGameServer: (_gameServer) => {
-    // TownRoom registered in T5.
+  initializeGameServer: (gameServer) => {
+    gameServer.define('town', TownRoom);
   },
   initializeExpress: (app) => {
     app.get('/health', (_req: Request, res: Response) => {
