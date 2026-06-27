@@ -1,6 +1,7 @@
 import { getDb, type AppDatabase } from '../db/client';
 import { monsters, npcs, skills, experience } from '../db/schema';
 import { seedMonsters } from './seeders/monsters.seeder';
+import { seedNpcs } from './seeders/npcs.seeder';
 import { FIXTURE_DATA_DIR, resolveDataDir } from './paths';
 
 export interface SeedOptions {
@@ -27,7 +28,7 @@ export function runSeed(options: SeedOptions): SeedReport {
 
     const report: SeedReport = {
       monsters: seedMonsters(tx as unknown as AppDatabase, dataDir),
-      npcs: 0,
+      npcs: seedNpcs(tx as unknown as AppDatabase, dataDir),
       skills: 0,
       experience: 0,
     };
