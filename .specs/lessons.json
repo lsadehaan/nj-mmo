@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 2,
+  "next_id": 5,
   "lessons": [
     {
       "id": "L-001",
@@ -22,6 +22,60 @@
       ],
       "created": "2026-06-27T16:12:01Z",
       "last_seen": "2026-06-27T16:12:01Z"
+    },
+    {
+      "id": "L-002",
+      "key": "surviving_mutant::room integration colyseus tests must await settleroommessages or waitfornextsimulationtick after client send before asserting server mutated state immediate reads false pass proximity and economy rejects",
+      "text": "Room-integration Colyseus tests must await settleRoomMessages (or waitForNextSimulationTick) after client.send before asserting server-mutated state; immediate reads false-pass proximity and economy rejects.",
+      "signal": "surviving_mutant",
+      "scope": "server/room-integration",
+      "status": "candidate",
+      "features": [
+        "phase-6-npcs-town"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "TownRoom.spec.ts:907 / mutant proximity-canInteract-true (server/room-integration)"
+      ],
+      "created": "2026-06-27T19:55:09Z",
+      "last_seen": "2026-06-27T19:55:09Z"
+    },
+    {
+      "id": "L-003",
+      "key": "ac_gap::when spec assigns room integration to a behavior unit only proof of the same outcome is a coverage gap add a townroom test that exercises the full message path",
+      "text": "When spec assigns room-integration to a behavior, unit-only proof of the same outcome is a coverage gap—add a TownRoom test that exercises the full message path.",
+      "signal": "ac_gap",
+      "scope": "server/room-integration",
+      "status": "candidate",
+      "features": [
+        "phase-6-npcs-town"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "P6-R04-AC5 / spec.md (server/room-integration)"
+      ],
+      "created": "2026-06-27T19:55:09Z",
+      "last_seen": "2026-06-27T19:55:09Z"
+    },
+    {
+      "id": "L-004",
+      "key": "ac_gap::e2e peace zone acs that name multiple hooks attack and useskill need one assertion per hook testing only attack leaves skill path ungated in e2e",
+      "text": "E2E peace-zone ACs that name multiple hooks (__attack__ and __useSkill__) need one assertion per hook; testing only attack leaves skill path ungated in e2e.",
+      "signal": "ac_gap",
+      "scope": "client-e2e",
+      "status": "candidate",
+      "features": [
+        "phase-6-npcs-town"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "P6-R19-AC6 / town.spec.ts (client-e2e)"
+      ],
+      "created": "2026-06-27T19:55:09Z",
+      "last_seen": "2026-06-27T19:55:09Z"
     }
   ]
 }

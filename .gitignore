@@ -5,6 +5,7 @@ dist/
 *.db
 *.db-journal
 data/
+.devmode.json
 .env
 .DS_Store
 coverage/
