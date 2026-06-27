@@ -84,11 +84,14 @@ Never run phases in parallel.
 
 ## Per-phase execution (how each `[ ]` gets to `[x]`)
 
-1. **Plan** — Planner writes `spec.md` (+ `design.md`/`tasks.md`) under `.specs/features/<phase>/`.
-2. **Review** — human approves the plan (mandatory for Phase 3; recommended for all).
-3. **Implement** — Implementer executes tasks: TDD, atomic commits, green Nx gate per task.
-4. **Verify** — fresh Verifier: spec-anchored check + discrimination sensor → `validation.md`.
-5. **Record** — on Verifier PASS, check the phase here and update `.specs/STATE.md` Handoff.
+1. **Plan** — Planner writes `spec.md` (+ `design.md`/`tasks.md`) under `.specs/features/<phase>/`, deciding autonomously and logging assumptions (no approval gate).
+2. **Implement** — Implementer executes tasks: TDD, atomic commits, green Nx gate per task.
+3. **Verify** — fresh Verifier: spec-anchored check + discrimination sensor → `validation.md`.
+4. **Record** — on Verifier PASS, check the phase here and update `.specs/STATE.md` Handoff.
 
-**Loop stop conditions:** halt and ask the human if the Verifier FAILs after its 3
-fix→re-verify iterations, or whenever a plan needs approval.
+**Loop stop conditions:** the loop is autonomous-first — it decides and documents
+rather than pausing for approval. Halt and surface to the human ONLY when genuinely
+stuck (see the `spec-driven-execution` skill, "Autonomy & decision-making"): the
+Verifier still FAILs after its 3 fix→re-verify iterations, or a true blocker
+(contradictory requirements, missing secret/resource, destructive out-of-repo action,
+or a missing prerequisite phase).
