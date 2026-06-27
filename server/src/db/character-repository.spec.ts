@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import { getDb } from './client';
-import { createCharacter, loadCharacter, saveCharacter } from './character-repository';
+import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems } from './character-repository';
 
 describe('character repository', () => {
   let cleanup: () => void;
@@ -32,6 +32,8 @@ describe('character repository', () => {
       xp: 0,
       hp: 100,
       mp: 50,
+      adena: 1000,
+      starterKitGranted: false,
       x: SPAWN_X,
       y: SPAWN_Y,
       z: SPAWN_Z,
@@ -78,5 +80,47 @@ describe('character repository', () => {
       name: 'Hero',
     });
     expect(loaded!.updatedAt).toBeGreaterThanOrEqual(created.updatedAt);
+  });
+
+  it('createCharacter sets starting adena to 1000', () => {
+    const db = tempDb();
+    const row = createCharacter(db);
+    expect(row.adena).toBe(1000);
+    const loaded = loadCharacter(db, row.id);
+    expect(loaded?.adena).toBe(1000);
+  });
+
+  it('saveCharacter round-trips adena and starterKitGranted', () => {
+    const db = tempDb();
+    const created = createCharacter(db);
+    const updated = {
+      ...created,
+      adena: 897,
+      starterKitGranted: true,
+    };
+    saveCharacter(db, updated);
+    const loaded = loadCharacter(db, created.id);
+    expect(loaded?.adena).toBe(897);
+    expect(loaded?.starterKitGranted).toBe(true);
+  });
+
+  it('saveCharacterItems round-trips item counts', () => {
+    const db = tempDb();
+    const created = createCharacter(db);
+    expect(loadCharacterItems(db, created.id)).toEqual({});
+
+    saveCharacterItems(db, created.id, { 1060: 2, 1835: 5 });
+    expect(loadCharacterItems(db, created.id)).toEqual({ 1060: 2, 1835: 5 });
+
+    saveCharacterItems(db, created.id, { 1060: 1 });
+    expect(loadCharacterItems(db, created.id)).toEqual({ 1060: 1 });
+  });
+
+  it('saveCharacterItems removes zero-count stacks', () => {
+    const db = tempDb();
+    const created = createCharacter(db);
+    saveCharacterItems(db, created.id, { 1060: 1, 17: 3 });
+    saveCharacterItems(db, created.id, { 17: 3 });
+    expect(loadCharacterItems(db, created.id)).toEqual({ 17: 3 });
   });
 });

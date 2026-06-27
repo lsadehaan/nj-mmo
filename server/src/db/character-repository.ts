@@ -2,9 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import type { AppDatabase } from './client';
-import { characters, type Character } from './schema';
+import { characters, characterItems, type Character } from './schema';
 
 const STARTER_NAME = 'Adventurer';
+const STARTER_ADENA = 1000;
+
+export type CharacterItemCounts = Record<number, number>;
 
 export function createCharacter(db: AppDatabase): Character {
   const row: Character = {
@@ -14,7 +17,7 @@ export function createCharacter(db: AppDatabase): Character {
     xp: 0,
     hp: 100,
     mp: 50,
-    adena: 1000,
+    adena: STARTER_ADENA,
     starterKitGranted: false,
     x: SPAWN_X,
     y: SPAWN_Y,
@@ -50,4 +53,39 @@ export function saveCharacter(db: AppDatabase, row: Character): void {
       },
     })
     .run();
+}
+
+export function loadCharacterItems(
+  db: AppDatabase,
+  characterId: string
+): CharacterItemCounts {
+  const rows = db
+    .select()
+    .from(characterItems)
+    .where(eq(characterItems.characterId, characterId))
+    .all();
+  const items: CharacterItemCounts = {};
+  for (const row of rows) {
+    items[row.itemId] = row.count;
+  }
+  return items;
+}
+
+export function saveCharacterItems(
+  db: AppDatabase,
+  characterId: string,
+  items: CharacterItemCounts
+): void {
+  db.delete(characterItems).where(eq(characterItems.characterId, characterId)).run();
+  const rows = Object.entries(items)
+    .map(([itemId, count]) => ({
+      characterId,
+      itemId: Number(itemId),
+      count,
+    }))
+    .filter((row) => row.count > 0);
+  if (rows.length === 0) {
+    return;
+  }
+  db.insert(characterItems).values(rows).run();
 }
