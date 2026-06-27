@@ -25,7 +25,6 @@
     "isolatedModules": true,
     "paths": {
       "@nj/game-core": [
-        "./dist/libs/game-core/src/index.d.ts",
         "./libs/game-core/src/index.ts"
       ]
     }
