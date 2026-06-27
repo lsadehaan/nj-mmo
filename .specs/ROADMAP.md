@@ -47,14 +47,14 @@ Never run phases in parallel.
 - [x] Render other players from room state
 - [x] Persist character (position, HP/MP, XP, level) to DB; resume on reconnect
 
-## Phase 4 — Combat on the server `[ ]`
+## Phase 4 — Combat on the server `[x]`
 
 > Done when: killing a mob grants real server-validated XP — no client trust.
 
-- [ ] Server-side melee: target, range, attack speed, damage formula (from L2J)
-- [ ] Mob spawning from seed: aggro, wander, retaliate
-- [ ] Death, timed respawn
-- [ ] Server-granted XP + drops (seeded RNG)
+- [x] Server-side melee: target, range, attack speed, damage formula (from L2J)
+- [x] Mob spawning from seed: aggro, wander, retaliate
+- [x] Death, timed respawn
+- [x] Server-granted XP + drops (seeded RNG)
 
 ## Phase 5 — The skill `[ ]`
 

@@ -108,50 +108,40 @@
 
 ## Handoff
 
-> **LOOP HALTED 2026-06-27 ~13:52 (not re-armed).** A second, concurrent agent
-> is actively writing Phase 4 files in this same workspace (new `drops.parser.ts`,
-> `spawns.parser.ts`, `drops.seeder.ts`, `spawns.seeder.ts`, `mob_spawns.json`
-> appeared while this loop's reverts were in flight). Two implementers on one
-> working tree produce nondeterministic corruption (skill: never run phases in
-> parallel). **Decision needed from human:** stop the other session (or let it
-> finish Phase 4), then resume this loop on a clean single-writer tree. This loop
-> did NOT commit anything and did NOT re-arm the heartbeat.
+**Phase 4 — Combat on the server: COMPLETE (Verifier PASS).**
+`.specs/features/phase-4-server-combat/validation.md` records PASS over diff
+`f5ba027..HEAD`: 19/19 ACs traced to the L2J-derived values, discrimination
+sensor 11/11 mutants killed, gate green (game-core 37, server 79, client 25;
+`nx e2e client-e2e` 8/8). ROADMAP Phase 4 flipped to `[x]`. All 16 tasks
+(T1–T16) committed in `0235b77..0c1d5c7`; the planning artifacts (deleted
+mid-run by a concurrent process) were restored in `fb93e8b`.
 
-**Phase 4 — Combat on the server: IN PROGRESS (Implementer blocked).**
+> NOTE: An earlier handoff here was written by a SECOND concurrent agent that
+> believed Phase 4 was "blocked at T6" and had reset `master` to `4db16f8`.
+> That was stale — this single-writer loop carried `master` through the full
+> Phase 4 (T6 = `52f1fb3` … T16 = `0c1d5c7`) and the feature passed independent
+> verification twice. Single-writer discipline is the lesson: never run two
+> implementers on one working tree.
 
-**Completed tasks (committed on `master` @ `4db16f8`):**
+**Next step:** Phase 5 — The skill (Power Strike). Server validates MP cost +
+cooldown and applies the effect (Power Strike already seeded in Phase 1);
+client hotkey + cooldown UI + flash/particle. Build on the authoritative
+combat resolver + tick delivered in Phase 4.
 
-| Task | Commit | Tests added | Gate |
-| ---- | ------ | ----------- | ---- |
-| T1 SeededRng | `0235b77` | 3+ unit (game-core) | `nx test game-core` PASS |
-| T2 L2J melee formulas | `015116a` | 8+ unit (game-core) | `nx test game-core` PASS |
-| T3 XP grant + level-up | `a5725bc` | 6+ unit (game-core) | `nx test game-core` PASS |
-| T4 Drop roll | `c114c5b` | 4 unit (game-core) | `nx test game-core` PASS |
-| T5 Monster combat seed cols | `4db16f8` | 4+ seed (server) | `nx test server` PASS |
-
-**Current gate @ `4db16f8`:** `nx test game-core` PASS (37 tests); `nx test server` PASS.
-
-**Blocked at T6.** A concurrent implementer/process repeatedly overwrote
-`server/src/db/schema.ts`, `server/src/seed/seed.ts`, and deleted T6/T7 seed
-files mid-session (alternating `mob_drops`/`items`+`monster_drops` schemas).
-Attempted T6 commit `82510c4` landed with schema/seed mismatch (red gate) and was
-**reset away** — do not cherry-pick it.
-
-**Resume from T6** (items + monster_drops seed per tasks.md), then T7→T18.
-Ensure only one Implementer runs in the repo workspace at a time.
-
-**Next step:** Re-implement T6 with unified schema (`items`, `monster_drops`,
-`mob_spawns` per design.md) and green `nx test server` before T7.
+Non-blocking follow-ups carried forward (documented in validation.md, not
+required for Phase 4 done): room-integration tests for the five combat edge
+cases (dead target, no target, two players one mob, respawn during target-lock,
+invalid `setTarget` id); a room-level Goblin drop assertion; exact-XP (44) e2e
+precision.
 
 Lesson L-001 (vitest must resolve `@nj/game-core` from source via
-`resolve.alias`, not built `dist/`) is recorded and resolved — apply the same
-alias pattern to any future shared lib.
+`resolve.alias`, not built `dist/`) recorded + resolved — reuse for future libs.
 
 ### Phase 4 deviations (Implementer)
 
 | Task | Deviation | Reason |
 | ---- | --------- | ------ |
-| T6 | Reverted broken commit `82510c4`; not completed | Concurrent workspace edits caused schema/seed import mismatch; gate red. Reset `master` to `4db16f8`. |
+| T6 | Completed as `52f1fb3` (monster combat stats parser + seeder) | An earlier concurrent attempt `82510c4` had a schema/seed mismatch and was reset; the single-writer re-implementation landed green (`nx test server`). |
 | T13 | Injectable `nowMs` + `combatRng` room options for deterministic respawn/combat tests | Colyseus `setSimulationInterval` uses wall-clock deltas; fake `nowMs` advances only when tests call `clock.advance()`, making 27 s respawn assertions reliable without waiting. |
 | T14–T16 | `others` hook excludes `connected === false` players; e2e webServer seeds DB before serve; Playwright `workers: 1` | Disconnected sessions from prior e2e tests polluted newcomer detection; committed `data/game.db` lacked mob spawns; shared `town` room needs serial e2e workers once combat joins the suite. |
 | T16 | Added `server/src/seed/cli.ts`; combat e2e uses `__sendMoveIntent__` / `__handleMobTarget__` / `__attack__` hooks (AD-009) | Reliable movement/targeting without canvas pixel reads; seed CLI ensures mob spawns exist for e2e server boot. |
