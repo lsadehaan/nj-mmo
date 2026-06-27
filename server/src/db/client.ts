@@ -71,7 +71,8 @@ function applySchema(sqlite: Database.Database): void {
       target_type TEXT NOT NULL,
       cast_range INTEGER NOT NULL,
       reuse_delay INTEGER NOT NULL,
-      mp_consume_l1 INTEGER NOT NULL
+      mp_consume_l1 INTEGER NOT NULL,
+      power_l1 INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS experience (
       level INTEGER PRIMARY KEY,
@@ -92,6 +93,15 @@ function applySchema(sqlite: Database.Database): void {
     );
   `);
   migrateMonstersColumns(sqlite);
+  migrateSkillsColumns(sqlite);
+}
+
+function migrateSkillsColumns(sqlite: Database.Database): void {
+  const cols = sqlite.pragma('table_info(skills)') as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  if (!names.has('power_l1')) {
+    sqlite.exec('ALTER TABLE skills ADD COLUMN power_l1 INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 function migrateMonstersColumns(sqlite: Database.Database): void {

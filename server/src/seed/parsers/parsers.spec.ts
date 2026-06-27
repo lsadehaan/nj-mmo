@@ -104,6 +104,7 @@ describe('parsePowerStrike', () => {
       castRange: 40,
       reuseDelay: 3000,
       mpConsumeL1: 9,
+      powerL1: 30,
     });
   });
 

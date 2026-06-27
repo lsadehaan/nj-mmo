@@ -10,6 +10,14 @@ interface SkillNode {
   castRange?: string | number;
   reuseDelay?: string | number;
   mpConsume?: { value?: MpValue | MpValue[] };
+  effects?: {
+    effect?: PhysicalDamageEffect | PhysicalDamageEffect[];
+  };
+}
+
+interface PhysicalDamageEffect {
+  '@_name'?: string;
+  power?: { value?: MpValue | MpValue[] };
 }
 
 interface MpValue {
@@ -37,6 +45,9 @@ export function parsePowerStrike(xml: string): NewSkill {
   const mpL1 = findMpConsumeL1(id, skill.mpConsume);
   requireAttr(id, 'mpConsume level 1', mpL1);
 
+  const powerL1 = findPhysicalDamagePowerL1(id, skill.effects);
+  requireAttr(id, 'PhysicalDamage power level 1', powerL1);
+
   return {
     skillId: parseNumber(id, 'id', id),
     name: parseString(id, 'name', skill['@_name']),
@@ -46,6 +57,7 @@ export function parsePowerStrike(xml: string): NewSkill {
     castRange: parseNumber(id, 'castRange', skill.castRange),
     reuseDelay: parseNumber(id, 'reuseDelay', skill.reuseDelay),
     mpConsumeL1: parseNumber(id, 'mpConsumeL1', mpL1),
+    powerL1: parseNumber(id, 'powerL1', powerL1),
   };
 }
 
@@ -57,6 +69,21 @@ function findMpConsumeL1(
   if (!values) return undefined;
   const list = Array.isArray(values) ? values : [values];
   const l1 = list.find((v) => v['@_level'] === '1');
+  return l1?.['#text'];
+}
+
+function findPhysicalDamagePowerL1(
+  id: string,
+  effects?: SkillNode['effects']
+): string | number | undefined {
+  const effectNodes = effects?.effect;
+  if (!effectNodes) return undefined;
+  const list = Array.isArray(effectNodes) ? effectNodes : [effectNodes];
+  const physical = list.find((e) => e['@_name'] === 'PhysicalDamage');
+  if (!physical?.power?.value) return undefined;
+  const values = physical.power.value;
+  const powerValues = Array.isArray(values) ? values : [values];
+  const l1 = powerValues.find((v) => v['@_level'] === '1');
   return l1?.['#text'];
 }
 

@@ -57,6 +57,7 @@ export const skills = sqliteTable('skills', {
   castRange: integer('cast_range').notNull(),
   reuseDelay: integer('reuse_delay').notNull(),
   mpConsumeL1: integer('mp_consume_l1').notNull(),
+  powerL1: integer('power_l1').notNull(),
 });
 
 export const experience = sqliteTable('experience', {
