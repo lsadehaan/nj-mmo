@@ -1,10 +1,8 @@
 import { initGameState, setReady, getGameState } from './test-hook';
 import { connectSafe, wireRoom } from './net/room';
 import { wireCombatControls } from './combat-input';
-import {
-  mountPowerStrikeCooldown,
-  startPowerStrikeCooldownLoop,
-} from './hud/power-strike-cooldown';
+import { mountPowerStrikeCooldown, startPowerStrikeCooldownLoop } from './hud/power-strike-cooldown';
+import { mountPlayerVitalsHud } from './hud/player-vitals';
 import { mountShopWindow } from './ui/shop-window';
 import { mountInventoryWindow } from './ui/inventory-window';
 import { mountNpcDialog } from './ui/npc-dialog';
@@ -14,6 +12,7 @@ import { createRenderer, startRenderLoop } from './scene/renderer';
 async function boot(): Promise<void> {
   initGameState();
   mountPowerStrikeCooldown();
+  mountPlayerVitalsHud();
   mountShopWindow();
   mountInventoryWindow();
   mountNpcDialog();

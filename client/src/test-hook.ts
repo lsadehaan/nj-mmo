@@ -1,4 +1,5 @@
 import { updatePowerStrikeCooldown } from './hud/power-strike-cooldown';
+import { updatePlayerVitalsHud } from './hud/player-vitals';
 
 export interface GameStatePlayer {
   x: number;
@@ -6,6 +7,7 @@ export interface GameStatePlayer {
   z: number;
   xp: number;
   level: number;
+  hp: number;
   mp: number;
   powerStrikeCooldownEndMs: number;
   powerStrikeCooldownRemainingMs: number;
@@ -55,6 +57,9 @@ export interface GameState {
   shopOpen: boolean;
   targetMobId: string | null;
   characterId: string | null;
+  equippedWeaponId: number | null;
+  maxHp: number;
+  maxMp: number;
   /** Stays 0 while movement is server-authoritative (no client step()). */
   localMovementTicks: number;
 }
@@ -80,7 +85,7 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0 },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0 },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -92,6 +97,9 @@ const initialState: GameState = {
   shopOpen: false,
   targetMobId: null,
   characterId: null,
+  equippedWeaponId: null,
+  maxHp: 0,
+  maxMp: 0,
   localMovementTicks: 0,
 };
 
@@ -110,6 +118,9 @@ export function initGameState(): GameState {
     shopOpen: false,
     targetMobId: null,
     characterId: null,
+    equippedWeaponId: null,
+    maxHp: 0,
+    maxMp: 0,
     localMovementTicks: 0,
   };
   return window.__GAME_STATE__;
@@ -150,6 +161,7 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
   state.player.z = player.z;
   state.player.xp = player.xp;
   state.player.level = player.level;
+  state.player.hp = player.hp;
   state.player.mp = player.mp;
   state.player.powerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
   state.player.powerStrikeCooldownRemainingMs = computePowerStrikeCooldownRemainingMs(
@@ -158,6 +170,13 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
   );
   if (typeof document !== 'undefined') {
     updatePowerStrikeCooldown(player.powerStrikeCooldownEndMs, nowMs);
+    updatePlayerVitalsHud({
+      level: player.level,
+      hp: player.hp,
+      maxHp: state.maxHp,
+      mp: player.mp,
+      maxMp: state.maxMp,
+    });
   }
 }
 
@@ -201,4 +220,36 @@ export function setNearbyNpc(nearbyNpcId: number | null, canInteract: boolean): 
 
 export function setShopOpen(shopOpen: boolean): void {
   getGameState().shopOpen = shopOpen;
+}
+
+export function setEquippedWeaponId(equippedWeaponId: number | null): void {
+  getGameState().equippedWeaponId = equippedWeaponId;
+}
+
+export function setMaxHp(maxHp: number): void {
+  const state = getGameState();
+  state.maxHp = maxHp;
+  if (typeof document !== 'undefined') {
+    updatePlayerVitalsHud({
+      level: state.player.level,
+      hp: state.player.hp,
+      maxHp,
+      mp: state.player.mp,
+      maxMp: state.maxMp,
+    });
+  }
+}
+
+export function setMaxMp(maxMp: number): void {
+  const state = getGameState();
+  state.maxMp = maxMp;
+  if (typeof document !== 'undefined') {
+    updatePlayerVitalsHud({
+      level: state.player.level,
+      hp: state.player.hp,
+      maxHp: state.maxHp,
+      mp: state.player.mp,
+      maxMp,
+    });
+  }
 }

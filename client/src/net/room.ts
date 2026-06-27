@@ -1,5 +1,5 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
 import {
   mountShopWindow,
@@ -225,9 +225,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       z: player.z,
       xp: player.xp,
       level: player.level,
+      hp: player.hp,
       mp: player.mp,
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
     });
+    setMaxHp(player.maxHp ?? 0);
+    setMaxMp(player.maxMp ?? 0);
+    const weaponId = player.equippedWeaponItemId ?? 0;
+    setEquippedWeaponId(weaponId > 0 ? weaponId : null);
     localItemCounts = readItemCounts(player);
     setAdena(player.adena ?? 0);
     setItems(localItemCounts);

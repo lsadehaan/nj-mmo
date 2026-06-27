@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   initGameState,
   setCharacterId,
@@ -11,6 +11,9 @@ import {
   setNpcs,
   setNearbyNpc,
   setShopOpen,
+  setEquippedWeaponId,
+  setMaxHp,
+  setMaxMp,
 } from './test-hook';
 
 describe('test-hook multiplayer state', () => {
@@ -64,7 +67,7 @@ describe('test-hook multiplayer state', () => {
 
   it('stores combat target and player progression from server', () => {
     setTargetMobId('mob-1');
-    setPlayer({ x: 1, y: 2, z: 3, xp: 44, level: 1, mp: 50, powerStrikeCooldownEndMs: 0 });
+    setPlayer({ x: 1, y: 2, z: 3, xp: 44, level: 1, hp: 100, mp: 50, powerStrikeCooldownEndMs: 0 });
 
     const state = window.__GAME_STATE__;
     expect(state.targetMobId).toBe('mob-1');
@@ -87,14 +90,14 @@ describe('test-hook multiplayer state', () => {
   });
 
   it('syncs player mp from server snapshots', () => {
-    setPlayer({ x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 41, powerStrikeCooldownEndMs: 0 });
+    setPlayer({ x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 100, mp: 41, powerStrikeCooldownEndMs: 0 });
     expect(window.__GAME_STATE__.player.mp).toBe(41);
   });
 
   it('syncs cooldown end and derives remaining ms from server timestamp', () => {
     const now = 10_000;
     setPlayer(
-      { x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 50, powerStrikeCooldownEndMs: 13_000 },
+      { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 100, mp: 50, powerStrikeCooldownEndMs: 13_000 },
       now
     );
     const { player } = window.__GAME_STATE__;
@@ -104,7 +107,7 @@ describe('test-hook multiplayer state', () => {
 
   it('reports zero remaining when cooldown has expired', () => {
     setPlayer(
-      { x: 0, y: 0, z: 0, xp: 0, level: 1, mp: 50, powerStrikeCooldownEndMs: 5_000 },
+      { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 100, mp: 50, powerStrikeCooldownEndMs: 5_000 },
       10_000
     );
     expect(window.__GAME_STATE__.player.powerStrikeCooldownRemainingMs).toBe(0);
@@ -165,5 +168,48 @@ describe('test-hook town economy and NPC state', () => {
       ['sell', 30004, 1060, 1],
       ['npcAction', 30006, 'heal'],
     ]);
+  });
+});
+
+describe('test-hook progression fields', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    initGameState();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('initializes equippedWeaponId, maxHp, and maxMp', () => {
+    expect(window.__GAME_STATE__.equippedWeaponId).toBeNull();
+    expect(window.__GAME_STATE__.maxHp).toBe(0);
+    expect(window.__GAME_STATE__.maxMp).toBe(0);
+  });
+
+  it('setEquippedWeaponId mirrors server weapon slot (0 means none)', () => {
+    setEquippedWeaponId(2369);
+    expect(window.__GAME_STATE__.equippedWeaponId).toBe(2369);
+    setEquippedWeaponId(null);
+    expect(window.__GAME_STATE__.equippedWeaponId).toBeNull();
+  });
+
+  it('setMaxHp and setMaxMp update progression vitals on game state', () => {
+    setMaxHp(112);
+    setMaxMp(55);
+    expect(window.__GAME_STATE__.maxHp).toBe(112);
+    expect(window.__GAME_STATE__.maxMp).toBe(55);
+  });
+
+  it('syncs level 2 to HUD label after server player snapshot', () => {
+    setMaxHp(112);
+    setMaxMp(55);
+    setPlayer({ x: 0, y: 0, z: 0, xp: 88, level: 2, hp: 112, mp: 55, powerStrikeCooldownEndMs: 0 });
+
+    expect(window.__GAME_STATE__.player.level).toBe(2);
+    const levelText = document.querySelector('#player-vitals-hud [data-role="level"]')?.textContent;
+    expect(levelText).toBe('Lv.2');
+    const hpText = document.querySelector('#player-vitals-hud [data-role="hp"]')?.textContent;
+    expect(hpText).toBe('HP 112/112');
   });
 });
