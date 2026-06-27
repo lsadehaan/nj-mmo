@@ -5,23 +5,29 @@ import {
   isValidMoveIntent,
   type MovementIntent,
   type PlayerMoveState,
-  SPAWN_X,
-  SPAWN_Y,
-  SPAWN_Z,
 } from '@nj/game-core';
+import { getDb, type AppDatabase } from '../db/client';
+import { createCharacter, loadCharacter } from '../db/character-repository';
+import type { Character } from '../db/schema';
 import { TownState, PlayerState } from './schema/TownState';
 
 export interface TownRoomOptions {
   dbPath?: string;
 }
 
+const DEFAULT_DB_PATH = process.env['NJ_DB_PATH'] ?? 'data/game.db';
+
 export class TownRoom extends Room<{ state: TownState }> {
   declare state: TownState;
 
+  private db!: AppDatabase;
   private tickStates = new Map<string, PlayerMoveState>();
   private pendingIntents = new Map<string, MovementIntent>();
+  private characterIds = new Map<string, string>();
+  private characters = new Map<string, Character>();
 
-  override onCreate(_options: TownRoomOptions = {}): void {
+  override onCreate(options: TownRoomOptions = {}): void {
+    this.db = getDb(options.dbPath ?? DEFAULT_DB_PATH);
     this.setState(new TownState());
     this.autoDispose = true;
     this.setSimulationInterval((deltaTimeMs) => this.simulate(deltaTimeMs), 50);
@@ -50,26 +56,41 @@ export class TownRoom extends Room<{ state: TownState }> {
     }
   }
 
-  override onJoin(client: Client): void {
+  override onJoin(client: Client, options: { characterId?: string } = {}): void {
+    let character: Character;
+    if (options.characterId) {
+      character = loadCharacter(this.db, options.characterId) ?? createCharacter(this.db);
+    } else {
+      character = createCharacter(this.db);
+    }
+
+    this.characterIds.set(client.sessionId, character.id);
+    this.characters.set(client.sessionId, character);
+    client.userData = { characterId: character.id };
+
     const player = new PlayerState();
-    player.x = SPAWN_X;
-    player.y = SPAWN_Y;
-    player.z = SPAWN_Z;
-    player.hp = 100;
-    player.mp = 50;
-    player.xp = 0;
-    player.level = 1;
+    player.x = character.x;
+    player.y = character.y;
+    player.z = character.z;
+    player.hp = character.hp;
+    player.mp = character.mp;
+    player.xp = character.xp;
+    player.level = character.level;
     player.connected = true;
     this.state.players.set(client.sessionId, player);
     this.tickStates.set(
       client.sessionId,
-      createInitialMoveState(SPAWN_X, SPAWN_Y, SPAWN_Z)
+      createInitialMoveState(character.x, character.y, character.z)
     );
+
+    client.send('characterId', character.id);
   }
 
   override onLeave(client: Client): void {
     this.state.players.delete(client.sessionId);
     this.tickStates.delete(client.sessionId);
     this.pendingIntents.delete(client.sessionId);
+    this.characterIds.delete(client.sessionId);
+    this.characters.delete(client.sessionId);
   }
 }
