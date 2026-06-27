@@ -11,6 +11,13 @@ import {
   upsertRemotePlayer,
   type RemotePlayerMeshMap,
 } from './remote-players';
+import {
+  faceHpBarsToCamera,
+  mobStateToVisual,
+  removeMob,
+  syncMobVisual,
+  type MobMeshMap,
+} from './mobs';
 
 const WORLD_SEED = 42;
 const TERRAIN_OPTS = { size: 200, segments: 64, heightScale: 10, seed: WORLD_SEED };
@@ -26,6 +33,15 @@ export interface GameRenderer {
   syncLocalPlayer: (x: number, y: number, z: number) => void;
   syncRemotePlayer: (sessionId: string, x: number, y: number, z: number) => void;
   removeRemotePlayer: (sessionId: string) => void;
+  syncMob: (mob: {
+    id: string;
+    x: number;
+    y: number;
+    z: number;
+    hp: number;
+    maxHp: number;
+  }) => void;
+  removeMob: (mobId: string) => void;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   dispose: () => void;
 }
@@ -117,6 +133,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
   let moveIntentHandler: ((intent: MovementIntent) => void) | null = null;
   const remoteMeshes: RemotePlayerMeshMap = new Map();
+  const mobMeshes: MobMeshMap = new Map();
 
   const raycaster = new THREE.Raycaster();
 
@@ -148,9 +165,24 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     removeRemotePlayer(remoteMeshes, sessionId, scene);
   };
 
+  const syncMob = (mob: {
+    id: string;
+    x: number;
+    y: number;
+    z: number;
+    hp: number;
+    maxHp: number;
+  }): void => {
+    syncMobVisual(mobMeshes, mobStateToVisual(mob), scene);
+  };
+
+  const removeMobById = (mobId: string): void => {
+    removeMob(mobMeshes, mobId, scene);
+  };
+
   const tick = (_dt: number): void => {
     void _dt;
-    // Position is server-authoritative; render loop does not simulate movement.
+    faceHpBarsToCamera(mobMeshes, camera);
   };
 
   const render = (): void => {
@@ -206,6 +238,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     syncLocalPlayer,
     syncRemotePlayer,
     removeRemotePlayer: removeRemotePlayerById,
+    syncMob,
+    removeMob: removeMobById,
     setMoveIntentHandler,
     dispose,
   };

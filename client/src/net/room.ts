@@ -87,4 +87,28 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       publishOthers();
     }
   });
+
+  type MobSchema = { x: number; y: number; z: number; hp: number; maxHp: number };
+
+  const syncMobFromState = (mobId: string, mob: MobSchema): void => {
+    game.syncMob({
+      id: mobId,
+      x: mob.x,
+      y: mob.y,
+      z: mob.z,
+      hp: mob.hp,
+      maxHp: mob.maxHp,
+    });
+  };
+
+  callbacks.onAdd('mobs', (mob, mobId) => {
+    const id = mobId as string;
+    const state = mob as MobSchema;
+    syncMobFromState(id, state);
+    callbacks.onChange(state, () => syncMobFromState(id, state));
+  });
+
+  callbacks.onRemove('mobs', (_mob, mobId) => {
+    game.removeMob(mobId as string);
+  });
 }
