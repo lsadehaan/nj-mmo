@@ -8,5 +8,7 @@ export * from './combat/melee-damage';
 export * from './combat/attack-timing';
 export * from './combat/combat-range';
 export * from './experience';
+export * from './level-up-reward';
+export * from './player-death';
 export * from './drop-roll';
 export * from './peace-zone';
