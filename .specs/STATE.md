@@ -226,3 +226,11 @@ Lesson L-001 (vitest must resolve `@nj/game-core` from source via
 | T14 | Phase 4/5 combat e2e target mobs **outside** peace zone via `peace-zone.ts` helper | Nearest TI spawns at (12,−18)/(−10,−14) are inside P6 rectangle; combat would no-op. |
 | T14 | Renamed `power-strike.spec.ts` → `0-power-strike.spec.ts` so it runs before `combat.spec.ts` | Shared room state: combat killing the nearest outside-peace mob caused power-strike flake when run second. |
 | T14 | Multiplayer rejoin e2e uses `__sendMoveIntent__` poll + `__consentLeave__` before reconnect | Single ground click did not reliably persist server position before leave; consented leave triggers `onLeave` persist. |
+
+### Phase 6 deviations (Implementer, verification gap fixes)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| Gap 2 | `vi.spyOn(tickMobAi)` no-op in mob peace-zone room test | Mob AI clears in-zone targets before the attack loop; spy keeps `targetSessionId` so TownRoom `simulate` exercises `resolveMobAttack`. |
+| Gap 4 | `walkTowardInPeaceZone` in `town.spec.ts` (buy + combat e2e) | Walk-to-mob could overshoot the P6 rectangle (`z < −20`); flaky `inPeaceZone` false-passed attack/skill e2e. |
+| Gap 4 | Power Strike peace-zone scratch-mutant discrimination proven at room layer (`useSkill inside peace zone`) | Browser poll did not reliably fail when `resolvePowerStrike` peace guard removed; room test does (L-004). |
