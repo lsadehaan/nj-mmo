@@ -1,4 +1,5 @@
 import { Schema, type, MapSchema } from '@colyseus/schema';
+import { MobState } from './MobState';
 
 export class PlayerState extends Schema {
   @type('number') x = 0;
@@ -13,4 +14,5 @@ export class PlayerState extends Schema {
 
 export class TownState extends Schema {
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
+  @type({ map: MobState }) mobs = new MapSchema<MobState>();
 }
