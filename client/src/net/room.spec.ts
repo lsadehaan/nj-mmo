@@ -27,6 +27,8 @@ vi.mock('@colyseus/sdk', () => ({
 
 vi.mock('../test-hook', () => ({
   setConnected: vi.fn(),
+  setCharacterId: vi.fn(),
+  setOthers: vi.fn(),
 }));
 
 describe('room connect', () => {

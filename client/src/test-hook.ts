@@ -4,11 +4,20 @@ export interface GameStatePlayer {
   z: number;
 }
 
+export interface OtherPlayer {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface GameState {
   connected: boolean;
   ready: boolean;
   player: GameStatePlayer;
   target: { x: number | null; z: number | null };
+  others: OtherPlayer[];
+  characterId: string | null;
 }
 
 declare global {
@@ -23,6 +32,8 @@ const initialState: GameState = {
   ready: false,
   player: { x: 0, y: 0, z: 0 },
   target: { x: null, z: null },
+  others: [],
+  characterId: null,
 };
 
 export function initGameState(): GameState {
@@ -30,6 +41,8 @@ export function initGameState(): GameState {
     ...initialState,
     player: { ...initialState.player },
     target: { ...initialState.target },
+    others: [],
+    characterId: null,
   };
   return window.__GAME_STATE__;
 }
@@ -60,4 +73,12 @@ export function setPlayer(player: GameStatePlayer): void {
   state.player.x = player.x;
   state.player.y = player.y;
   state.player.z = player.z;
+}
+
+export function setOthers(others: OtherPlayer[]): void {
+  getGameState().others = others.map((other) => ({ ...other }));
+}
+
+export function setCharacterId(characterId: string | null): void {
+  getGameState().characterId = characterId;
 }

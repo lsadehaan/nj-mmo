@@ -1,5 +1,5 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
-import { setConnected } from '../test-hook';
+import { setConnected, setCharacterId, setOthers } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
 
 const DEFAULT_ENDPOINT =
@@ -18,11 +18,15 @@ export function storeCharacterId(id: string): void {
 export async function connect(endpoint = DEFAULT_ENDPOINT): Promise<Room> {
   const client = new Client(endpoint);
   const characterId = getStoredCharacterId();
+  if (characterId) {
+    setCharacterId(characterId);
+  }
   const options = characterId ? { characterId } : {};
   const room = await client.joinOrCreate('town', options);
 
   room.onMessage('characterId', (id: string) => {
     storeCharacterId(id);
+    setCharacterId(id);
   });
 
   setConnected(true);
@@ -42,6 +46,19 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   const callbacks = Callbacks.get(room);
   const localId = room.sessionId;
 
+  const publishOthers = (): void => {
+    setOthers(
+      [...room.state.players.entries()]
+        .filter(([sessionId]) => sessionId !== localId)
+        .map(([sessionId, player]) => ({
+          id: sessionId,
+          x: (player as { x: number }).x,
+          y: (player as { y: number }).y,
+          z: (player as { z: number }).z,
+        }))
+    );
+  };
+
   const syncLocal = (player: { x: number; y: number; z: number }): void => {
     game.syncLocalPlayer(player.x, player.y, player.z);
   };
@@ -55,14 +72,17 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     }
 
     game.syncRemotePlayer(sessionId, state.x, state.y, state.z);
+    publishOthers();
     callbacks.onChange(state, () => {
       game.syncRemotePlayer(sessionId, state.x, state.y, state.z);
+      publishOthers();
     });
   });
 
   callbacks.onRemove('players', (_player, sessionId) => {
     if (sessionId !== localId) {
       game.removeRemotePlayer(sessionId);
+      publishOthers();
     }
   });
 }
