@@ -1,28 +1,66 @@
 import { Room, Client } from 'colyseus';
+import {
+  step,
+  createInitialMoveState,
+  type MovementIntent,
+  type PlayerMoveState,
+  SPAWN_X,
+  SPAWN_Y,
+  SPAWN_Z,
+} from '@nj/game-core';
 import { TownState, PlayerState } from './schema/TownState';
 
-export class TownRoom extends Room {
+export interface TownRoomOptions {
+  dbPath?: string;
+}
+
+export class TownRoom extends Room<{ state: TownState }> {
   declare state: TownState;
 
-  override onCreate(): void {
+  private tickStates = new Map<string, PlayerMoveState>();
+  private pendingIntents = new Map<string, MovementIntent>();
+
+  override onCreate(_options: TownRoomOptions = {}): void {
     this.setState(new TownState());
     this.autoDispose = true;
+    this.setSimulationInterval((deltaTimeMs) => this.simulate(deltaTimeMs), 50);
+  }
+
+  private simulate(deltaTimeMs: number): void {
+    const dt = deltaTimeMs / 1000;
+    for (const [sessionId, player] of this.state.players.entries()) {
+      const intent = this.pendingIntents.get(sessionId) ?? null;
+      this.pendingIntents.delete(sessionId);
+      const tickState = this.tickStates.get(sessionId);
+      if (!tickState) continue;
+
+      const next = step(tickState, intent, dt);
+      this.tickStates.set(sessionId, next);
+      player.x = next.x;
+      player.z = next.z;
+    }
   }
 
   override onJoin(client: Client): void {
     const player = new PlayerState();
-    player.x = 0;
-    player.y = 0;
-    player.z = 0;
+    player.x = SPAWN_X;
+    player.y = SPAWN_Y;
+    player.z = SPAWN_Z;
     player.hp = 100;
     player.mp = 50;
     player.xp = 0;
     player.level = 1;
     player.connected = true;
     this.state.players.set(client.sessionId, player);
+    this.tickStates.set(
+      client.sessionId,
+      createInitialMoveState(SPAWN_X, SPAWN_Y, SPAWN_Z)
+    );
   }
 
   override onLeave(client: Client): void {
     this.state.players.delete(client.sessionId);
+    this.tickStates.delete(client.sessionId);
+    this.pendingIntents.delete(client.sessionId);
   }
 }

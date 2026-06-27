@@ -21,7 +21,7 @@ describe('TownRoom', () => {
     const player = room.state.players.get(client.sessionId);
     expect(player).toBeDefined();
     expect(player!.x).toBe(0);
-    expect(player!.y).toBe(0);
+    expect(player!.y).toBeCloseTo(4.263961466789237, 5);
     expect(player!.z).toBe(0);
     expect(player!.hp).toBe(100);
     expect(player!.mp).toBe(50);
@@ -49,5 +49,25 @@ describe('TownRoom', () => {
     expect(room.state.players).toBeDefined();
 
     await room.disconnect();
+  });
+
+  it('advances player position on simulation tick when a move intent is pending', async () => {
+    const room = await colyseus.createRoom('town', {});
+    const client = await colyseus.connectTo(room);
+    const player = room.state.players.get(client.sessionId)!;
+
+    expect(player.x).toBe(0);
+    expect(player.z).toBe(0);
+
+    room['pendingIntents'].set(client.sessionId, { targetX: 20, targetZ: 0 });
+
+    for (let i = 0; i < 10; i++) {
+      await room.waitForNextSimulationTick();
+    }
+
+    expect(player.x).toBeGreaterThan(0);
+    expect(player.z).toBe(0);
+
+    await client.leave();
   });
 });
