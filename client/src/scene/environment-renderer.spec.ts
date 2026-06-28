@@ -9,7 +9,7 @@ import {
   placeVillageEnvironment,
 } from './environment-renderer';
 import { clearGltfStaticTemplateCache } from './static-prop';
-import { getBuildingPropEntry, getPeaceZoneMarkerEntry, getScatterPropEntry } from './environment-manifest';
+import { getScatterPropEntry } from './environment-manifest';
 
 function makeTemplate(): { scene: THREE.Group } {
   const mesh = new THREE.Mesh(
