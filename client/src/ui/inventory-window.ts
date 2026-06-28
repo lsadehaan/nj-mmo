@@ -6,10 +6,22 @@ export const SQUIRES_SWORD_ITEM_ID = 2369;
 const WEAPON_ITEM_IDS = new Set<number>([SQUIRES_SWORD_ITEM_ID]);
 
 const ITEM_DISPLAY_NAMES: Record<number, string> = {
+  13: 'Short Bow',
   17: 'Wooden Arrow',
   57: 'Adena',
+  112: "Apprentice's Earring",
+  116: 'Magic Ring',
+  118: 'Magic Necklace',
+  426: 'Tunic',
+  462: 'Stockings',
   1060: 'Healing Potion',
   1835: 'Soulshot (No-grade)',
+  1786: 'Recipe: Broadsword',
+  1788: 'Recipe: Bow',
+  1864: 'Stem',
+  1867: 'Animal Skin',
+  1868: 'Thread',
+  1871: 'Charcoal',
   2369: "Squire's Sword",
 };
 

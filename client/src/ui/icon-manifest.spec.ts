@@ -34,4 +34,16 @@ describe('icon-manifest', () => {
       expect(existsSync(diskPath), `missing ${diskPath}`).toBe(true);
     }
   });
+
+  it('maps each P3 loot id to a unique non-fallback path', () => {
+    const p3Ids = [112, 116, 118, 13, 426, 462, 1864, 1867, 1868, 1871, 1786, 1788] as const;
+    const paths = p3Ids.map((id) => getItemIconPath(id));
+    expect(new Set(paths).size).toBe(p3Ids.length);
+    for (const iconPath of paths) {
+      expect(iconPath).not.toBe(FALLBACK_ICON);
+      const diskPath = path.join(PUBLIC_ROOT, iconPath.replace(/^\//, ''));
+      expect(existsSync(diskPath), `missing ${diskPath}`).toBe(true);
+    }
+    expect(getItemIconPath(116)).toMatch(/magic-ring\.png$/);
+  });
 });

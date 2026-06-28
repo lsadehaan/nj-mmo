@@ -115,6 +115,22 @@ describe('inventory-window DOM', () => {
     expect(equipBtn).toBeNull();
   });
 
+  it('shows Magic Ring loot icon when item 116 is in inventory', () => {
+    mountInventoryWindow();
+    renderInventoryWindow({
+      itemCounts: { 116: 1 },
+      equippedWeaponItemId: 0,
+      visible: true,
+      handlers: { sendEquip: vi.fn() },
+    });
+
+    const img = document.querySelector(
+      '#inventory-window [data-inventory-item-id="116"] img[data-icon-item-id="116"]'
+    ) as HTMLImageElement | null;
+    expect(img?.src).toContain('magic-ring');
+    expect(img?.alt).toBe('Magic Ring');
+  });
+
   it('shows equipped weapon label when Squire\'s Sword is equipped', () => {
     mountInventoryWindow();
     renderInventoryWindow({
