@@ -610,6 +610,77 @@ describe('TownRoom combat', () => {
     }
   });
 
+  it('sets Orc ATTACK action and increments actionSeq on confirmed mob melee', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const orc = findMobByNpcId(room, 20130)!;
+      placePlayerAndMobForCombat(room, client.sessionId, orc);
+      const mobState = room.state.mobs.get(orc.id)!;
+
+      expect(mobState.action).toBe(0);
+      expect(mobState.actionSeq).toBe(0);
+
+      const runtime = room['mobRuntime'].get(orc.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+      tick(room);
+
+      expect(mobState.action).toBe(EntityAction.Attack);
+      expect(mobState.actionSeq).toBe(1);
+
+      runtime.nextAttackAtMs = 0;
+      tick(room);
+      expect(mobState.action).toBe(EntityAction.Attack);
+      expect(mobState.actionSeq).toBe(2);
+
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('emits Orc DIE on MobState before removal', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(0);
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: clock.now,
+      });
+      const client = await colyseus.connectTo(room);
+      const orc = findMobByNpcId(room, 20130)!;
+      placePlayerAndMobForCombat(room, client.sessionId, orc);
+      const mobId = orc.id;
+      let dieObservedBeforeDelete = false;
+
+      const mobMap = room.state.mobs;
+      const originalDelete = mobMap.delete.bind(mobMap);
+      vi.spyOn(mobMap, 'delete').mockImplementation((id: string) => {
+        if (id === mobId) {
+          const state = mobMap.get(id);
+          dieObservedBeforeDelete =
+            state?.action === EntityAction.Die && (state?.actionSeq ?? 0) > 0;
+        }
+        return originalDelete(id);
+      });
+
+      await deliver(room, client, [['setTarget', { mobId }]]);
+      while (room.state.mobs.has(mobId)) {
+        const combat = room['playerCombat'].get(client.sessionId)!;
+        combat.nextAttackAtMs = 0;
+        await deliverAndTick(room, client, [['attack', {}]]);
+      }
+
+      expect(dieObservedBeforeDelete).toBe(true);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('attack in range reduces Gremlin HP by 17', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
