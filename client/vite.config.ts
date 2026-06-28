@@ -39,6 +39,13 @@ export default defineConfig(() => ({
     outDir: '../dist/client',
     emptyOutDir: true,
     reportCompressedSize: true,
+    rollupOptions: {
+      input: {
+        main: path.join(root, 'index.html'),
+        characterLab: path.join(root, 'character-lab.html'),
+        vfxLab: path.join(root, 'vfx-lab.html'),
+      },
+    },
     commonjsOptions: {
       transformMixedEsModules: true,
     },

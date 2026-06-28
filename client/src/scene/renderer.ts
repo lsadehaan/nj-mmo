@@ -8,7 +8,6 @@ import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
 import { getGameState, setPlayer, setTarget, setMobs, setOthers } from '../test-hook';
 import { createVfxManager, type VfxManager } from './vfx/vfx-manager';
-import { EntityAction } from '@nj/game-core';
 import {
   listRemotePlayers,
   removeRemotePlayer,

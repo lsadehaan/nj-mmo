@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
-const BASE = process.env.LAB_BASE ?? 'http://localhost:4201';
+const BASE = process.env.LAB_BASE ?? 'http://localhost:4200';
 const outDir = process.env.LAB_OUT ?? '/tmp/vfx-shots';
 const all = process.env.LAB_VFX === 'all';
 
