@@ -45,6 +45,29 @@ async function walkTowardInPeaceZone(
     .toBe(true);
 }
 
+test('environment props report mesh counts on game test hook after ready', async ({ page }, testInfo) => {
+  await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
+  await gotoGame(page, testInfo);
+  await waitReady(page);
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__GAME_STATE__?.environment?.loaded ?? false), {
+      timeout: 30_000,
+      intervals: [200, 400, 800],
+    })
+    .toBe(true);
+
+  const environment = await page.evaluate(() => window.__GAME_STATE__.environment);
+  expect(environment).toEqual({
+    buildings: { count: 5, renderKind: 'mesh' },
+    scatter: { count: 80, renderKind: 'mesh' },
+    peaceZone: { count: 1, renderKind: 'mesh' },
+    loaded: true,
+  });
+
+  expect(await page.evaluate(() => window.__GAME_STATE__.ready)).toBe(true);
+});
+
 test('town NPCs render as rigged meshes idling at join', async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
   await gotoGame(page, testInfo);

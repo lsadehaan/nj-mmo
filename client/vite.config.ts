@@ -45,6 +45,7 @@ export default defineConfig(() => ({
         characterLab: path.join(root, 'character-lab.html'),
         vfxLab: path.join(root, 'vfx-lab.html'),
         iconLab: path.join(root, 'icon-lab.html'),
+        environmentLab: path.join(root, 'environment-lab.html'),
       },
     },
     commonjsOptions: {

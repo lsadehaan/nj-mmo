@@ -92,8 +92,8 @@ export async function placeVillageEnvironment(
   const villageSpecs = buildVillage({ seed: WORLD_SEED, sampleHeight: terrainData.sampleHeight });
 
   const result = {
-    buildings: { count: 0, renderKind: 'mesh' as const },
-    peaceZone: { count: 0, renderKind: 'mesh' as const },
+    buildings: { count: 0, renderKind: 'mesh' as 'mesh' | 'primitive' },
+    peaceZone: { count: 0, renderKind: 'mesh' as 'mesh' | 'primitive' },
   };
 
   const buildingTemplates: (StaticPropTemplate | null)[] = [];
