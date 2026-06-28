@@ -99,6 +99,77 @@ describe('monster seeding', () => {
     expect(row?.aggroRange).toBe(450);
   });
 
+  it('seeds Elpy (20432) with authentic values', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20432)).get();
+    expect(row).toMatchObject({
+      name: 'Elpy',
+      level: 1,
+      exp: 44,
+      hp: 41.145,
+      race: 'ANIMAL',
+      isAggressive: false,
+    });
+  });
+
+  it('seeds Elder Keltir (20544) with authentic values', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20544)).get();
+    expect(row).toMatchObject({
+      name: 'Elder Keltir',
+      level: 3,
+      exp: 132,
+      hp: 60.135,
+    });
+    expect(row?.pAtk).toBeCloseTo(10.24492, 4);
+  });
+
+  it('seeds Elder Wolf (20442) with authentic values', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20442)).get();
+    expect(row).toMatchObject({
+      name: 'Elder Wolf',
+      level: 5,
+      exp: 220,
+      hp: 84.189,
+    });
+  });
+
+  it('seeds Giant Toad (20121) with authentic values', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20121)).get();
+    expect(row).toMatchObject({
+      name: 'Giant Toad',
+      level: 5,
+      hp: 84.189,
+    });
+    expect(row?.pDef).toBeCloseTo(51.60553, 4);
+  });
+
+  it('seeds Orc (20130) with authentic values', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20130)).get();
+    expect(row).toMatchObject({
+      name: 'Orc',
+      level: 6,
+      exp: 264,
+      hp: 98.115,
+      isAggressive: true,
+      aggroRange: 450,
+    });
+  });
+
+  it('seeds nine monsters total', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    expect(getDb(dbPath).select().from(monsters).all()).toHaveLength(9);
+  });
+
   it('is idempotent when run twice', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
@@ -107,7 +178,7 @@ describe('monster seeding', () => {
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const second = getDb(dbPath).select().from(monsters).all();
 
-    expect(second).toHaveLength(4);
+    expect(second).toHaveLength(9);
     expect(second).toEqual(first);
   });
 });

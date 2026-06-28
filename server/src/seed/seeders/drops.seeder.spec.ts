@@ -22,6 +22,36 @@ describe('mob drop seeding', () => {
     const row = getDb(dbPath).select().from(mobDrops).where(and(eq(mobDrops.npcId, 20003), eq(mobDrops.itemId, 57))).get();
     expect(row).toMatchObject({ itemId: 57, chance: 70, minCount: 13, maxCount: 30 });
   });
+  it('seeds Elpy adena drop anchor (20432)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(mobDrops).where(and(eq(mobDrops.npcId, 20432), eq(mobDrops.itemId, 57))).get();
+    expect(row).toMatchObject({ itemId: 57, chance: 70, minCount: 4, maxCount: 8 });
+  });
+  it('seeds Elder Keltir shirt drop anchor (20544)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(mobDrops).where(and(eq(mobDrops.npcId, 20544), eq(mobDrops.itemId, 21))).get();
+    expect(row).toMatchObject({ itemId: 21, chance: 9.292, minCount: 1, maxCount: 1 });
+  });
+  it('seeds Elder Wolf club drop anchor (20442)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(mobDrops).where(and(eq(mobDrops.npcId, 20442), eq(mobDrops.itemId, 4))).get();
+    expect(row).toMatchObject({ itemId: 4, chance: 3.667, minCount: 1, maxCount: 1 });
+  });
+  it('seeds Giant Toad club drop anchor (20121)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(mobDrops).where(and(eq(mobDrops.npcId, 20121), eq(mobDrops.itemId, 4))).get();
+    expect(row).toMatchObject({ itemId: 4, chance: 3.702, minCount: 1, maxCount: 1 });
+  });
+  it('seeds Orc cotton shoes drop anchor (20130)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(mobDrops).where(and(eq(mobDrops.npcId, 20130), eq(mobDrops.itemId, 1122))).get();
+    expect(row).toMatchObject({ itemId: 1122, chance: 3.845, minCount: 1, maxCount: 1 });
+  });
   it('seeds multiple drop rows for mobs with dropLists', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
