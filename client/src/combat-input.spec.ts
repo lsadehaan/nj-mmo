@@ -33,6 +33,7 @@ describe('combat input', () => {
         z: 0,
         hp: 41,
         maxHp: 41,
+        action: 'idle',
       },
     ]);
 

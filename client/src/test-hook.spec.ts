@@ -54,6 +54,7 @@ describe('test-hook multiplayer state', () => {
         z: -18,
         hp: 41,
         maxHp: 41,
+        action: 'idle' as const,
       },
     ];
     setMobs(input);
@@ -63,6 +64,22 @@ describe('test-hook multiplayer state', () => {
     expect(state.mobs).not.toBe(input);
     input[0].hp = 0;
     expect(state.mobs[0].hp).toBe(41);
+  });
+
+  it('preserves mob action clip field from setMobs', () => {
+    setMobs([
+      {
+        id: 'mob-1',
+        npcId: 20001,
+        x: 0,
+        y: 0,
+        z: 0,
+        hp: 41,
+        maxHp: 41,
+        action: 'attack',
+      },
+    ]);
+    expect(window.__GAME_STATE__.mobs[0].action).toBe('attack');
   });
 
   it('initializes animation clip to idle and updates from setPlayer', () => {

@@ -58,7 +58,7 @@ describe('createPlayerAvatar', () => {
   });
 
   it('faces combat target during attack/cast when target exists', () => {
-    setMobs([{ id: 'mob-1', npcId: 1, x: 10, y: 0, z: 0, hp: 10, maxHp: 10 }]);
+    setMobs([{ id: 'mob-1', npcId: 1, x: 10, y: 0, z: 0, hp: 10, maxHp: 10, action: 'idle' }]);
     setTargetMobId('mob-1');
 
     const avatar = createPlayerAvatar({ mesh: stubMesh() });
