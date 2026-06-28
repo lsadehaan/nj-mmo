@@ -1,329 +1,138 @@
 ---
 name: spec-driven-execution
 description: >-
-  Orchestrate feature work in this MMO repo through three sub-agents (Planner,
-  Implementer, Verifier) on top of the tlc-spec-driven pipeline, gated by the
-  project test layers and Nx affected. Use when planning, implementing, or
-  verifying any phase/feature here — interactively or autonomously inside
-  /loop. Triggers: "build the next phase", "implement this feature", "plan
-  this", "verify the work", "advance the roadmap", "loop", "autonomous",
-  "next phase".
+  Run feature work in this MMO repo on top of the tlc-spec-driven pipeline with
+  one change: instead of one sub-agent per phase, dispatch a single Implementer
+  sub-agent (Composer 2.5) for all tasks, then always run the Verifier. Use when
+  planning, implementing, or verifying any phase/feature here — interactively or
+  autonomously inside /loop. Triggers: "build the next phase", "implement this
+  feature", "plan this", "verify the work", "advance the roadmap", "loop",
+  "autonomous", "next phase".
 ---
 
-# Spec-Driven Execution (3 Sub-Agents)
+# Spec-Driven Execution
 
-This skill defines **how features get built in this repository** — both
-interactively (with a human in the loop) and **autonomously inside `/loop`**
-(unattended, end-to-end, one roadmap item per iteration).
+This skill is how features get built in this repo. It runs the **`tlc-spec-driven`**
+pipeline (Specify → Design → Tasks → Execute, depth auto-sized) and **changes
+exactly one thing** about its Execute step. Everything else — every rule,
+contract, and mechanic — is defined by `tlc-spec-driven`. Follow that skill.
 
-It wraps `tlc-spec-driven` and splits its pipeline across three fresh
-sub-agents so the agent who verifies is never the agent who wrote the code.
+## The only deviation from tlc-spec-driven
 
-Read `tlc-spec-driven` for the underlying pipeline mechanics. This skill adds
-sub-agent orchestration, Nx wiring, the test gate, and the loop driver.
+`tlc-spec-driven` Execute dispatches **one sub-agent per phase** (offered when
+there are >3 phases). Here, instead:
 
----
+1. **One Implementer sub-agent runs all tasks across all phases** — not one per
+   phase. No "phases" offer; dispatch a single Implementer for the whole feature.
+2. **The Verifier always runs afterward** — a fresh sub-agent (author ≠
+   verifier), exactly as `tlc-spec-driven` already mandates. Never skipped,
+   never prompted.
 
-## Non-negotiables (inherit + extend tlc-spec-driven)
+That is the entire delta. Do **not** restate tlc's execution contract, verifier
+mechanics, lessons system, knowledge-verification chain, or auto-sizing here —
+they apply unchanged from `tlc-spec-driven`.
 
-1. **Server authority.** Correctness lives on the Colyseus server. The client
-   never decides damage, XP, position, or drops. Tests for those rules target
-   the server, never the client.
-2. **Tests derive from spec acceptance criteria** — they assert spec-defined
-   outcomes, never mirror the implementation.
-3. **The gate decides "done", not self-assessment.** A task is done only when
-   its tests pass via the runner.
-4. **One atomic commit per task.** Never batch tasks; never weaken, skip, or
-   delete tests to make them pass.
-5. **Author ≠ Verifier.** The Verifier is always a fresh sub-agent and runs
-   automatically after the last task — never skipped, never prompted.
-6. **Autonomous by default.** Make reasoned decisions and document them; only
-   halt for the human when **genuinely stuck** (see Autonomy & decision-making).
-   Asking for approval on something a reasonable assumption could resolve is a
-   defect, not caution.
+## Roles
 
----
+Three steps, run sequentially. The middle step is the deviation above.
 
-## Autonomy & decision-making
+1. **Plan (orchestrator, no sub-agent).** Run `tlc-spec-driven` Specify →
+   (Design) → (Tasks) yourself, depth auto-sized. Ground every requirement via
+   tlc's Knowledge Verification Chain plus this repo's sources (see Planning
+   inputs below). Output: `spec.md` (+ `design.md` / `tasks.md` for
+   Large/Complex), ACs each mapped to a test layer.
+2. **Implement (one sub-agent, Composer 2.5).** Dispatch a single Implementer to
+   execute **all** tasks following `tlc-spec-driven` (per-task: spec-derived
+   tests → implement → gate → atomic commit). It commits per task automatically.
+3. **Verify (one fresh sub-agent, Composer 2.5).** Always dispatch the Verifier
+   to run `tlc-spec-driven` Validate (spec-anchored check + discrimination
+   sensor → `validation.md`). Bounded fix → re-verify loop of 3 iterations, per
+   tlc.
 
-This skill is **autonomous-first**. Human approval is the exception, reserved
-for genuine blockers — not a routine checkpoint.
+Both sub-agents run on **`composer-2.5`** (pass `model: composer-2.5`).
 
-### Decide, don't ask
+## Sub-agent prompts (self-contained)
 
-When you hit ambiguity or a choice point, pick the most reasonable option
-grounded in: the research chain (codebase → `STATE.md` decisions → `AGENTS.md`
-→ L2J Classic tree → Context7), the active `AD-NNN` decisions, and the
-**confirmed lessons** playbook. Then **document the decision** and proceed —
-never block waiting for confirmation.
+Sub-agents can't see this chat or the loop payload — give each a complete prompt.
 
-### Document every decision (two channels)
+**Implementer prompt includes:** pointers to the feature's `spec.md` /
+`design.md` / `tasks.md`; the lean mandate "implement all tasks following
+tlc-spec-driven"; and the note to commit per task automatically (this overrides
+the global "only commit when asked" default while in this flow).
 
-- **Forward-looking choices / ambiguities** → an assumption row in the
-  feature's `spec.md` "Assumptions & Open Questions" (chosen default +
-  rationale). This is the Planner's job.
-- **Grounded failures** (an AC gap, a surviving mutant, a spec-precision gap,
-  a `SPEC_DEVIATION`, or a gate failure recorded in `validation.md`) → a
-  **LESSON** via the tlc-spec-driven LESSONS mechanism (`scripts/lessons.py
-  add ...`), creating the store (`.specs/lessons.json` / `.specs/LESSONS.md`)
-  on first use. The Verifier distills these from `validation.md`; the Planner
-  **loads confirmed lessons** (`scripts/lessons.py list --status confirmed`) at
-  Specify/Design and applies them. No signal → no lesson.
+**Verifier prompt includes:** pointer to `spec.md` (ACs = source of truth), the
+git diff/commit range for the feature, the test files in scope; the instruction
+to run `tlc-spec-driven` Validate as an independent fresh-eyes pass (no code
+changes; mutations in scratch state only) and to distill lessons from
+`validation.md` signals via tlc's lessons mechanism; plus any deviations the
+Implementer flagged in its summary.
 
-### Halt ONLY when genuinely stuck
+## Project glue (not in tlc-spec-driven)
 
-Stop the loop and surface to the human **only** when a decision is beyond
-reasonable autonomous resolution:
+**Planning inputs.** Beyond tlc's chain, ground rules/values in: the codebase,
+`.specs/STATE.md` decisions (`AD-NNN`), `AGENTS.md` testing principles, and the
+**L2J Classic reference tree** at
+`~/Dev/L2J_Mobius/L2J_Mobius_Classic_1.0/dist/game/data/` for any value to
+translate (mob stats, formulas, item/skill defs). Server authority (`AD-001`)
+and the locked stack (`AD-007`) are hard constraints — game-outcome logic lives
+on the Colyseus server and is tested there.
 
-- Contradictory or unsatisfiable requirements that no reasonable assumption
-  resolves.
-- A required external secret/credential/paid resource is missing.
-- A destructive or irreversible action outside the repo would be needed
-  (force-push, production deploy, data deletion).
-- The Verifier still returns **FAIL after the 3 fix → re-verify iterations**.
-- A prerequisite phase is missing/incomplete (dependency-order violation).
+**Test layers + gate.** Map each AC to the cheapest of the four layers in
+`AGENTS.md` (unit / room-integration / seed-data / e2e). Run the gate with Nx:
+`nx test server`, `nx test client`, `nx e2e client-e2e`. The Verifier re-derives
+coverage with `nx affected -t test lint` (and `nx e2e client-e2e` when the
+client changed). Rely on Nx caching; never disable it to force a pass.
 
-When stuck: write the blocker + the exact decision needed to `STATE.md`
-`## Handoff`, stop the loop (do not re-arm), and surface a concise summary.
-Everything else: decide, document, continue.
+## Autonomous loop mode
 
----
+When invoked from `/loop` (or asked to run unattended), drive the full cycle
+with no human gates. Resolve every decision autonomously and document it
+(assumptions in `spec.md`; grounded failures as lessons via tlc).
 
-## The three sub-agents
+1. **Select target.** Use the loop payload's named phase if given; else the
+   **first unchecked** item in `.specs/ROADMAP.md`, top-to-bottom in dependency
+   order. One phase per iteration; never parallel.
+2. **Resume.** Read `.specs/STATE.md` `## Handoff`; if a feature is in-flight,
+   resume it instead of starting fresh.
+3. **Clean env.** Free ports 2567 and 4200 (`lsof -ti :2567 | xargs kill -9`,
+   same for 4200) before any gate.
+4. **Plan → Implement → Verify** (the three Roles above), no confirmation gates.
+5. **Completion.** Read `.specs/features/<feature>/validation.md`; only a
+   recorded **PASS** authorises marking done.
+6. **On PASS:** flip the ROADMAP checkbox `[ ]`→`[x]`; update `STATE.md`
+   `## Handoff` with completed phase + next step; commit
+   `docs(spec): mark phase <N> complete in ROADMAP and STATE`; re-arm the loop
+   heartbeat (below).
+7. **On FAIL after 3 fix → re-verify iterations:** write the blocker to
+   `STATE.md` `## Handoff`, surface a compact summary, **stop — do not re-arm.**
 
-**Default = autonomous** (no confirmation gates). **Interactive mode** is an
-explicit opt-in for when a human wants to approve each step: offer-then-confirm
-before dispatching, per tlc-spec-driven. Either way, run sequentially; each
-reports a compact summary before the next starts.
-
-### 1. Planner
-
-Runs `tlc-spec-driven` **Specify → (Design) → (Tasks)**, depth auto-sized.
-
-- Writes `.specs/features/[feature]/spec.md` with traceable requirement IDs
-  and acceptance criteria (ACs).
-- For Large/Complex scope: `design.md` (architecture, server vs client split)
-  and `tasks.md` (atomic tasks + per-task verification + dependencies).
-- Every AC names the **test layer** that proves it (see Test gate below).
-- Marks each task `server` / `client` / `seed` so the Implementer knows where
-  logic must live.
-- **Always researches and grounds** via the Knowledge Verification Chain before
-  planning (see Sub-agent context bundle).
-
-Returns: feature path, requirement IDs, task list with layers + dependencies.
-
-### 2. Implementer
-
-Runs `tlc-spec-driven` **Execute**.
-
-- One task at a time: write spec-derived tests → implement → run the gate →
-  one atomic commit. Repeat.
-- Uses Nx targets to run the gate (see Nx wiring). Never marks a task done on
-  a red or skipped test.
-- Records deviations in `.specs/STATE.md`; never silently changes scope.
-- **Commit autonomy in loop mode (full):** the Implementer commits per task
-  automatically. This overrides the global "only commit when asked" default
-  when running inside `/loop`.
-
-Returns: commit hashes, test counts per task, any deviations.
-
-### 3. Verifier
-
-Runs `tlc-spec-driven` **Validate** as a fresh agent (author ≠ verifier).
-
-- **Spec-anchored outcome check:** each test's asserted value matches the
-  spec's expected outcome; flag spec-precision gaps.
-- **Discrimination sensor:** inject behavior-level faults in scratch state
-  (e.g. tweak a damage constant, disable a peace-zone check) and confirm tests
-  kill them; surviving mutants become fix tasks.
-- Writes `.specs/features/[feature]/validation.md` (PASS/FAIL, per-AC
-  evidence, sensor result, diff range) and returns a ranked gap list.
-- Fix → re-verify loop is bounded to 3 iterations.
-- **In loop mode:** if FAIL persists after 3 iterations, do NOT escalate with
-  a blocking prompt — STOP the loop (write blocker to STATE Handoff, do not
-  re-arm) and surface a summary.
-
----
-
-## Autonomous Loop Mode
-
-Use this mode when invoked from `/loop` or when explicitly asked to run
-unattended. No human gates — the skill drives the full cycle.
-
-### Driver steps
-
-1. **Select the target.** Use the named phase/feature from the loop payload if
-   provided; otherwise pick the **first unchecked** item in `.specs/ROADMAP.md`
-   in top-to-bottom dependency order. Never run phases in parallel; one phase
-   per iteration.
-2. **Resume awareness.** Read `.specs/STATE.md` `## Handoff`. If it shows an
-   in-flight feature (incomplete tasks, no final commit), resume it instead of
-   starting fresh.
-3. **Clean environment.** Before running any gate, ensure no stale dev/test
-   processes are holding ports 2567 or 4200. Kill any stale process on those
-   ports (`lsof -ti :2567 | xargs kill -9` and `:4200` equivalent) and wait
-   for the port to be free.
-4. **Run Planner → Implementer → Verifier** with no confirmation gates. Every
-   decision point is resolved autonomously and documented (assumptions in
-   `spec.md`; grounded failures as LESSONS) — see Autonomy & decision-making.
-   The Planner loads confirmed lessons; the Verifier distills new ones.
-5. **Completion detection.** Read `.specs/features/<feature>/validation.md`.
-   Only a recorded **PASS** authorises marking done.
-6. **On PASS:**
-   - Flip the ROADMAP checkbox from `[ ]` to `[x]`.
-   - Update `.specs/STATE.md` `## Handoff` with the completed phase + next
-     step.
-   - Commit: `docs(spec): mark phase <N> complete in ROADMAP and STATE`.
-   - Re-arm the `/loop` heartbeat (see Loop integration contract).
-7. **On FAIL after 3 fix → re-verify iterations:**
-   - Write the blocker to `STATE.md` `## Handoff`.
-   - Surface a compact summary to the user.
-   - **Stop — do not re-arm.**
-
----
-
-## Sub-agent context bundle
-
-Sub-agents cannot see the parent chat or the loop payload. Every sub-agent
-prompt must be self-contained and point the agent at the repo's persisted
-sources.
-
-### Planner prompt must include
-
-- The **ROADMAP goal + sub-items** for the target phase (read from
-  `.specs/ROADMAP.md`).
-- Instruction to **research and ground** via the Knowledge Verification Chain
-  before writing any requirement: read the codebase, `STATE.md` decisions
-  (AD-NNN), `AGENTS.md` testing principles, the **L2J Classic reference tree**
-  at `~/Dev/L2J_Mobius/L2J_Mobius_Classic_1.0/dist/game/data/` for any
-  rule/value to translate (mob stats, formulas, item defs, skill defs), and
-  Context7 for library APIs. Never fabricate a value that can be verified;
-  always log an assumption if something genuinely cannot be determined.
-- The locked stack (AD-007) and server-authority constraint (AD-001) as hard
-  constraints; the Planner must not re-litigate them.
-- Instruction to **load confirmed lessons** first (`scripts/lessons.py list
-  --status confirmed`, filtered by the area this phase touches) and apply them
-  while planning.
-- Instruction to **decide autonomously and log all assumptions** in the spec's
-  "Assumptions & Open Questions" section rather than asking the user.
-
-### Implementer prompt must include
-
-- Pointers to `spec.md`, `design.md`, `tasks.md` for the feature.
-- The lean mandate: "implement the tasks following tlc-spec-driven." Do not
-  micromanage the TDD cycle — the Implementer self-organises from the skill.
-- Commit-autonomy note: commit per task automatically.
-
-### Verifier prompt must include
-
-- Pointer to `spec.md` (ACs = source of truth), the git diff/commit range for
-  the feature, and the test files in scope.
-- Instruction to run `validate.md` as an independent fresh-eyes pass (no code
-  changes, mutations in scratch state only).
-- Instruction to **distill lessons** from the `validation.md` signals via
-  `scripts/lessons.py add ...` (create the store if absent) — one terse
-  codebase-general lesson per grounded signal; a clean PASS records nothing.
-- Specific items to scrutinise (e.g. any deviations flagged by the Implementer
-  in its summary).
-
----
-
-## Model per role
-
-All three sub-agents run on **`composer-2.5`**. Pass `model: composer-2.5`
-when dispatching each one.
-
-| Role | Model | Notes |
-|---|---|---|
-| Planner | `composer-2.5` | Give it the ROADMAP goal + the mandated research chain; it grounds and produces spec/design/tasks. |
-| Implementer | `composer-2.5` | Keep the prompt lean ("implement the tasks following tlc-spec-driven"); it self-organises. |
-| Verifier | `composer-2.5` | A fresh agent — author ≠ verifier still holds (different agent instance, same model). |
-
-`composer-2.5` is fast and self-organises well from tlc-spec-driven, so prefer
-lean mandates over long rule lists in every sub-agent prompt.
-
----
-
-## Test gate (project-specific)
-
-Tests come from the four project layers (see `AGENTS.md`). Map each AC to the
-cheapest layer that can prove it:
-
-| Layer | Tool | Proves |
-|---|---|---|
-| Unit (server) | Vitest | Formulas, curves, rules (damage, XP, drop, cooldown, peace zone) |
-| Room integration | `@colyseus/testing` | Join/leave, intent validation, broadcast, persistence/reconnect |
-| Seed/data | Vitest | XML→SQLite produced the expected L2J Classic values |
-| E2E / on-screen | Playwright | DOM HUD, two-browser multiplayer, input, `window.__GAME_STATE__` hook |
-
-Rules:
-- Randomness (drops, damage variance) uses an **injected seeded RNG** so the
-  discrimination sensor is reliable.
-- WebGL canvas content is **not** DOM-testable — never anchor correctness on
-  pixels. Assert logical state through the `window.__GAME_STATE__` test hook.
-
----
-
-## Nx wiring
-
-- Gate a task: `nx test server` / `nx test client` / `nx e2e client-e2e`.
-- The Verifier runs `nx affected -t test lint` (and `nx e2e client-e2e` when
-  the client changed) to re-derive coverage for touched projects only.
-- Rely on Nx caching; never disable the cache to force a pass.
-
----
+Halt for a human **only** when genuinely stuck (contradictory/unsatisfiable
+requirements, a missing external secret, a required destructive action outside
+the repo, a missing prerequisite phase, or persistent FAIL after 3 iterations).
 
 ## Loop integration contract
 
 - **Sentinel:** `AGENT_LOOP_WAKE_ROADMAP`
 - **Pattern to monitor:** `^AGENT_LOOP_WAKE_ROADMAP`
-- **Payload format:** JSON beside the sentinel —
-  `AGENT_LOOP_WAKE_ROADMAP {"prompt":"advance ROADMAP: run the next unchecked phase end-to-end"}`
-- **Re-arm (one-shot heartbeat, only on PASS):**
+- **Payload:** `AGENT_LOOP_WAKE_ROADMAP {"prompt":"advance ROADMAP: run the next unchecked phase end-to-end"}`
+- **Re-arm (one-shot, only on PASS):**
   ```bash
   sleep <seconds>
   echo 'AGENT_LOOP_WAKE_ROADMAP {"prompt":"advance ROADMAP: run the next unchecked phase end-to-end"}'
   ```
-  Choose the sleep duration based on expected phase implementation time. A
-  reasonable default is 1800s (30 min); adjust per phase complexity.
-- **Stop (on FAIL escalation):** kill the sleeper PID, do not emit the
-  sentinel again.
+  Pick the sleep from expected phase time (default ~1800s; adjust per phase).
+- **Stop (on FAIL):** kill the sleeper PID; do not emit the sentinel again.
 - On wake, read the latest matching line and act on its `prompt`.
 
----
-
-## Per-phase emphasis
-
-- **Phase 1–2** (scaffold, render): seed/data tests + Playwright smoke.
-- **Phase 3–5** (auth server, combat, skill): unit + room-integration dominant.
-- **Phase 6–7** (NPCs, shop, go-live): Playwright E2E front.
-
----
-
-## Workflow checklists
-
-### Interactive mode (human in the loop)
+## Checklist
 
 ```
-- [ ] Confirm scope + which phase/feature
-- [ ] Offer the 3 sub-agents; wait for confirmation
-- [ ] Planner → spec.md (+ design.md / tasks.md), ACs mapped to test layers
-- [ ] Implementer → per-task TDD + atomic commits, gate green each task
-- [ ] Verifier (fresh) → spec-anchored check + sensor → validation.md
-- [ ] Gaps → fix tasks (≤3 loops) → re-verify → PASS
-- [ ] Update .specs/STATE.md handoff + decisions
-```
-
-### Autonomous loop mode (unattended)
-
-```
-- [ ] Read .specs/ROADMAP.md; select target phase (or use named payload item)
-- [ ] Check STATE.md Handoff — resume in-flight feature if present
-- [ ] Clean environment (free ports 2567 / 4200)
-- [ ] Planner → research + ground → spec.md / design.md / tasks.md (no gates)
-- [ ] Implementer → per-task commits (auto), gate green each task (no gates)
-- [ ] Verifier (fresh) → spec-anchored check + sensor → validation.md
-- [ ] Decisions made autonomously + documented (assumptions / LESSONS); never paused for approval
+- [ ] Select phase (ROADMAP or payload); resume in-flight feature from STATE Handoff
+- [ ] Clean env (free ports 2567 / 4200)
+- [ ] Plan (orchestrator, tlc Specify→Design→Tasks): spec.md (+ design/tasks), ACs → test layers
+- [ ] Implement: ONE Composer 2.5 sub-agent runs ALL tasks, atomic commit per task
+- [ ] Verify: fresh Composer 2.5 sub-agent runs tlc Validate → validation.md (always)
+- [ ] Gaps → fix → re-verify (≤3) → PASS
 - [ ] On PASS: flip ROADMAP [x], update STATE Handoff, commit, re-arm loop
-- [ ] Halt ONLY if genuinely stuck (see Autonomy & decision-making) or FAIL after 3 iterations → blocker to STATE Handoff, STOP loop
+- [ ] Halt only if genuinely stuck or FAIL after 3 iterations → blocker to STATE Handoff, stop loop
 ```
