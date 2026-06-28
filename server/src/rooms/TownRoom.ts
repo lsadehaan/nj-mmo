@@ -1,15 +1,20 @@
 import { Room, Client } from 'colyseus';
 import {
   step,
-  createInitialMoveState,
+  createPathMoveState,
   isValidMoveIntent,
   createSeededRng,
   STARTER_COMBAT,
   effectivePAtk,
   applyLevelUpReward,
   resolvePlayerDeath,
+  stepAlongPath,
+  snapEntityY,
+  isWalkable,
+  findPath,
+  snapToNearestWalkable,
   type MovementIntent,
-  type PlayerMoveState,
+  type PathMoveState,
   type DropRow,
   type ExperienceCurveRow,
   type SeededRng,
@@ -92,7 +97,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
   private db!: AppDatabase;
   private saveDebounceMs = DEFAULT_SAVE_DEBOUNCE_MS;
-  private tickStates = new Map<string, PlayerMoveState>();
+  private tickStates = new Map<string, PathMoveState>();
   private pendingIntents = new Map<string, MovementIntent>();
   private characterIds = new Map<string, string>();
   private characters = new Map<string, Character>();
@@ -208,7 +213,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       npcState.title = meta.title;
       npcState.type = meta.type;
       npcState.x = spawn.x;
-      npcState.y = spawn.y;
+      npcState.y = snapEntityY(spawn.x, spawn.z);
       npcState.z = spawn.z;
       this.state.npcs.set(npcState.id, npcState);
     }
@@ -454,15 +459,40 @@ export class TownRoom extends Room<{ state: TownState }> {
     for (const [sessionId, player] of this.state.players.entries()) {
       const intent = this.pendingIntents.get(sessionId) ?? null;
       this.pendingIntents.delete(sessionId);
-      const tickState = this.tickStates.get(sessionId);
+      let tickState = this.tickStates.get(sessionId);
       if (!tickState) continue;
 
-      const beforeX = player.x;
-      const beforeZ = player.z;
-      const next = step(tickState, intent, dt);
-      this.tickStates.set(sessionId, next);
-      player.x = next.x;
-      player.z = next.z;
+      if (intent !== null) {
+        const snapped = snapToNearestWalkable(intent.targetX, intent.targetZ);
+        if (snapped) {
+          const path = findPath({ x: tickState.x, z: tickState.z }, snapped);
+          tickState = {
+            ...tickState,
+            waypoints: path,
+            waypointIndex: 0,
+            targetX: snapped.x,
+            targetZ: snapped.z,
+          };
+        }
+      }
+
+      const beforeX = tickState.x;
+      const beforeZ = tickState.z;
+      const next = stepAlongPath(tickState, null, dt);
+
+      let newX = next.x;
+      let newZ = next.z;
+      if (!isWalkable({ x: beforeX, z: beforeZ }, { x: newX, z: newZ })) {
+        newX = beforeX;
+        newZ = beforeZ;
+      }
+
+      const newY = snapEntityY(newX, newZ);
+      const merged: PathMoveState = { ...next, x: newX, z: newZ, y: newY };
+      this.tickStates.set(sessionId, merged);
+      player.x = newX;
+      player.z = newZ;
+      player.y = newY;
 
       if (player.x !== beforeX || player.z !== beforeZ) {
         this.scheduleDebouncedSave(sessionId);
@@ -478,6 +508,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     for (const runtime of this.mobRuntime.values()) {
       if (runtime.hp <= 0) continue;
       tickMobAi(runtime, aiPlayers, dt, this.combatRng, now);
+      runtime.y = snapEntityY(runtime.x, runtime.z);
       const mobState = this.state.mobs.get(runtime.id);
       if (mobState) syncMobState(mobState, runtime);
     }
@@ -623,9 +654,12 @@ export class TownRoom extends Room<{ state: TownState }> {
     const tickState = this.tickStates.get(sessionId);
     if (tickState) {
       tickState.x = death.x;
+      tickState.y = death.y;
       tickState.z = death.z;
       tickState.targetX = null;
       tickState.targetZ = null;
+      tickState.waypoints = [];
+      tickState.waypointIndex = 0;
     }
 
     this.persistCharacter(sessionId);
@@ -732,7 +766,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.state.players.set(client.sessionId, player);
     this.tickStates.set(
       client.sessionId,
-      createInitialMoveState(character.x, character.y, character.z)
+      createPathMoveState(character.x, character.y, character.z)
     );
     this.playerCombat.set(client.sessionId, createPlayerCombatState());
 

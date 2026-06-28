@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
+import { snapEntityY } from '@nj/game-core';
 import type { AppDatabase } from '../db/client';
 import { monsters, mobSpawns } from '../db/schema';
 import { MobState } from './schema/MobState';
@@ -65,8 +66,9 @@ export function initializeMobs(
     const mobState = new MobState();
     mobState.id = id;
     mobState.npcId = spawn.npcId;
+    const spawnY = snapEntityY(spawn.x, spawn.z);
     mobState.x = spawn.x;
-    mobState.y = spawn.y;
+    mobState.y = spawnY;
     mobState.z = spawn.z;
     mobState.hp = template.hp;
     mobState.maxHp = template.hp;
@@ -78,7 +80,7 @@ export function initializeMobs(
       npcId: spawn.npcId,
       spawnRowId: spawn.id,
       x: spawn.x,
-      y: spawn.y,
+      y: spawnY,
       z: spawn.z,
       hp: template.hp,
       maxHp: template.hp,
@@ -133,8 +135,9 @@ export function respawnMobRuntime(
   template: typeof monsters.$inferSelect,
   spawn: typeof mobSpawns.$inferSelect
 ): void {
+  const spawnY = snapEntityY(spawn.x, spawn.z);
   runtime.x = spawn.x;
-  runtime.y = spawn.y;
+  runtime.y = spawnY;
   runtime.z = spawn.z;
   runtime.hp = template.hp;
   runtime.maxHp = template.hp;
