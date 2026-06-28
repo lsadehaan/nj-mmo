@@ -1,7 +1,10 @@
+import { createIconImg } from '../ui/icon-img';
+
 /** Power Strike L1 reuse delay from seeded skill row — display ratio only (AD-001). */
 export const POWER_STRIKE_REUSE_MS = 3_000;
 
 const ELEMENT_ID = 'power-strike-cooldown';
+const POWER_STRIKE_SKILL_ID = 3;
 
 export function mountPowerStrikeCooldown(): HTMLElement {
   const existing = document.getElementById(ELEMENT_ID);
@@ -24,6 +27,23 @@ export function mountPowerStrikeCooldown(): HTMLElement {
     'z-index:10',
   ].join(';');
 
+  const icon = createIconImg({
+    kind: 'skill',
+    id: POWER_STRIKE_SKILL_ID,
+    alt: 'Power Strike',
+    sizePx: 48,
+  });
+  icon.style.cssText = [
+    'position:absolute',
+    'inset:0',
+    'width:100%',
+    'height:100%',
+    'object-fit:contain',
+    'z-index:0',
+    'pointer-events:none',
+  ].join(';');
+  bar.appendChild(icon);
+
   const fill = document.createElement('div');
   fill.dataset['role'] = 'fill';
   fill.style.cssText = [
@@ -34,6 +54,7 @@ export function mountPowerStrikeCooldown(): HTMLElement {
     'height:0%',
     'background:rgba(120,180,255,0.75)',
     'transition:height 0.05s linear',
+    'z-index:1',
   ].join(';');
   bar.appendChild(fill);
 
