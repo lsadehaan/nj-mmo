@@ -275,6 +275,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       x: player.x,
       y: player.y,
       z: player.z,
+      soulshotCount: localItemCounts[1835] ?? 0,
     });
     setPlayer({
       x: player.x,

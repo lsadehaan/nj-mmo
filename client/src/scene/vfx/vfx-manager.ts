@@ -36,6 +36,12 @@ import {
   tickLevelUpVfx,
 } from './level-up-vfx';
 import { createTargetRing, type TargetRing } from './target-ring-vfx';
+import {
+  shouldSoulshotGlint,
+  spawnSoulshotGlint,
+  tickSoulshotGlint,
+} from './soulshot-glint-vfx';
+import { spawnLootPuffVfx, tickLootPuffVfx, LOOT_PUFF_DURATION_MS } from './loot-puff-vfx';
 
 export interface VfxMobSnapshot {
   id: string;
@@ -55,6 +61,8 @@ export interface VfxPlayerSnapshot {
   x: number;
   y: number;
   z: number;
+  soulshotCount?: number;
+  weaponRoot?: THREE.Object3D | null;
 }
 
 export interface VfxManager {
@@ -169,6 +177,21 @@ export function createVfxManager(scene: THREE.Scene): VfxManager {
         ) {
           /* dissolve attached via renderer player avatar root */
         }
+        if (
+          shouldSoulshotGlint(
+            snapshot.soulshotCount ?? 0,
+            playerPrev.action,
+            playerPrev.actionSeq,
+            snapshot.action,
+            snapshot.actionSeq
+          ) &&
+          snapshot.weaponRoot
+        ) {
+          const glint = spawnSoulshotGlint(scene, snapshot.weaponRoot, nowMs);
+          addTimed(glint, 'soulshotGlint', nowMs, 300, (elapsed) => {
+            if (tickSoulshotGlint(glint, elapsed)) glint.parent?.remove(glint);
+          });
+        }
       }
       playerPrev = { ...snapshot };
       refreshActiveCount();
@@ -179,6 +202,21 @@ export function createVfxManager(scene: THREE.Scene): VfxManager {
       const prev = mobPrev.get(snapshot.id);
       if (prev && detectHpHit(prev.hp, snapshot.hp)) {
         spawnMeleeAt(snapshot, nowMs);
+      }
+      if (
+        prev &&
+        detectActionEdge(
+          prev.action,
+          prev.actionSeq,
+          snapshot.action,
+          snapshot.actionSeq,
+          'die'
+        )
+      ) {
+        const group = spawnLootPuffVfx(scene, snapshot, nowMs);
+        addTimed(group, 'lootPuff', nowMs, LOOT_PUFF_DURATION_MS, (elapsed) =>
+          tickLootPuffVfx(group, elapsed)
+        );
       }
       mobPrev.set(snapshot.id, { ...snapshot });
 

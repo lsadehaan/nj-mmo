@@ -115,6 +115,7 @@ export interface GameRenderer {
     x: number;
     y: number;
     z: number;
+    soulshotCount?: number;
   }) => void;
   syncMobVfx: (snapshot: {
     id: string;
@@ -309,6 +310,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     x: number;
     y: number;
     z: number;
+    soulshotCount?: number;
   }): void => {
     vfxManager.syncPlayer({
       hp: snapshot.hp,
@@ -318,6 +320,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       x: snapshot.x,
       y: snapshot.y,
       z: snapshot.z,
+      soulshotCount: snapshot.soulshotCount,
+      weaponRoot: playerAvatar.group,
     });
     if (snapshot.action === EntityAction.Die && snapshot.actionSeq !== prevPlayerDieSeq) {
       vfxManager.attachPlayerDissolve(playerAvatar.group, performance.now());
