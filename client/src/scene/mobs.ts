@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { EntityAction } from '@nj/game-core';
+import type { AnimationClip } from '@nj/game-core';
 import { getCreatureEntry } from './creature/creature-manifest';
 import { loadGltfTemplate } from './creature/mesh-character';
 import { createMobAvatar, type MobAvatar } from './mob-avatar';
@@ -25,6 +26,8 @@ interface MobInstance {
   hpBarYOffset: number;
   pendingRemovalAtMs: number | null;
   currentClip: string;
+  lastAction?: EntityAction;
+  lastActionSeq?: number;
 }
 
 const MOB_BODY_COLOR = 0x884422;
@@ -33,6 +36,19 @@ const HP_BAR_HEIGHT = 0.12;
 const DEFAULT_HP_BAR_Y_OFFSET = 1.6;
 
 const templateLoads = new Map<string, ReturnType<typeof loadGltfTemplate>>();
+
+function clipFromServerAction(action?: EntityAction): AnimationClip {
+  switch (action) {
+    case EntityAction.Attack:
+      return 'attack';
+    case EntityAction.Cast:
+      return 'cast';
+    case EntityAction.Die:
+      return 'die';
+    default:
+      return 'idle';
+  }
+}
 
 export function mobStateToVisual(state: {
   id: string;
@@ -197,6 +213,14 @@ export function applyMobVisual(
   if (fill) {
     updateHpBarFill(fill, state.hp, state.maxHp);
   }
+
+  if (!instance.avatar) {
+    instance.lastAction = state.action;
+    instance.lastActionSeq = state.actionSeq;
+    if (state.action !== undefined && state.action !== EntityAction.None) {
+      instance.currentClip = clipFromServerAction(state.action);
+    }
+  }
 }
 
 export function syncMobVisual(
@@ -215,14 +239,14 @@ export function tickMobVisuals(
   instances: Map<string, MobInstance>,
   dt: number,
   nowMs = performance.now()
-): Map<string, string> {
-  const clips = new Map<string, string>();
+): Map<string, AnimationClip> {
+  const clips = new Map<string, AnimationClip>();
   for (const [mobId, instance] of instances.entries()) {
     if (instance.avatar) {
       instance.currentClip = instance.avatar.update(dt, nowMs);
-      clips.set(mobId, instance.currentClip);
+      clips.set(mobId, instance.currentClip as AnimationClip);
     } else {
-      clips.set(mobId, instance.currentClip);
+      clips.set(mobId, instance.currentClip as AnimationClip);
     }
   }
   return clips;
@@ -240,6 +264,8 @@ export function removeMob(
 
   if (instance.avatar && !instance.avatar.isDiePlaying(nowMs)) {
     instance.avatar.latchDie(nowMs);
+  } else if (!instance.avatar) {
+    instance.currentClip = 'die';
   }
 
   if (instance.avatar?.isDiePlaying(nowMs)) {

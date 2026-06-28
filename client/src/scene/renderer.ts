@@ -32,6 +32,7 @@ import {
 } from './npc-renderer';
 import { createPlayerAvatar } from './player-avatar';
 import type { AnimationClip } from '@nj/game-core';
+import { EntityAction } from '@nj/game-core';
 
 const WORLD_SEED = TERRAIN_CONFIG.seed;
 const TERRAIN_OPTS = TERRAIN_CONFIG;
@@ -66,6 +67,16 @@ export interface GameRenderer {
     actionSeq?: number;
   }) => void;
   removeMob: (mobId: string) => void;
+  getMobHookEntries: () => Array<{
+    id: string;
+    npcId: number;
+    x: number;
+    y: number;
+    z: number;
+    hp: number;
+    maxHp: number;
+    action: AnimationClip;
+  }>;
   syncNpc: (npc: {
     id: string;
     npcId: number;
@@ -180,6 +191,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const mobMeshes: MobMeshMap = new Map();
   const mobInstances = createMobInstanceMap();
   const mobSnapshots = new Map<string, ReturnType<typeof mobStateToVisual>>();
+  let lastMobClips = new Map<string, AnimationClip>();
   const npcMeshes: NpcMeshMap = new Map();
   let pathPreviewLine: THREE.Line | null = null;
 
@@ -277,6 +289,46 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     syncMobVisual(mobMeshes, mobInstances, visual, scene);
   };
 
+  const hookClipForSnapshot = (
+    id: string,
+    snapshot: ReturnType<typeof mobStateToVisual>
+  ): AnimationClip => {
+    const tickClip = lastMobClips.get(id);
+    if (tickClip) return tickClip;
+    switch (snapshot.action) {
+      case EntityAction.Attack:
+        return 'attack';
+      case EntityAction.Cast:
+        return 'cast';
+      case EntityAction.Die:
+        return 'die';
+      default:
+        return 'idle';
+    }
+  };
+
+  const getMobHookEntries = (): Array<{
+    id: string;
+    npcId: number;
+    x: number;
+    y: number;
+    z: number;
+    hp: number;
+    maxHp: number;
+    action: AnimationClip;
+  }> => {
+    return [...mobSnapshots.entries()].map(([id, snapshot]) => ({
+      id,
+      npcId: snapshot.npcId,
+      x: snapshot.x,
+      y: snapshot.y,
+      z: snapshot.z,
+      hp: snapshot.hp,
+      maxHp: snapshot.maxHp,
+      action: hookClipForSnapshot(id, snapshot),
+    }));
+  };
+
   const removeMobById = (mobId: string): void => {
     const removed = removeMob(mobMeshes, mobInstances, mobId, scene);
     if (removed) {
@@ -308,6 +360,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     }
 
     const mobClips = tickMobVisuals(mobInstances, dt, nowMs);
+    lastMobClips = mobClips;
     for (const mobId of flushPendingMobRemovals(mobMeshes, mobInstances, scene, nowMs)) {
       mobSnapshots.delete(mobId);
     }
@@ -408,6 +461,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     removeRemotePlayer: removeRemotePlayerById,
     syncMob,
     removeMob: removeMobById,
+    getMobHookEntries,
     syncNpc,
     removeNpc: removeNpcById,
     setMoveIntentHandler,

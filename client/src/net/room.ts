@@ -139,27 +139,30 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   const publishMobs = (): void => {
+    const hookById = new Map((game.getMobHookEntries?.() ?? []).map((mob) => [mob.id, mob]));
     const mobsMap = room.state.mobs;
     if (!mobsMap) {
-      setMobs([]);
+      setMobs([...hookById.values()]);
       return;
     }
-    setMobs(
-      [...mobsMap.entries()].map(([id, mob]) => {
-        const state = mob as MobSchema;
-        const existing = getGameState().mobs.find((entry) => entry.id === id);
-        return {
-          id,
-          npcId: state.npcId,
-          x: state.x,
-          y: state.y,
-          z: state.z,
-          hp: state.hp,
-          maxHp: state.maxHp,
-          action: existing?.action ?? 'idle',
-        };
-      })
-    );
+    const merged = [...mobsMap.entries()].map(([id, mob]) => {
+      const state = mob as MobSchema;
+      const hook = hookById.get(id);
+      return {
+        id,
+        npcId: state.npcId,
+        x: state.x,
+        y: state.y,
+        z: state.z,
+        hp: state.hp,
+        maxHp: state.maxHp,
+        action: hook?.action ?? 'idle',
+      };
+    });
+    for (const [id, hook] of hookById) {
+      if (!mobsMap.has(id)) merged.push(hook);
+    }
+    setMobs(merged);
   };
 
   let prevPowerStrikeCooldownEndMs = 0;
