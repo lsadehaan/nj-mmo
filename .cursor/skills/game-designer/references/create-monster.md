@@ -1,6 +1,6 @@
 # Recipe: Create a Monster / Mob
 
-Monsters reuse everything from `create-character.md` — the brain, the body backend, the clip vocabulary, and the visual gate. **Read `create-character.md` first.** This file only covers the four things that are different because monsters are (a) many at once and (b) fully server-driven. Do not re-derive the shared steps; reference them.
+Monsters reuse everything from `create-character.md` — the brain, the body backend, the clip vocabulary, and the visual gate. **Read `create-character.md` first**, including its Step 1 callout: monsters are **rigged**, so the **reuse-a-pack, do-not-hand-author** rule applies (e.g. Gremlin/Goblin from Quaternius "Ultimate Monsters", imported via `scripts/import-pack-assets.mjs`). Hand-authoring code-built geometry is for *static props only*; a monster needs a real skeleton + `idle/move/attack/cast/die` clips. This file only covers the four things that are different because monsters are (a) many at once and (b) fully server-driven. Do not re-derive the shared steps; reference them.
 
 The current state: mobs render as capsules in `client/src/scene/mobs.ts`, spawned from server state (the `monsters` table → spawn manager → room state → `renderer.syncMob`). The goal is to swap that capsule for a rigged mesh without touching server authority.
 
@@ -67,8 +67,8 @@ Humanoid mobs can use the KayKit universal rig and reuse `KAYKIT_CLIP_MAP`. Non-
 
 After the four deltas, the rest is identical to the character recipe — do not duplicate, just apply:
 
-- Step 1 source (license preferred, not required pre-live — golden rule 2), Step 2 inspect, Step 4 body backend (now via the clone path), Step 6 tune scale/feet/facing per family.
-- Step 7 **visual gate**: render each mob type's clips in `client/character-lab.html` (`?char=<Model>`) via `scripts/shoot-character.mjs` and look. For non-humanoids especially, eyeball idle/move/death.
+- Step 1 source the **best match for each mob** (a Gremlin looks like a gremlin, a Wolf like a wolf — not a generic humanoid in a costume). Fidelity is law; license is relaxed pre-live (golden rule 2). If no good match exists: search harder, create one high-quality, or halt — **never copy a character GLB onto a mob name.** Step 2 inspect, Step 4 body backend (now via the clone path), Step 6 tune scale/feet/facing per family.
+- Step 7 **visual gate (blocking)**: run `node scripts/visual-gate.mjs` (it will flag any mob that's a byte-copy of a character/another mob), then render each mob type's clips in `client/character-lab.html` (`?char=<Model>`) via `scripts/shoot-character.mjs` and **actually look** — judge each against the real creature, especially non-humanoids (idle/move/death). Mismatch = FAIL.
 - Step 8 prove + gate: add/extend an e2e that drives a real mob to death and asserts its animation/`__GAME_STATE__.mobs` reflects it; then `npx nx run-many -t test lint build`.
 - Step 9 record: note the manifest + any mob-schema signal change as an `AD-***` in `.specs/STATE.md`; tick `.specs/ROADMAP.md`.
 
@@ -78,10 +78,11 @@ After the four deltas, the rest is identical to the character recipe — do not 
 - [ ] B. `npcId → CreatureEntry` manifest; `mobs.ts` selects by npcId; safe fallback
 - [ ] C. Server-driven signal: locomotion from position, die from hp=0, (optional) render-only mob `action`/`actionSeq` set server-side
 - [ ] D. Per-family clip maps from real track names, with fallbacks
-- [ ] Shared: source (license preferred / placeholder OK pre-live), inspect, tune, **visual gate (render + look)**, e2e + `nx test lint build`, STATE/ROADMAP
+- [ ] Shared: best-match source (right creature, not a copied character; placeholder OK if it looks right), inspect, tune, **blocking visual gate (`visual-gate.mjs` + render & perceive)**, e2e + `nx test lint build`, STATE/ROADMAP
 
 ## Anti-patterns specific to monsters
 
+- ❌ **Copying a character GLB onto a mob name** (Gremlin = Mage, Goblin = Barbarian). A structurally-valid rig that is the *wrong creature* still FAILS fidelity (golden rule 2) and the dedup check.
 - ❌ Reusing one loaded skinned mesh for multiple mobs (all instances animate in lockstep / skinning corrupts) — always clone.
 - ❌ One shared mixer for many mobs.
 - ❌ Inferring mob attacks client-side instead of from a server signal.

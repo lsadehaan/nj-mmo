@@ -12,17 +12,19 @@ export interface CreatureEntry {
 }
 
 /**
- * Clip map for procedurally-generated biped GLBs (Gremlin, Goblin).
- * Animation names match the clips baked by scripts/gen-glb-assets.py:
- *   Idle (2 s loop), Walk (1 s loop), Attack (0.8 s), Death (1.5 s).
+ * Clip map for Quaternius "Ultimate Monsters" rigged GLBs (Gremlin, Goblin).
+ * Clips: Idle, Walk, Bite_Front, Death (+ cosmetic extras ignored).
  */
-export const PROCEDURAL_BIPED_CLIP_MAP: Record<AnimationClip, string> = {
+export const ULTIMATE_MONSTER_CLIP_MAP: Record<AnimationClip, string> = {
   idle: 'Idle',
   move: 'Walk',
-  attack: 'Attack',
-  cast: 'Attack',  // no separate cast clip; fall back to attack
+  attack: 'Bite_Front',
+  cast: 'Bite_Front',
   die: 'Death',
 };
+
+/** @deprecated Procedural bipeds replaced by Ultimate Monsters pack imports. */
+export const PROCEDURAL_BIPED_CLIP_MAP = ULTIMATE_MONSTER_CLIP_MAP;
 
 /** Quaternius Ultimate Animated Animals — Wolf (CC0). */
 export const QUATERNIUS_WOLF_CLIP_MAP: Record<AnimationClip, string> = {
@@ -44,20 +46,20 @@ export const QUATERNIUS_DEER_CLIP_MAP: Record<AnimationClip, string> = {
 
 /**
  * Visual config keyed by seeded npcId.
- * Gremlin and Goblin use procedurally-generated GLBs (scripts/gen-glb-assets.py).
+ * Gremlin and Goblin use Quaternius Ultimate Monsters GLBs (import-pack-assets.mjs).
  * Wolf and BeardedKeltir use Quaternius CC0 animal packs.
  */
 const CREATURE_MANIFEST: Record<number, CreatureEntry> = {
   20001: {
     model: '/models/monsters/Gremlin.glb',
-    clipMap: PROCEDURAL_BIPED_CLIP_MAP,
+    clipMap: ULTIMATE_MONSTER_CLIP_MAP,
     scale: 0.52,
     feetOffsetY: 0.47,
     hpBarYOffset: 1.45,
   },
   20003: {
     model: '/models/monsters/Goblin.glb',
-    clipMap: PROCEDURAL_BIPED_CLIP_MAP,
+    clipMap: ULTIMATE_MONSTER_CLIP_MAP,
     scale: 0.61,
     feetOffsetY: 0.55,
     hpBarYOffset: 1.65,

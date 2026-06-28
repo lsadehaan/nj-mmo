@@ -80,40 +80,50 @@ export function createInstancedScatter(
   template: StaticPropTemplate,
   placements: ScatterPlacement[],
   kind: string
-): THREE.InstancedMesh | null {
-  if (placements.length === 0) return null;
+): THREE.InstancedMesh[] {
+  if (placements.length === 0) return [];
 
+  // Bake each mesh's transform relative to the template root so multi-mesh
+  // props (e.g. a tree's separate trunk + foliage meshes) all render — not
+  // just the first mesh.
+  template.scene.updateMatrixWorld(true);
   const meshes: THREE.Mesh[] = [];
   template.scene.traverse((child) => {
     if (child instanceof THREE.Mesh) {
       meshes.push(child);
     }
   });
-  if (meshes.length === 0) return null;
+  if (meshes.length === 0) return [];
 
-  const sourceMesh = meshes[0];
-  const instanced = new THREE.InstancedMesh(
-    sourceMesh.geometry,
-    sourceMesh.material,
-    placements.length
-  );
-  instanced.name = `scatter-${kind}-instanced`;
-  instanced.userData.scatterKind = kind;
-  instanced.castShadow = true;
-
-  const matrix = new THREE.Matrix4();
+  const placementMatrix = new THREE.Matrix4();
+  const instanceMatrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scaleVec = new THREE.Vector3();
 
-  for (let i = 0; i < placements.length; i++) {
-    const p = placements[i];
-    position.set(p.x, p.y, p.z);
-    quaternion.identity();
-    scaleVec.set(p.scale, p.scale, p.scale);
-    matrix.compose(position, quaternion, scaleVec);
-    instanced.setMatrixAt(i, matrix);
+  const result: THREE.InstancedMesh[] = [];
+  for (let m = 0; m < meshes.length; m++) {
+    const sourceMesh = meshes[m];
+    const instanced = new THREE.InstancedMesh(
+      sourceMesh.geometry,
+      sourceMesh.material,
+      placements.length
+    );
+    instanced.name = `scatter-${kind}-${m}-instanced`;
+    instanced.userData.scatterKind = kind;
+    instanced.castShadow = true;
+
+    for (let i = 0; i < placements.length; i++) {
+      const p = placements[i];
+      position.set(p.x, p.y, p.z);
+      quaternion.identity();
+      scaleVec.set(p.scale, p.scale, p.scale);
+      placementMatrix.compose(position, quaternion, scaleVec);
+      instanceMatrix.multiplyMatrices(placementMatrix, sourceMesh.matrixWorld);
+      instanced.setMatrixAt(i, instanceMatrix);
+    }
+    instanced.instanceMatrix.needsUpdate = true;
+    result.push(instanced);
   }
-  instanced.instanceMatrix.needsUpdate = true;
-  return instanced;
+  return result;
 }

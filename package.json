@@ -9,6 +9,8 @@
   "devDependencies": {
     "@colyseus/testing": "^0.17.11",
     "@eslint/js": "^10.0.1",
+    "@gltf-transform/core": "^4.4.0",
+    "@gltf-transform/functions": "^4.4.0",
     "@nx/eslint": "^23.0.1",
     "@nx/eslint-plugin": "^23.0.1",
     "@nx/js": "^23.0.1",

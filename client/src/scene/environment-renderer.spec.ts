@@ -64,10 +64,11 @@ describe('placeVillageEnvironment', () => {
 
     for (let i = 0; i < buildingSpecs.length; i++) {
       const spec = buildingSpecs[i];
+      // GLB buildings are placed by their base, i.e. box-center minus height/2.
       const root = meshRoots.find(
         (c) =>
           Math.abs(c.position.x - spec.x) < 0.001 &&
-          Math.abs(c.position.y - spec.y) < 0.001 &&
+          Math.abs(c.position.y - (spec.y - spec.height / 2)) < 0.001 &&
           Math.abs(c.position.z - spec.z) < 0.001
       );
       expect(root).toBeDefined();

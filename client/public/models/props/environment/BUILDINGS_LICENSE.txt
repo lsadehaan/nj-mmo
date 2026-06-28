@@ -1,0 +1,4 @@
+Building_0.glb – Building_4.glb — hand-authored low-poly Three.js geometry
+(scripts/build-houses.mjs). Solid walls, gabled/pyramid roofs, timber frame,
+door, shuttered windows, chimney. CC0 / authored for this project.
+Building_4 is a 2-storey watchtower with a pyramidal roof.

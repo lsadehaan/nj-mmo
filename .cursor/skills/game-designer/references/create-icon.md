@@ -8,7 +8,7 @@ The targets are the existing UI components: `client/src/hud/power-strike-cooldow
 
 ## Step 1 — Source icons (license preferred, not required pre-live)
 
-Use an icon set (e.g. game-icons.net, CC-BY with attribution; or owned art). Vendor them under `client/public/icons/` (`skills/`, `items/`), with a `LICENSE.txt`/attribution file if the set ships one. **Pre-live, any placeholder icons are acceptable** (golden rule 2) — unlicensed or even proprietary — tracked for pre-launch replacement. Keep a consistent square size and visual style across the set.
+Use an icon set (e.g. game-icons.net, CC-BY with attribution; or owned art) and pick the icon that **actually depicts the thing** — a potion icon for the Healing Potion, a sword for the Squire's Sword, not a generic gray square. Vendor them under `client/public/icons/` (`skills/`, `items/`), with a `LICENSE.txt`/attribution file if the set ships one. License is relaxed pre-live (golden rule 2) — unlicensed/proprietary OK *if the icon reads as the item* and is tracked for replacement — but **fidelity is not**: a blank/placeholder swatch in place of a real icon is only acceptable as the explicit `FALLBACK_ICON`, never as the icon for a known id. Keep a consistent square size and visual style across the set.
 
 **Done when:** icon files are under `client/public/icons/...` (license/attribution beside them if any; otherwise placeholders noted for later replacement).
 

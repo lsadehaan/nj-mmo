@@ -23,7 +23,7 @@ Map the effect to the exact server-owned signal it visualizes. Never fire from a
 
 ## Step 2 — Build the effect (low-poly / stylized to match)
 
-Prefer cheap, procedural visuals over heavy assets: `THREE.Points` particle bursts, additive sprite quads, a scaling/fading mesh, or a small shader. If you use a texture/sprite sheet, vendor it under `client/public/vfx/` (with `LICENSE.txt` if it has one — any placeholder is fine pre-live per golden rule 2, tracked for replacement); pure procedural VFX need no asset file at all. Keep the silhouette readable and consistent with the flat-shaded world.
+Prefer cheap, procedural visuals over heavy assets: `THREE.Points` particle bursts, additive sprite quads, a scaling/fading mesh, or a small shader. The effect must **read as the thing it represents** (a slash reads as a slash, a heal as a heal) — fidelity applies to VFX too (golden rule 2). If you use a texture/sprite sheet, vendor it under `client/public/vfx/` (with `LICENSE.txt` if it has one — license relaxed pre-live, tracked for replacement); pure procedural VFX need no asset file at all. Keep the silhouette readable and consistent with the flat-shaded world.
 
 Put VFX in `client/src/scene/vfx/` (one file per effect, or extend `skill-flash.ts`).
 

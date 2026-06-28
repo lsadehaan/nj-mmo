@@ -178,11 +178,21 @@ Never run phases in parallel.
 > recipe that matches the task: `create-character` (player/remote/NPC),
 > `create-monster` (mobs), `create-attachment` (weapons/held items), `create-vfx`
 > (effects), `create-icon` (UI icons), `create-prop` (environment). Each phase names
-> its recipe in a **Skill:** line below. Assets may be unlicensed placeholders
-> pre-live (skill golden rule 2) but must be tracked for pre-launch replacement.
-> **No phase here flips to `[x]` without the mandatory rendered visual gate**
-> (`client/character-lab.html` + `scripts/shoot-character.mjs`) reviewed alongside
-> the green logic tests — a pixel-blind pass is never enough (the Phase 8 lesson).
+> its recipe in a **Skill:** line below.
+>
+> **Fidelity is law (skill golden rule 2).** Each asset must be the closest available
+> representation of the *specific* entity — a Gremlin looks like a gremlin, a house
+> like a house. The source pack is not approval: a legal-but-wrong asset FAILs.
+> Never substitute a wrong-category default or copy another entity's GLB; if a match
+> can't be sourced, search harder / create one high-quality / halt. *License* may be
+> relaxed pre-live (tracked placeholders OK); *fidelity* may not.
+>
+> **The visual gate is BLOCKING and two-layered** — no phase flips to `[x]` until
+> both pass: (1) **structural** `node scripts/visual-gate.mjs` (dedup, static-vs-rigged,
+> no creature bones in props, no empty stubs), and (2) **fidelity/perception** —
+> render via `client/character-lab.html` + `scripts/shoot-character.mjs` and actually
+> *look*, judging each asset against the entity description. A captured screenshot
+> nobody perceived is not evidence (the Phase 8 + Phase 10/15 lesson).
 >
 > **Shared clip vocabulary:** `idle | move | attack | cast | die` (`AnimationClip`);
 > server signals are `EntityAction { None, Attack, Cast, Die }`, locomotion is

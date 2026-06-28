@@ -8,7 +8,7 @@ The single idea: **find the hand bone, add the weapon as its child, seat the gri
 
 ## Step 1 — Source a prop GLB (license preferred, not required pre-live)
 
-Find a weapon or item mesh (KayKit weapon packs match the KayKit characters; Quaternius has weapon packs too). It is almost always a **static mesh with no animations** — that's expected. Vendor it under `client/public/models/props/` (or `weapons/`) with its `LICENSE.txt` if it ships one. **Pre-live, any placeholder is fine** (golden rule 2) — unlicensed or even proprietary — as long as it's tracked for pre-launch replacement.
+Find the **weapon/item mesh that actually matches the item** (a sword for Squire's Sword, a club for the Goblin's club — not a generic box). KayKit weapon packs match the KayKit characters; Quaternius has weapon packs too. It is almost always a **static mesh with no animations** — that's expected. Vendor it under `client/public/models/props/` (or `weapons/`) with its `LICENSE.txt` if it ships one. License is relaxed pre-live (golden rule 2) — unlicensed/proprietary OK *if it looks like the item* and is tracked for replacement — but **fidelity is not**: an empty 1 KB stub or a wrong shape FAILS the gate. If you can't find it: search harder, model a simple high-quality version, or halt — never ship a degenerate placeholder.
 
 **Done when:** the `.glb` is vendored (license beside it if it has one; otherwise the placeholder is noted for later replacement).
 

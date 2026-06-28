@@ -3,7 +3,7 @@ import {
   getCreatureEntry,
   QUATERNIUS_DEER_CLIP_MAP,
   QUATERNIUS_WOLF_CLIP_MAP,
-  PROCEDURAL_BIPED_CLIP_MAP,
+  ULTIMATE_MONSTER_CLIP_MAP,
 } from './creature-manifest';
 import type { AnimationClip } from '@nj/game-core';
 
@@ -30,10 +30,9 @@ describe('creature-manifest', () => {
     expect(getCreatureEntry(99999)).toBeNull();
   });
 
-  it('maps procedural bipeds to procedural clip map and quadrupeds to Quaternius families', () => {
-    // Gremlin + Goblin now use procedurally-generated GLBs with Idle/Walk/Attack/Death clips
-    expect(getCreatureEntry(20001)?.clipMap).toEqual(PROCEDURAL_BIPED_CLIP_MAP);
-    expect(getCreatureEntry(20003)?.clipMap).toEqual(PROCEDURAL_BIPED_CLIP_MAP);
+  it('maps Ultimate Monsters bipeds to Ultimate clip map and quadrupeds to Quaternius families', () => {
+    expect(getCreatureEntry(20001)?.clipMap).toEqual(ULTIMATE_MONSTER_CLIP_MAP);
+    expect(getCreatureEntry(20003)?.clipMap).toEqual(ULTIMATE_MONSTER_CLIP_MAP);
     // Wolf + BeardedKeltir remain Quaternius CC0 quadrupeds
     expect(getCreatureEntry(20120)?.clipMap).toEqual(QUATERNIUS_WOLF_CLIP_MAP);
     expect(getCreatureEntry(20481)?.clipMap).toEqual(QUATERNIUS_DEER_CLIP_MAP);

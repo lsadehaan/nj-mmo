@@ -18,23 +18,27 @@ export interface PeaceZonePropEntry {
 
 const ENV_BASE = '/models/props/environment';
 
-/** Indices align with BUILDING_LAYOUT order in world-blockers / village.ts. */
+/**
+ * Indices align with BUILDING_LAYOUT order in world-blockers / village.ts.
+ * GLBs are hand-authored, real-world-sized closed houses (scripts/build-houses.mjs)
+ * already aligned to their plot footprints, so scale 1.0 and no rotation.
+ */
 const BUILDING_PROPS: readonly BuildingPropEntry[] = [
-  { model: `${ENV_BASE}/Building_0.glb`, scale: 1.8, yOffset: 0, yRotation: 0 },
-  { model: `${ENV_BASE}/Building_1.glb`, scale: 2.0, yOffset: 0, yRotation: Math.PI / 2 },
-  { model: `${ENV_BASE}/Building_2.glb`, scale: 1.6, yOffset: 0, yRotation: 0 },
-  { model: `${ENV_BASE}/Building_3.glb`, scale: 1.7, yOffset: 0, yRotation: -Math.PI / 4 },
-  { model: `${ENV_BASE}/Building_4.glb`, scale: 2.2, yOffset: 0, yRotation: 0 },
+  { model: `${ENV_BASE}/Building_0.glb`, scale: 1.0, yOffset: 0, yRotation: 0 },
+  { model: `${ENV_BASE}/Building_1.glb`, scale: 1.0, yOffset: 0, yRotation: 0 },
+  { model: `${ENV_BASE}/Building_2.glb`, scale: 1.0, yOffset: 0, yRotation: 0 },
+  { model: `${ENV_BASE}/Building_3.glb`, scale: 1.0, yOffset: 0, yRotation: 0 },
+  { model: `${ENV_BASE}/Building_4.glb`, scale: 1.0, yOffset: 0, yRotation: 0 },
 ] as const;
 
 const SCATTER_PROPS: Record<'tree' | 'rock', ScatterPropEntry> = {
-  tree: { model: `${ENV_BASE}/Tree.glb`, scaleMultiplier: 1.0 },
-  rock: { model: `${ENV_BASE}/Rock.glb`, scaleMultiplier: 1.0 },
+  tree: { model: `${ENV_BASE}/Tree.glb`, scaleMultiplier: 0.6 },
+  rock: { model: `${ENV_BASE}/Rock.glb`, scaleMultiplier: 0.8 },
 };
 
 const PEACE_ZONE_MARKER: PeaceZonePropEntry = {
   model: `${ENV_BASE}/PeaceMarker.glb`,
-  scale: 1.2,
+  scale: 1.0,
   yOffset: 0,
 };
 

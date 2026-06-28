@@ -51,22 +51,27 @@ If you find yourself baking "which clip" decisions into the body, or trusting th
 ## Golden rules (non-negotiable)
 
 1. **Server authority.** The client never decides game outcomes. Animation `action` is a render-only mirror of server state (AD-015); deriving it client-side from guessed events is forbidden. Locomotion may be derived client-side from server position deltas (it is purely cosmetic).
-2. **License hygiene — suspended pre-live (current stage, explicit decision).** The game is **not live yet**, so use **whatever asset is available** — unlicensed, unknown-license, or even proprietary — as a placeholder to move fast and prove the look. The one hard requirement is **traceability**: track every non-clean asset (a note in the asset folder and/or the roadmap) so it can be swapped for CC0 / owned / licensed art **before go-live**. This does not change the launch bar — shipping unlicensed/proprietary assets to production is still a legal blocker — it only defers cleanup to before launch. When an asset *does* ship a license, still vendor its `LICENSE.txt`. Curated CC0 (KayKit, Quaternius, Mixamo) and AI-generated meshes remain *preferred* when equally easy. This suspends AD-004 for prototyping; full hygiene must be restored before launch.
+2. **Asset acceptance — fidelity is law; license is relaxed pre-live.** These are two independent axes. **Never conflate them** — the verifier once did ("it's a valid KayKit file, ship it") and a mage ended up standing in for a building.
+   - **Fidelity (NON-NEGOTIABLE).** Every asset must be the **closest available representation of the specific real entity**: a Gremlin looks like a gremlin, a village house like a house, a wolf like a wolf. **The source pack is not the spec** — "it's a legal KayKit/Quaternius/AI mesh" does NOT make it correct. A correctly-licensed but wrong-looking asset is a **FAIL, never a placeholder.** Forbidden: substituting a wrong-category default (a character for a building, an animal for a tree) or **copying another entity's GLB** to fill a slot. When you can't find a good match you have exactly three moves — (a) **search harder** across real sources for the best-quality match, (b) **create one in high quality**, or (c) **stop and surface the gap**. Falling back to a random rig is never one of them.
+   - **Sourcing order (do these in order).** **(1) Reuse a real CC0 pack first** (KayKit / Quaternius MegaKits and similar) — vendor the GLB locally, then import the closest match with `scripts/import-pack-assets.mjs`. **(2) Hand-author it in code only as a fallback — and only for STATIC assets.** Compose the mesh from Three.js geometry and export to GLB (the standalone-Keltir technique), as `scripts/build-houses.mjs` does for buildings. This is fully in your power; "I couldn't find one" is never an excuse to ship a wrong-category copy. **Rigged/animated entities (characters, NPCs, monsters) are NOT hand-authored** — a skinned skeleton + named animation clips can't be sensibly hand-coded to satisfy the `AnimationMixer`/clip contract, so for them step (1) is mandatory and the only fallback is *another* pack or an AI-generated **rigged** mesh. See `create-prop.md` (hand-authoring pipeline) and `create-character.md` (rigged = pack-only).
+   - **License (relaxed pre-live).** The game is not live yet, so the *correct-looking* match may be unlicensed / unknown-license / even proprietary as a **tracked** placeholder; vendor `LICENSE.txt` when one exists and record every non-clean asset for pre-launch replacement. This defers AD-004 cleanup to before launch — it does **not** relax fidelity. CC0 (KayKit, Quaternius, Mixamo) and AI-generated meshes remain preferred when equally easy.
 3. **Reuse the brain.** New entities reuse `stepAnimation` and the `idle/move/attack/cast/die` vocabulary. Per-asset differences live only in the clip-name map and the GLB.
-4. **Visual gate (strongly recommended default).** Before calling a character/monster "done", render each clip to an image and *look* at it — and prefer a human approval for the first version of any new entity. This is what was missing the first time and produced a green-but-wrong result. You MAY proceed on logic-only tests if truly blocked from rendering, but say so explicitly and flag it as unverified visually.
+4. **Visual gate — BLOCKING, two layers, no rubber-stamping.** An asset/phase is not done until **both** pass. A human is *not* required — but real perception is.
+   - **Structural** (`node scripts/visual-gate.mjs`): dedup (two entities with byte-identical GLBs = a copy = FAIL), static props must have no skeleton / no animations / no creature bones, no empty stubs. Deterministic; run it in CI. This alone catches every "copied another GLB" failure.
+   - **Fidelity / perception**: render the asset and **actually look at the image**, then judge it against the entity's real reference description — *"is this a good-faith best match for `<entity>`, or a generic stand-in?"* Mismatch ⇒ FAIL **with the reason**. This is a perception step the agent performs (read the rendered PNG and reason about it), **not** a "screenshot was captured" checkbox. A green logic test plus a saved PNG is NOT evidence the thing looks right — that exact rubber-stamp shipped deer-as-trees and a mage-as-a-building. Human approval is welcome, never the safeguard.
 5. **Determinism in tests.** Logic is unit-tested with explicit timestamps; the brain has no wall-clock or RNG of its own.
 
 ## The loop (every entity)
 
 This is the high-level shape; the recipe files give exact commands and done-criteria per step.
 
-1. **Source** a rigged GLB with the needed clips → `client/public/models/characters/` (+ `LICENSE.txt` if it has one; unlicensed placeholders OK pre-live per golden rule 2).
-2. **Inspect** it to read its real animation track names and size (the model names the tracks, not you).
+1. **Source the best match** for the *specific* entity — or create it high-quality, or halt (golden rule 2). Never substitute a wrong-category default or copy another entity's GLB. → `client/public/models/<family>/` (+ `LICENSE.txt` if it has one; unlicensed *correct-looking* placeholders OK pre-live).
+2. **Inspect** it to read its real animation track names and size (the model names the tracks, not you), and to confirm it is actually the right kind of thing.
 3. **Map** the asset's tracks to our `idle/move/attack/cast/die` vocabulary (the clip map).
 4. **Body**: load via `createMeshCharacter` (`GLTFLoader` + `AnimationMixer`).
 5. **Wire** the body to the brain + signal (character: `player-avatar.ts`; monster: `mobs.ts` + manifest).
 6. **Tune** scale, feet-on-ground offset, and facing — by rendering, not guessing.
-7. **Visual gate**: render every clip with `client/character-lab.html` via `scripts/shoot-character.mjs`, read the images.
+7. **Visual gate (blocking)**: run `node scripts/visual-gate.mjs` (structural), then render every clip via `scripts/shoot-character.mjs` and **look at the images**, judging fidelity against the entity description. Any FAIL blocks "done".
 8. **Prove + gate**: e2e asserts `__GAME_STATE__` action transitions; then `npx nx run-many -t test lint build`.
 9. **Record** any architectural change in `.specs/STATE.md` and tick the item in `.specs/ROADMAP.md`.
 
@@ -76,18 +81,21 @@ This is the high-level shape; the recipe files give exact commands and done-crit
 - Signal: `server/src/rooms/schema/TownState.ts` (`PlayerState.action/actionSeq`), set in `server/src/rooms/TownRoom.ts` / `combat-resolver.ts`
 - Body backend + clip map: `client/src/scene/creature/mesh-character.ts`
 - Player wiring: `client/src/scene/player-avatar.ts`, `client/src/scene/renderer.ts`, `client/src/net/room.ts`, `client/src/test-hook.ts`
-- Mobs (still capsules — upgrade target): `client/src/scene/mobs.ts`; NPCs: `client/src/scene/npc-renderer.ts`; remote players: `client/src/scene/remote-players.ts`
-- VFX (placeholder primitive — upgrade target): `client/src/scene/skill-flash.ts`
-- Environment (primitives — upgrade target): `client/src/scene/{village.ts,scatter.ts}` (layout data) + `addBox/addTree/addRock` in `renderer.ts`
+- Mobs: `client/src/scene/mobs.ts` (+ `creature/creature-manifest.ts`); NPCs: `client/src/scene/npc-renderer.ts` (+ `creature/npc-manifest.ts`); remote players: `client/src/scene/remote-players.ts`
+- VFX: `client/src/scene/vfx/*`
+- Environment: layout data in `client/src/scene/{village.ts,scatter.ts}`; rendering in `client/src/scene/{environment-renderer.ts,static-prop.ts}`; per-prop scale/offset/rotation in `client/src/scene/environment-manifest.ts`
+- **Asset pipelines**: `scripts/import-pack-assets.mjs` (import vendored CC0 packs; auto resize 1024 + WebP) and `scripts/build-houses.mjs` (hand-author static GLBs in Three.js). Buildings are hand-authored; trees/rocks/marker/weapons/monsters are pack imports.
 - HUD/UI for icons: `client/src/hud/*.ts`, `client/src/ui/{shop-window.ts,inventory-window.ts}`
 - Assets + licenses: `client/public/models/characters/*.glb`, `.../LICENSE.txt` (props → `client/public/models/props/`, icons → `client/public/icons/`)
-- Visual gate: `client/character-lab.html`, `client/src/character-lab.ts`, `scripts/shoot-character.mjs`
+- Visual gate: `scripts/visual-gate.mjs` (structural, blocking) + `client/character-lab.html`, `client/src/character-lab.ts`, `scripts/shoot-character.mjs` (render for fidelity/perception)
 - E2E proof: `client-e2e/src/character-animation.spec.ts`
 - Decisions/roadmap: `.specs/STATE.md` (AD-004, AD-015, AD-016, AD-017), `.specs/ROADMAP.md`
 
 ## Anti-patterns (do not do these)
 
-- ❌ Declaring done from green unit/e2e tests without rendering and looking. (This is the original failure.)
+- ❌ **Treating the source pack as approval** ("it's a valid KayKit/Quaternius file, done"). Legal ≠ correct; fidelity is a separate, non-negotiable axis (golden rule 2).
+- ❌ **Substituting a wrong-category default or copying another entity's GLB** to fill a slot (mage→building, wolf→tree). If you can't source it: search harder, create it high-quality, or halt — never fall back to a random rig.
+- ❌ Declaring done from green unit/e2e tests + a *captured* screenshot without actually perceiving the image. (This is the original failure, twice.)
 - ❌ Hardcoding clip choice in the body, or driving attack animation from a client guess instead of the server signal.
 - ❌ Adding the same loaded skinned mesh to the scene twice (breaks skinning) — clone per instance (see monster recipe).
 - ❌ Letting an unlicensed/proprietary placeholder reach **production** untracked. Pre-live they're allowed — the failure mode is an *untracked* placeholder that silently survives to launch; always leave a replace-before-launch breadcrumb.
@@ -96,10 +104,11 @@ This is the high-level shape; the recipe files give exact commands and done-crit
 
 ## Definition of done (per entity)
 
+- [ ] **Fidelity**: asset is the best available match for the *specific* entity (not a wrong-category stand-in, not a copy of another entity's GLB); best-match justified, or it was created high-quality, or the gap was surfaced.
 - [ ] Asset vendored; `LICENSE.txt` included if one exists; any unlicensed/proprietary placeholder flagged for pre-launch replacement.
 - [ ] Clip map covers `idle/move/attack/cast/die` against the GLB's real track names.
 - [ ] Body wired through the brain + server signal (no client authority over outcomes).
 - [ ] Scale/feet/facing tuned against a rendered frame.
-- [ ] Visual gate: every clip rendered and reviewed (human approval for a brand-new entity).
+- [ ] **Visual gate passes BOTH layers**: `scripts/visual-gate.mjs` (structural) green, and every clip rendered + perceived for fidelity against the entity description.
 - [ ] `__GAME_STATE__` e2e transitions pass; `nx run-many -t test lint build` green.
 - [ ] Decision/roadmap updated if anything architectural changed.

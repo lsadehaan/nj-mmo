@@ -125,7 +125,9 @@ export async function placeVillageEnvironment(
           yOffset: entry.yOffset,
           rotationY: entry.yRotation,
         });
-        prop.position.set(spec.x, spec.y, spec.z);
+        // GLB origin is the building base; spec.y is the box-center used by the
+        // primitive fallback, so drop to ground (spec.y − height/2) for meshes.
+        prop.position.set(spec.x, spec.y - spec.height / 2, spec.z);
         prop.userData.renderKind = 'mesh';
         scene.add(prop);
       } else {
@@ -144,7 +146,8 @@ export async function placeVillageEnvironment(
           scale: peaceEntry.scale,
           yOffset: peaceEntry.yOffset,
         });
-        prop.position.set(spec.x, spec.y, spec.z);
+        // GLB origin is the marker base; drop to ground like buildings.
+        prop.position.set(spec.x, spec.y - spec.height / 2, spec.z);
         prop.userData.renderKind = 'mesh';
         scene.add(prop);
       } else {
@@ -219,9 +222,11 @@ export async function placeScatterEnvironment(
 
     if (placements.length >= 20) {
       const instanced = createInstancedScatter(template, placements, kind);
-      if (instanced) {
-        instanced.userData.renderKind = 'mesh';
-        scene.add(instanced);
+      if (instanced.length > 0) {
+        for (const mesh of instanced) {
+          mesh.userData.renderKind = 'mesh';
+          scene.add(mesh);
+        }
         return;
       }
     }

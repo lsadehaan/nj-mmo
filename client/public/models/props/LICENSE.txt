@@ -1,2 +1,6 @@
-KayKit Medieval Hexagon Pack (CC0) — placeholder weapon meshes vendored for Phase 11 visual gate.
-Replace with tuned KayKit weapon assets before public launch if needed.
+Weapon props imported from KayKit "Fantasy Props MegaKit" (CC0).
+
+SquiresSword.glb — Sword_Bronze.gltf
+GoblinClub.glb — Axe_Bronze.gltf (club stand-in; no club mesh in pack)
+
+Imported by: node scripts/import-pack-assets.mjs

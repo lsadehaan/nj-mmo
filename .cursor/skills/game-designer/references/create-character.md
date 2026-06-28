@@ -6,9 +6,11 @@ For a quick swap among assets that already share the rig (KayKit Knight/Mage/Rog
 
 ---
 
-## Step 1 — Source a rigged GLB (license preferred, not required pre-live)
+## Step 1 — Source the best-matching rigged GLB (fidelity is law; reuse a pack)
 
-Find a rigged character with at least idle, walk, an attack, and a death animation (cast optional — fall back to attack). Curated-first: KayKit, Quaternius, Mixamo. **Pre-live, any model is an acceptable placeholder** (golden rule 2) — unlicensed, unknown-license, or even proprietary — as long as you track it for pre-launch replacement.
+Find the **closest available representation of this specific character** with at least idle, walk, an attack, and a death animation (cast optional — fall back to attack). Curated-first: KayKit, Quaternius, Mixamo — vendor the rigged GLB locally, then wire it in. The pack is **not** the spec: a barbarian is not a "Gremlin" and a mage is not a "merchant" just because the file loads. If no good match exists, **search harder, source another pack / AI-generate a rigged mesh, or halt and surface the gap — never copy another entity's GLB or drop in a wrong-category default** (golden rule 2). License may be relaxed pre-live (unlicensed/unknown/proprietary placeholders OK *if* they actually look right and are tracked for pre-launch replacement); **fidelity may not.**
+
+> **Rigged ≠ static — do NOT hand-author this in code.** Static props (buildings, rocks) may be hand-built from Three.js geometry and exported to GLB (see `create-prop.md`). **Characters, NPCs, and monsters may not** — they need a skinned skeleton plus named animation clips (`idle/move/attack/cast/die`) that the `AnimationMixer` drives, and hand-coding a rig + skin weights + baked clips by hand is not viable. For rigged entities, **reuse a pack** (step 1) is mandatory; the only fallbacks are *another* pack or an **AI-generated rigged** model — never code-authored geometry, and never a static (clip-less) stand-in.
 
 ```bash
 mkdir -p client/public/models/characters && cd client/public/models/characters
@@ -79,20 +81,23 @@ Three knobs in `player-avatar.ts`: `MODEL_SCALE` (world size — KayKit ≈ 2.69
 
 **Done when:** in a rendered frame the character stands on the ground (not floating/sunk), is a sensible size next to buildings/NPCs, and faces where it walks.
 
-## Step 7 — Visual gate (render every clip and look)
+## Step 7 — Visual gate (BLOCKING: structural + fidelity)
 
-Use the repo's lab — do not build a new one.
+Two layers, both must pass (golden rule 4). A human is not required; **real perception is.**
 
 ```bash
-# start the client dev server if not already running (serves live src + public/)
+# Layer 1 — structural (deterministic, catches copies/empties/mis-rigged props)
+node scripts/visual-gate.mjs
+
+# Layer 2 — render for fidelity. Start the client dev server if not running:
 npx vite --port 4200 --strictPort     # from client/, background it
 # render idle/move/attack/cast/die to /tmp/char-shots/<Char>-<clip>.png
 LAB_BASE=http://localhost:4200 LAB_CHAR=Rogue node scripts/shoot-character.mjs
 ```
 
-Then **read each PNG** (idle, move, attack, cast, die). The lab page is `client/character-lab.html` + `client/src/character-lab.ts`; it accepts `?char=&clip=&t=&angle=&auto=`. For a brand-new entity, show the frames to the human and get approval before marking done (golden rule 4).
+Then **actually read each PNG** (idle, move, attack, cast, die) and judge it against the real description of this character — *"is this a good-faith best match for `<entity>`, or a generic stand-in?"* A captured screenshot you never look at is not evidence. The lab page is `client/character-lab.html` + `client/src/character-lab.ts`; it accepts `?char=&clip=&t=&angle=&auto=`. Human approval is welcome but optional.
 
-**Done when:** all five clips have been rendered and visually reviewed; for a new entity, a human approved the look.
+**Done when:** `visual-gate.mjs` is green AND every clip has been rendered and *perceived* as a faithful match for the entity (mismatch = FAIL, fix the asset).
 
 ## Step 8 — Prove in-game + run the gate
 
@@ -117,19 +122,21 @@ If you changed anything architectural (a new asset family, a new clip map conven
 
 ## Checklist (paste into your working notes)
 
-- [ ] 1. GLB vendored (LICENSE.txt if licensed; else placeholder tracked for pre-launch replacement)
+- [ ] 1. Best-matching GLB vendored (right *kind* of entity, not a copy/wrong-category default; LICENSE.txt if licensed, else placeholder tracked)
 - [ ] 2. Track names + size inspected
 - [ ] 3. Clip map covers idle/move/attack/cast/die (real names)
 - [ ] 4. Renders through existing `createMeshCharacter`
 - [ ] 5. Wired to brain + server signal; locomotion coast works
 - [ ] 6. Scale/feet/facing tuned against a rendered frame
-- [ ] 7. All clips rendered + reviewed (human approval if new)
+- [ ] 7. `visual-gate.mjs` green + all clips rendered & perceived as a faithful match (not just captured)
 - [ ] 8. e2e green + `nx test lint build` green
 - [ ] 9. STATE/ROADMAP updated if architectural
 
 ## NPC note
 
 NPCs follow the same recipe but are simpler: no player input and usually no combat signal. They typically only need `idle` (and `move` if they wander). Render them through `createMeshCharacter` from the NPC renderer (`client/src/scene/npc-renderer.ts`), keep them server-positioned, and you can omit attack/cast/die from the clip map (fall back to `idle`). Still run the visual gate.
+
+**NPCs are rigged characters, so the same "reuse a pack, do not hand-author" rule applies** (see Step 1's callout). Even an idle-only NPC needs a real skinned rig with an `idle` clip — a hand-built, clip-less mesh would stand frozen and is not acceptable. Source the closest-matching rigged GLB from the packs (KayKit character packs are the current NPC source, e.g. Roxxy); if none fits, use another pack or an AI-generated rigged model. The code-authoring fallback is for **static props only**.
 
 ## Remote-player note
 
