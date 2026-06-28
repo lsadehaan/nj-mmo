@@ -8,9 +8,9 @@ export interface WeaponAttachmentEntry {
 
 /**
  * KayKit Adventurers rig (Rogue.glb ingest): right-hand attachment slot.
- * Discovered via GLB node list — `handslot.r` parents grip props in the rig.
+ * GLB nodes are named `handslot.r`; Three.js GLTFLoader strips dots → `handslotr`.
  */
-export const KAYKIT_RIGHT_HAND_BONE = 'handslot.r';
+export const KAYKIT_RIGHT_HAND_BONE = 'handslotr';
 
 const WEAPON_ATTACHMENTS: Record<number, WeaponAttachmentEntry> = {
   2369: {

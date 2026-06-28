@@ -115,32 +115,28 @@ function loadCharacterActor(offsetX = 0): Promise<MeshCharacter> {
   });
   mesh.object.position.x = offsetX;
   scene.add(mesh.object);
-  return mesh.ready
-    .then(() => maybeAttachWeapon(mesh, weaponId).then(() => mesh));
+  return mesh.ready.then(() => maybeAttachWeapon(mesh, weaponId).then(() => mesh));
 }
 
-function loadMobActor(): Promise<MeshCharacter> {
+async function loadMobActor(): Promise<MeshCharacter> {
   const resolved = resolveModel();
-  return loadGltfTemplate(resolved.url).then((template) => {
-    const entry = getCreatureEntry(Number(mobNpcId));
-    if (!entry) throw new Error(`Unknown mob npcId ${mobNpcId}`);
+  const template = await loadGltfTemplate(resolved.url);
+  const entry = getCreatureEntry(Number(mobNpcId));
+  if (!entry) throw new Error(`Unknown mob npcId ${mobNpcId}`);
 
-    const mesh = createMeshCharacterInstance(template, {
-      scale: resolved.scale,
-      clipMap: resolved.clipMap,
-    });
-    scene.add(mesh.object);
-
-    if (Number(mobNpcId) === 20003) {
-      return loadGltfTemplate(GOBLIN_CLUB_ATTACHMENT.model).then((clubTemplate) => {
-        const club = clubTemplate.scene.clone(true);
-        attachToBone(mesh.object, club, GOBLIN_CLUB_ATTACHMENT.bone, GOBLIN_CLUB_ATTACHMENT.transform);
-        return mesh;
-      });
-    }
-
-    return mesh;
+  const mesh = createMeshCharacterInstance(template, {
+    scale: resolved.scale,
+    clipMap: resolved.clipMap,
   });
+  scene.add(mesh.object);
+
+  if (Number(mobNpcId) === 20003) {
+    const clubTemplate = await loadGltfTemplate(GOBLIN_CLUB_ATTACHMENT.model);
+    const club = clubTemplate.scene.clone(true);
+    attachToBone(mesh.object, club, GOBLIN_CLUB_ATTACHMENT.bone, GOBLIN_CLUB_ATTACHMENT.transform);
+  }
+
+  return mesh;
 }
 
 function loadActors(): Promise<MeshCharacter[]> {
@@ -151,6 +147,15 @@ function loadActors(): Promise<MeshCharacter[]> {
     return Promise.all([loadCharacterActor(-1.1), loadCharacterActor(1.1)]);
   }
   return loadCharacterActor().then((actor) => [actor]);
+}
+
+function poseActorsForShot(actors: MeshCharacter[]): void {
+  for (const actor of actors) {
+    actor.object.updateMatrixWorld(true);
+    actor.setTime(t);
+    actor.object.updateMatrixWorld(true);
+  }
+  renderer.render(scene, camera);
 }
 
 loadActors()
@@ -176,10 +181,9 @@ loadActors()
       };
       requestAnimationFrame(loop);
     } else {
-      for (const actor of actors) actor.setTime(t);
-      renderer.render(scene, camera);
+      poseActorsForShot(actors);
       requestAnimationFrame(() => {
-        renderer.render(scene, camera);
+        poseActorsForShot(actors);
         window.__SHOT_READY__ = true;
       });
     }

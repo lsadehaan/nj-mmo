@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { attachToBone, detachProp, findBoneByName } from './attachment';
+import { KAYKIT_RIGHT_HAND_BONE } from './weapon-manifest';
 
 function buildFixtureSkeleton(): {
   root: THREE.Group;
@@ -15,7 +16,7 @@ function buildFixtureSkeleton(): {
   rootBone.add(upperArm);
 
   const handBone = new THREE.Bone();
-  handBone.name = 'handslot.r';
+  handBone.name = KAYKIT_RIGHT_HAND_BONE;
   upperArm.add(handBone);
 
   const skinned = new THREE.SkinnedMesh(
@@ -33,7 +34,7 @@ function buildFixtureSkeleton(): {
 describe('attachment', () => {
   it('findBoneByName returns the bone with an exact name match', () => {
     const { root, handBone } = buildFixtureSkeleton();
-    expect(findBoneByName(root, 'handslot.r')).toBe(handBone);
+    expect(findBoneByName(root, KAYKIT_RIGHT_HAND_BONE)).toBe(handBone);
     expect(findBoneByName(root, 'missing')).toBeNull();
   });
 
@@ -41,7 +42,7 @@ describe('attachment', () => {
     const { root, handBone } = buildFixtureSkeleton();
     const prop = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1));
 
-    const ok = attachToBone(root, prop, 'handslot.r', {
+    const ok = attachToBone(root, prop, KAYKIT_RIGHT_HAND_BONE, {
       position: [0.1, 0.2, 0.3],
       rotation: [0, Math.PI / 4, 0],
       scale: 1.5,
@@ -56,7 +57,7 @@ describe('attachment', () => {
   it('detachProp removes the prop without disposing the character', () => {
     const { root, handBone } = buildFixtureSkeleton();
     const prop = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1));
-    attachToBone(root, prop, 'handslot.r', {
+    attachToBone(root, prop, KAYKIT_RIGHT_HAND_BONE, {
       position: [0, 0, 0],
       rotation: [0, 0, 0],
       scale: 1,
@@ -71,7 +72,7 @@ describe('attachment', () => {
   it('attached prop world matrix changes when the bone rotates (attack motion)', () => {
     const { root, handBone } = buildFixtureSkeleton();
     const prop = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1));
-    attachToBone(root, prop, 'handslot.r', {
+    attachToBone(root, prop, KAYKIT_RIGHT_HAND_BONE, {
       position: [0.2, 0, 0],
       rotation: [0, 0, 0],
       scale: 1,
