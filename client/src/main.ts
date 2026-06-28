@@ -24,7 +24,7 @@ async function boot(): Promise<void> {
     throw new Error('Canvas #game not found');
   }
 
-  const game = createRenderer(canvas);
+  const game = await createRenderer(canvas);
   startRenderLoop(game);
 
   canvas.addEventListener('click', (ev) =>

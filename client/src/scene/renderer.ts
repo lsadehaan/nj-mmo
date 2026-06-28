@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { generateTerrain, createTerrainMesh } from './terrain';
-import { buildVillage, type SceneObjectSpec } from './village';
 import { scatterProps } from './scatter';
 import { type MovementIntent, TERRAIN_CONFIG } from '@nj/game-core';
 import { buildPathPreviewPoints } from './path-preview';
@@ -41,6 +40,7 @@ import {
 import { createPlayerAvatar } from './player-avatar';
 import type { AnimationClip } from '@nj/game-core';
 import { EntityAction } from '@nj/game-core';
+import { placeVillageEnvironment } from './environment-renderer';
 
 const WORLD_SEED = TERRAIN_CONFIG.seed;
 const TERRAIN_OPTS = TERRAIN_CONFIG;
@@ -139,17 +139,6 @@ function findMobId(object: THREE.Object3D): string | null {
   return null;
 }
 
-function addBox(spec: SceneObjectSpec): THREE.Mesh {
-  const geometry = new THREE.BoxGeometry(spec.width, spec.height, spec.depth);
-  const material = new THREE.MeshLambertMaterial({
-    color: spec.color,
-    flatShading: true,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(spec.x, spec.y, spec.z);
-  return mesh;
-}
-
 function addTree(x: number, y: number, z: number, scale: number): THREE.Group {
   const group = new THREE.Group();
   const trunk = new THREE.Mesh(
@@ -176,7 +165,7 @@ function addRock(x: number, y: number, z: number, scale: number): THREE.Mesh {
   return mesh;
 }
 
-export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
+export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRenderer> {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -200,9 +189,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const terrainMesh = createTerrainMesh(THREE, terrainData);
   scene.add(terrainMesh);
 
-  for (const spec of buildVillage({ seed: WORLD_SEED, sampleHeight: terrainData.sampleHeight })) {
-    scene.add(addBox(spec));
-  }
+  await placeVillageEnvironment({ scene, terrainData });
 
   for (const prop of scatterProps(WORLD_SEED, terrainData, {
     count: 80,

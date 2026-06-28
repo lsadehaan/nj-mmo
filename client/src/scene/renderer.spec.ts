@@ -69,9 +69,9 @@ describe('renderer', () => {
     vi.useRealTimers();
   });
 
-  it('calls vfxManager.tick on each frame tick', () => {
+  it('calls vfxManager.tick on each frame tick', async () => {
     const canvas = document.createElement('canvas');
-    const game = createRenderer(canvas);
+    const game = await createRenderer(canvas);
 
     game.tick(0.016);
 
