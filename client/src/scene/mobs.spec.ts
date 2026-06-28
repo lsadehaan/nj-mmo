@@ -18,6 +18,7 @@ import {
 } from './mobs';
 import { clearGltfTemplateCache, KAYKIT_CLIP_MAP } from './creature/mesh-character';
 import { KAYKIT_RIGHT_HAND_BONE } from './creature/weapon-manifest';
+import { findBoneByName } from './creature/attachment';
 import { createMobAvatar } from './mob-avatar';
 
 describe('mobs visual mapping', () => {
@@ -321,5 +322,70 @@ describe('mobs visual mapping', () => {
       expect(b).toBeTruthy();
       expect(a).not.toBe(b);
     });
+  });
+
+  it('goblin club world position changes during attack', async () => {
+    const rootBone = new THREE.Bone();
+    const handBone = new THREE.Bone();
+    handBone.name = KAYKIT_RIGHT_HAND_BONE;
+    rootBone.add(handBone);
+    const skinned = new THREE.SkinnedMesh(
+      new THREE.BoxGeometry(0.2, 0.5, 0.2),
+      new THREE.MeshBasicMaterial()
+    );
+    skinned.bind(new THREE.Skeleton([rootBone, handBone]));
+    const mobRoot = new THREE.Group();
+    mobRoot.add(rootBone);
+    mobRoot.add(skinned);
+
+    const avatar = createMobAvatar({
+      entry: {
+        model: '/models/monsters/Goblin.glb',
+        clipMap: KAYKIT_CLIP_MAP,
+        scale: 1,
+        feetOffsetY: 0.5,
+        hpBarYOffset: 1.6,
+      },
+      template: { scene: mobRoot, animations: [] },
+    });
+
+    const clubScene = new THREE.Group();
+    clubScene.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1)));
+    vi.spyOn(await import('./creature/mesh-character'), 'loadGltfTemplate').mockResolvedValue({
+      scene: clubScene,
+      animations: [],
+    });
+
+    const instances = createMobInstanceMap();
+    const group = createMobGroup('goblin-attack');
+    instances.set('goblin-attack', {
+      group,
+      avatar,
+      usesCapsule: false,
+      hpBarYOffset: 1.6,
+      pendingRemovalAtMs: null,
+      currentClip: 'idle',
+      clubProp: null,
+    });
+
+    attachGoblinClubForTest(instances, 'goblin-attack', 20003, avatar);
+
+    await vi.waitFor(() => {
+      expect(instances.get('goblin-attack')?.clubProp).not.toBeNull();
+    });
+
+    const club = instances.get('goblin-attack')!.clubProp!;
+    const hand = findBoneByName(avatar.group, KAYKIT_RIGHT_HAND_BONE)!;
+    avatar.group.updateMatrixWorld(true);
+    const idlePos = club.getWorldPosition(new THREE.Vector3()).clone();
+
+    avatar.sync({ x: 0, y: 0, z: 0, action: EntityAction.Attack, actionSeq: 1 }, 0);
+    expect(avatar.update(0.016, 0)).toBe('attack');
+
+    hand.rotation.z = Math.PI / 2;
+    avatar.group.updateMatrixWorld(true);
+    const attackPos = club.getWorldPosition(new THREE.Vector3());
+
+    expect(idlePos.distanceTo(attackPos)).toBeGreaterThan(0.01);
   });
 });

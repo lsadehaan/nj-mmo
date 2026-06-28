@@ -46,6 +46,18 @@ describe('remote-players', () => {
     expect(second).toBe(first);
   });
 
+  it('creates distinct avatar groups per sessionId', () => {
+    const scene = new THREE.Scene();
+    const map: RemotePlayerMap = new Map();
+
+    const first = upsertRemotePlayer(map, 'session-a', { x: 0, y: 0, z: 0 }, scene);
+    const second = upsertRemotePlayer(map, 'session-b', { x: 1, y: 1, z: 1 }, scene);
+
+    expect(map.size).toBe(2);
+    expect(first.group).not.toBe(second.group);
+    expect(scene.children).toHaveLength(2);
+  });
+
   it('removes remote player from map and scene', () => {
     const removed: THREE.Object3D[] = [];
     const scene = {
@@ -60,6 +72,32 @@ describe('remote-players', () => {
 
     expect(map.has('session-b')).toBe(false);
     expect(removed).toContain(group);
+  });
+
+  it('disposes avatar geometry and materials on remove', () => {
+    const scene = new THREE.Scene();
+    const map: RemotePlayerMap = new Map();
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial();
+    const disposeGeometry = vi.spyOn(geometry, 'dispose');
+    const disposeMaterial = vi.spyOn(material, 'dispose');
+    const mesh = new THREE.Mesh(geometry, material);
+    const group = new THREE.Group();
+    group.add(mesh);
+    map.set('session-c', {
+      group,
+      avatar: { group, sync: () => undefined, update: () => 'idle', ready: Promise.resolve() },
+      lastClip: 'idle',
+      equippedWeaponItemId: 0,
+    });
+    scene.add(group);
+
+    removeRemotePlayer(map, 'session-c', scene);
+
+    expect(map.has('session-c')).toBe(false);
+    expect(scene.children).toHaveLength(0);
+    expect(disposeGeometry).toHaveBeenCalled();
+    expect(disposeMaterial).toHaveBeenCalled();
   });
 
   it('tickRemotePlayers invokes avatar update', () => {

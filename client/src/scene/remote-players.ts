@@ -49,6 +49,20 @@ export function upsertRemotePlayer(
   return instance;
 }
 
+function disposeObject3D(root: THREE.Object3D): void {
+  root.traverse((node) => {
+    if (node instanceof THREE.Mesh) {
+      node.geometry?.dispose();
+      const { material } = node;
+      if (Array.isArray(material)) {
+        material.forEach((m) => m.dispose());
+      } else {
+        material?.dispose();
+      }
+    }
+  });
+}
+
 export function removeRemotePlayer(
   map: RemotePlayerMap,
   sessionId: string,
@@ -57,6 +71,7 @@ export function removeRemotePlayer(
   const instance = map.get(sessionId);
   if (!instance) return;
   scene.remove(instance.group);
+  disposeObject3D(instance.group);
   map.delete(sessionId);
 }
 
