@@ -151,6 +151,24 @@
 
 ## Handoff
 
+**Phase 13 — Combat & world VFX: COMPLETE (Verifier PASS, fix iteration 1).**
+`.specs/features/phase-13-combat-vfx/validation.md` records PASS over diff
+`e58607f..6d64e4f`: discrimination sensor 3/3 mutations killed, gate green (175 client
+unit + 20/20 e2e), all 39 ACs (CVFX-01–39) traced. Fix iteration 1 (`6d64e4f`)
+closed CVFX-11/15/16/27/30/07 test-coverage gaps (player melee-hit, mob/player
+dissolve attach, dead-mob ring hide, renderer tick integration). Power Strike VFX,
+melee hit pool, death dissolve, level-up burst, target ring, optional soulshot/loot
+puff all implemented and visual-gate verified. ROADMAP Phase 13 flipped to `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 14.**
+
+**Next step:** **Phase 14 — UI / 2D iconography** (`.specs/ROADMAP.md`).
+Power Strike skill icon in hotbar; shop/inventory item icons for Healing Potion (1060),
+Soulshot No-grade (1835), Wooden Arrow (17), Squire's Sword (2369), Adena (57);
+optional lower-priority loot-table icons.
+
+---
+
 **Phase 12 — NPCs: rigged human GLBs: COMPLETE (Verifier PASS, fix iteration 1).**
 `.specs/features/phase-12-npcs-glb/validation.md` records PASS over diff
 `117e265..ecf0327`: discrimination sensor 5/7 mutations killed (2 non-blocking

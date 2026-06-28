@@ -246,7 +246,7 @@ Never run phases in parallel.
 - [x] Optional greet gesture fired on proximity/interaction
 - [x] Visual gate: both NPCs rendered and reviewed
 
-## Phase 13 — Combat & world VFX `[ ]`
+## Phase 13 — Combat & world VFX `[x]`
 
 > Done when: combat reads clearly — melee impacts, deaths, level-ups, target
 > selection, and a real Power Strike effect — replacing the placeholder primitives.
@@ -255,14 +255,14 @@ Never run phases in parallel.
 >
 > **Skill:** `game-designer` → `references/create-vfx.md`.
 
-- [ ] Replace primitive `skill-flash.ts` with a proper **Power Strike** VFX
-- [ ] **Melee hit/impact** effect on damage application
-- [ ] **Death** effect (dissolve/fade) layered on the `die` clip
-- [ ] **Level-up** burst on reward
-- [ ] **Target selection** ring/indicator under the focused mob
-- [ ] (Optional) **Soulshot** charged-attack glint
-- [ ] (Optional) **Ground loot drop** marker rendered before pickup
-- [ ] Visual gate: each effect captured and reviewed
+- [x] Replace primitive `skill-flash.ts` with a proper **Power Strike** VFX
+- [x] **Melee hit/impact** effect on damage application
+- [x] **Death** effect (dissolve/fade) layered on the `die` clip
+- [x] **Level-up** burst on reward
+- [x] **Target selection** ring/indicator under the focused mob
+- [x] (Optional) **Soulshot** charged-attack glint
+- [x] (Optional) **Ground loot drop** marker rendered before pickup
+- [x] Visual gate: each effect captured and reviewed
 
 ## Phase 14 — UI / 2D iconography `[ ]`
 
