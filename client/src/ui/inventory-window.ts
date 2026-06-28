@@ -1,10 +1,15 @@
+import { createIconImg } from './icon-img';
+
 export const SQUIRES_SWORD_ITEM_ID = 2369;
 
 /** MVP weapon ids eligible for Equip — server validates ownership and type (AD-001). */
 const WEAPON_ITEM_IDS = new Set<number>([SQUIRES_SWORD_ITEM_ID]);
 
 const ITEM_DISPLAY_NAMES: Record<number, string> = {
+  17: 'Wooden Arrow',
+  57: 'Adena',
   1060: 'Healing Potion',
+  1835: 'Soulshot (No-grade)',
   2369: "Squire's Sword",
 };
 
@@ -72,7 +77,7 @@ export function mountInventoryWindow(): HTMLElement {
   return panel;
 }
 
-function itemDisplayName(itemId: number): string {
+export function itemDisplayName(itemId: number): string {
   return ITEM_DISPLAY_NAMES[itemId] ?? `Item ${itemId}`;
 }
 
@@ -106,6 +111,15 @@ export function renderInventoryWindow(options: InventoryRenderOptions): void {
     const row = document.createElement('div');
     row.dataset['inventoryItemId'] = String(itemId);
     row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:6px 0;';
+
+    row.appendChild(
+      createIconImg({
+        kind: 'item',
+        id: itemId,
+        alt: itemDisplayName(itemId),
+        sizePx: 32,
+      })
+    );
 
     const label = document.createElement('span');
     label.style.flex = '1';
