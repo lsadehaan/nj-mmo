@@ -31,7 +31,6 @@ async function walkTowardInPeaceZone(
               player.z <= 20;
             const dist = Math.hypot(player.x - x, player.z - z);
             if (dist <= radius && inPeaceZone) return true;
-            if (!inPeaceZone) return 'outside-peace-zone';
             const dx = x - player.x;
             const dz = z - player.z;
             const len = Math.hypot(dx, dz) || 1;
