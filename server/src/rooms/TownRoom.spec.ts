@@ -1778,6 +1778,19 @@ describe('TownRoom level-up reward', () => {
       }
     });
 
+    it('initialized NPC y equals snapEntityY at spawn xz', async () => {
+      const { dbPath, cleanup } = seededCombatDb();
+      try {
+        const room = await colyseus.createRoom('town', { dbPath });
+        for (const npc of room.state.npcs.values()) {
+          expect(npc.y).toBeCloseTo(snapEntityY(npc.x, npc.z), 8);
+        }
+        await room.disconnect();
+      } finally {
+        cleanup();
+      }
+    });
+
     it('rejects move intents into the centre building', async () => {
       const room = await colyseus.createRoom('town', { dbPath: ':memory:' });
       const client = await colyseus.connectTo(room);
@@ -1801,6 +1814,13 @@ describe('TownRoom level-up reward', () => {
       placePlayerNear(room, client.sessionId, 0, 20);
       await deliverAndTick(room, client, [['move', { targetX: 0, targetZ: -25 }]]);
 
+      const tickState = (
+        room as {
+          tickStates: Map<string, { waypoints: Array<{ x: number; z: number }> }>;
+        }
+      ).tickStates.get(client.sessionId);
+      expect(tickState?.waypoints.length).toBeGreaterThan(0);
+
       const positions: Array<{ x: number; z: number }> = [];
       for (let i = 0; i < 400; i++) {
         positions.push({ x: player.x, z: player.z });
@@ -1811,6 +1831,9 @@ describe('TownRoom level-up reward', () => {
       expect(positions.length).toBeGreaterThan(5);
       for (const pos of positions) {
         expect(isOutsideCentreBuilding(pos.x, pos.z)).toBe(true);
+      }
+      for (let i = 1; i < positions.length; i++) {
+        expect(isWalkable(positions[i - 1], positions[i])).toBe(true);
       }
       expect(Math.abs(player.z + 25)).toBeLessThanOrEqual(2);
       await client.leave();
