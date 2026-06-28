@@ -591,6 +591,10 @@ export class TownRoom extends Room<{ state: TownState }> {
       });
 
       if (mobResult.damage > 0) {
+        const mobState = this.state.mobs.get(runtime.id);
+        if (mobState) {
+          this.emitMobAction(mobState, EntityAction.Attack);
+        }
         target.hp = Math.max(0, target.hp - mobResult.damage);
         this.scheduleDebouncedSave(runtime.targetSessionId);
       }
@@ -608,6 +612,11 @@ export class TownRoom extends Room<{ state: TownState }> {
   private emitPlayerAction(player: PlayerState, action: EntityAction): void {
     player.action = action;
     player.actionSeq = (player.actionSeq + 1) & 0xffff;
+  }
+
+  private emitMobAction(mob: MobState, action: EntityAction): void {
+    mob.action = action;
+    mob.actionSeq = (mob.actionSeq + 1) & 0xffff;
   }
 
   private handlePlayerDeath(sessionId: string): void {
@@ -701,6 +710,11 @@ export class TownRoom extends Room<{ state: TownState }> {
     }
 
     this.persistCharacter(killerSessionId);
+
+    const mobState = this.state.mobs.get(runtime.id);
+    if (mobState) {
+      this.emitMobAction(mobState, EntityAction.Die);
+    }
 
     this.state.mobs.delete(runtime.id);
     this.mobRuntime.delete(runtime.id);
