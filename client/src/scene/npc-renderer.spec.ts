@@ -2,10 +2,28 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   buildNpcMesh,
+  createNpcInstanceMap,
   npcRoleFromType,
   npcStateToVisual,
+  removeNpc,
+  syncNpcVisual,
+  tickNpcVisuals,
+  triggerNpcGreet,
   type NpcVisualRole,
 } from './npc-renderer';
+import { createNpcAvatar } from './npc-avatar';
+import { KATERINA_CLIP_MAP } from './creature/npc-manifest';
+import type { MeshCharacter } from './creature/mesh-character';
+
+function stubMesh(): MeshCharacter {
+  return {
+    object: new THREE.Group(),
+    ready: Promise.resolve(),
+    play: () => undefined,
+    update: () => undefined,
+    setTime: () => undefined,
+  };
+}
 
 describe('npc-renderer', () => {
   it('buildNpcMesh returns a THREE.Group with at least one mesh', () => {
@@ -16,9 +34,10 @@ describe('npc-renderer', () => {
       if (child instanceof THREE.Mesh) meshCount += 1;
     });
     expect(meshCount).toBeGreaterThanOrEqual(1);
+    expect(group.userData.renderKind).toBe('capsule');
   });
 
-  it('uses distinct body colors for Merchant vs Helper roles', () => {
+  it('uses distinct body colors for Merchant vs Helper capsule fallback', () => {
     const merchantColor = readBodyColor(buildNpcMesh('Merchant'));
     const helperColor = readBodyColor(buildNpcMesh('Helper'));
     expect(merchantColor).not.toBe(helperColor);
@@ -53,6 +72,101 @@ describe('npc-renderer', () => {
   it('maps Roxxy teleporter type to Helper role for MVP dialog UX', () => {
     expect(npcRoleFromType('Teleporter', 30006)).toBe('Helper');
     expect(npcRoleFromType('Merchant', 30004)).toBe('Merchant');
+  });
+
+  it('creates mesh-backed groups for mapped npcIds', () => {
+    const scene = new THREE.Scene();
+    const map = new Map<string, THREE.Group>();
+    const instances = createNpcInstanceMap();
+    const group = syncNpcVisual(
+      map,
+      instances,
+      npcStateToVisual({
+        id: 'npc-30004',
+        npcId: 30004,
+        type: 'Merchant',
+        x: -6,
+        y: 4.26,
+        z: -8,
+      }),
+      scene
+    );
+    expect(group.userData.renderKind).toBe('mesh');
+    expect(instances.get('npc-30004')?.usesCapsule).toBe(false);
+  });
+
+  it('keeps capsule fallback for unmapped npcId', () => {
+    const scene = new THREE.Scene();
+    const map = new Map<string, THREE.Group>();
+    const instances = createNpcInstanceMap();
+    const group = syncNpcVisual(
+      map,
+      instances,
+      npcStateToVisual({
+        id: 'npc-unknown',
+        npcId: 99999,
+        type: 'Merchant',
+        x: 0,
+        y: 0,
+        z: 0,
+      }),
+      scene
+    );
+    expect(group.userData.renderKind).toBe('capsule');
+    expect(group.getObjectByName('body')).not.toBeNull();
+  });
+
+  it('removeNpc cleans scene and instance map', () => {
+    const scene = new THREE.Scene();
+    const map = new Map<string, THREE.Group>();
+    const instances = createNpcInstanceMap();
+    syncNpcVisual(
+      map,
+      instances,
+      npcStateToVisual({
+        id: 'npc-30006',
+        npcId: 30006,
+        type: 'Teleporter',
+        x: 4,
+        y: 4.3,
+        z: 10,
+      }),
+      scene
+    );
+    removeNpc(map, instances, 'npc-30006', scene);
+    expect(map.has('npc-30006')).toBe(false);
+    expect(instances.has('npc-30006')).toBe(false);
+    expect(scene.children).toHaveLength(0);
+  });
+
+  it('ticks mesh avatars and triggers greet by npcId', () => {
+    const instances = createNpcInstanceMap();
+    const avatar = createNpcAvatar(
+      {
+        model: '/models/characters/Mage.glb',
+        clipMap: KATERINA_CLIP_MAP,
+        scale: 1,
+        feetOffsetY: 0.5,
+        displayName: 'Katerina',
+      },
+      stubMesh()
+    );
+    const group = new THREE.Group();
+    group.add(avatar.group);
+    instances.set('npc-30004', {
+      group,
+      avatar,
+      usesCapsule: false,
+      npcId: 30004,
+      currentClip: 'idle',
+    });
+
+    const clips = tickNpcVisuals(instances, 0.016, 0);
+    expect(clips.get('npc-30004')).toBe('idle');
+
+    triggerNpcGreet(instances, 30004, { x: 1, z: 0 }, 1, 0);
+    const greetClips = tickNpcVisuals(instances, 0.016, 0);
+    expect(greetClips.get('npc-30004')).toBe('cast');
   });
 });
 
