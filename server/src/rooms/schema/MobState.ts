@@ -8,4 +8,8 @@ export class MobState extends Schema {
   @type('number') z = 0;
   @type('number') hp = 0;
   @type('number') maxHp = 0;
+  /** Render-only; not persisted (AD-015). */
+  @type('number') action = 0;
+  /** Render-only; not persisted (AD-015). */
+  @type('number') actionSeq = 0;
 }
