@@ -151,6 +151,26 @@
 
 ## Handoff
 
+**Phase 15 — Environment art upgrade: COMPLETE (Verifier PASS, fix iteration 1).**
+`.specs/features/phase-15-environment-art/validation.md` records PASS over diff
+`2a76eb3..b8aaa0a`: discrimination sensor 4/4 mutations killed, gate green (212 client
+unit + 21/21 e2e), all 22 ACs (ENV-01–22) traced. Fix iteration 1 (`b8aaa0a`) closed
+ENV-11 scatter (x,z) coordinate assertions (surviving +10 m x-offset mutant). Village
+buildings, trees, rocks, and peace marker render as cached static GLBs with
+`InstancedMesh` scatter; `__GAME_STATE__.environment` observability; town-overview
+visual gate PNG. Placeholder GLBs documented in LICENSE.txt for pre-launch CC0 swap.
+ROADMAP Phase 15 flipped to `[x]`.
+
+**ALL ROADMAP PHASES 9–15 COMPLETE. FULL ROADMAP NOW `[x]`.**
+
+**Loop status: STOPPED — all ROADMAP phases (1–15) complete. No more unchecked items.**
+The autonomous `/loop` heartbeat is NOT re-armed.
+
+**Total test counts (final):** game-core 87, server 178, client 212, e2e 21.
+All Verifier PASSes recorded in `.specs/features/*/validation.md`.
+
+---
+
 **Phase 14 — UI / 2D iconography: COMPLETE (Verifier PASS, first try).**
 `.specs/features/phase-14-ui-icons/validation.md` records PASS: discrimination sensor
 4/4 mutations killed, gate green (194 client unit + 20/20 e2e), 31/32 ACs traced

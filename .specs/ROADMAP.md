@@ -277,7 +277,7 @@ Never run phases in parallel.
 - [x] (Lower priority) icons for loot-table items (rings, recipes, materials)
 - [ ] (Lower priority) icons for loot-table items (rings, recipes, materials)
 
-## Phase 15 — Environment art upgrade (optional) `[ ]`
+## Phase 15 — Environment art upgrade (optional) `[x]`
 
 > Done when: village buildings, trees, rocks, and the peace-zone marker use cohesive
 > low-poly GLB props instead of raw primitives (style consistent with characters).
@@ -285,10 +285,11 @@ Never run phases in parallel.
 >
 > **Skill:** `game-designer` → `references/create-prop.md`.
 
-- [ ] Village building GLBs (5) replacing `addBox` in `renderer.ts`
-- [ ] Tree + rock prop GLBs replacing cone/cylinder/dodecahedron
-- [ ] Peace-zone marker prop
-- [ ] Visual gate: town overview reviewed
+- [x] Village building GLBs (5) replacing `addBox` in `renderer.ts`
+- [x] Tree + rock prop GLBs replacing cone/cylinder/dodecahedron
+- [x] Peace-zone marker prop
+- [x] Visual gate: town overview reviewed
+
 
 ---
 
