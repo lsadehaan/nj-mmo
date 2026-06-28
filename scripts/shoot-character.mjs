@@ -5,6 +5,8 @@ const BASE = process.env.LAB_BASE ?? 'http://localhost:4201';
 const char = process.env.LAB_CHAR;
 const model = process.env.LAB_MODEL;
 const mob = process.env.LAB_MOB;
+const weapon = process.env.LAB_WEAPON;
+const dual = process.env.LAB_DUAL === '1';
 const outDir = process.env.LAB_OUT ?? '/tmp/char-shots';
 mkdirSync(outDir, { recursive: true });
 
@@ -16,39 +18,65 @@ const shots = [
   { clip: 'die', t: 1.1, angle: 0.6 },
 ];
 
+const weaponShots = [
+  { clip: 'idle', t: 0.5, angle: 0.5 },
+  { clip: 'attack', t: 0.45, angle: 0.6 },
+];
+
 const mobShots = [
   { clip: 'idle', t: 0.5, angle: 0.5 },
   { clip: 'attack', t: 0.45, angle: 0.6 },
   { clip: 'die', t: 1.1, angle: 0.6 },
 ];
 
-const mobTargets = mob
-  ? [{ kind: 'mob', id: mob, label: `mob-${mob}` }]
-  : model
-    ? [{ kind: 'model', id: model, label: model.replace(/\//g, '-') }]
-    : char
-      ? [{ kind: 'char', id: char, label: char }]
-      : [
-          { kind: 'mob', id: '20001', label: 'Gremlin' },
-          { kind: 'mob', id: '20003', label: 'Goblin' },
-          { kind: 'mob', id: '20120', label: 'Wolf' },
-          { kind: 'mob', id: '20481', label: 'BeardedKeltir' },
-        ];
+const mobTargets = [];
+if (mob) mobTargets.push({ kind: 'mob', id: mob, label: `mob-${mob}` });
+if (weapon) {
+  mobTargets.push({
+    kind: dual ? 'dual' : 'weapon',
+    id: weapon,
+    label: dual ? `dual-weapon-${weapon}` : `weapon-${weapon}`,
+  });
+}
+if (model) mobTargets.push({ kind: 'model', id: model, label: model.replace(/\//g, '-') });
+if (char && mobTargets.length === 0) mobTargets.push({ kind: 'char', id: char, label: char });
+if (mobTargets.length === 0) {
+  mobTargets.push(
+    { kind: 'mob', id: '20001', label: 'Gremlin' },
+    { kind: 'mob', id: '20003', label: 'Goblin' },
+    { kind: 'mob', id: '20120', label: 'Wolf' },
+    { kind: 'mob', id: '20481', label: 'BeardedKeltir' }
+  );
+}
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 720, height: 720 }, deviceScaleFactor: 1 });
 page.on('console', (m) => console.log(`[page] ${m.text()}`));
 
 for (const target of mobTargets) {
-  const clipShots = target.kind === 'char' ? shots : mobShots;
+  const clipShots =
+    target.kind === 'weapon' || target.kind === 'dual'
+      ? weaponShots
+      : target.kind === 'char'
+        ? shots
+        : mobShots;
   for (const { clip, t, angle } of clipShots) {
-    const query =
+    const parts = [
       target.kind === 'mob'
-        ? `mob=${target.id}&clip=${clip}&t=${t}&angle=${angle}&auto=0`
+        ? `mob=${target.id}`
         : target.kind === 'model'
-          ? `model=${target.id}&clip=${clip}&t=${t}&angle=${angle}&auto=0`
-          : `char=${target.id}&clip=${clip}&t=${t}&angle=${angle}&auto=0`;
-    const url = `${BASE}/character-lab.html?${query}`;
+          ? `model=${target.id}`
+          : target.kind === 'dual'
+            ? `dual=1&char=Rogue&weapon=${target.id}`
+            : target.kind === 'weapon'
+              ? `char=Rogue&weapon=${target.id}`
+              : `char=${target.id}`,
+      `clip=${clip}`,
+      `t=${t}`,
+      `angle=${angle}`,
+      'auto=0',
+    ];
+    const url = `${BASE}/character-lab.html?${parts.join('&')}`;
     await page.goto(url, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__SHOT_READY__ === true, { timeout: 15000 });
     await page.waitForTimeout(150);
