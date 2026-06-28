@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, it, expect, afterEach } from 'vitest';
+import { snapEntityY } from '@nj/game-core';
 import { getDb } from '../db/client';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { TownState } from './schema/TownState';
@@ -41,7 +41,7 @@ describe('spawn-manager', () => {
     const gremlin = gremlins[0]!;
     expect(gremlin!.hp).toBeCloseTo(41.145, 3);
     expect(gremlin!.maxHp).toBeCloseTo(41.145, 3);
-    expect(gremlin!.y).toBeCloseTo(4.26, 2);
+    expect(gremlin!.y).toBeCloseTo(snapEntityY(gremlin!.x, gremlin!.z), 2);
     expect(Math.hypot(gremlin!.x, gremlin!.z)).toBeGreaterThan(0);
   });
 
