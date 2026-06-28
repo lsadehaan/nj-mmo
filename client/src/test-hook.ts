@@ -39,6 +39,9 @@ export interface OtherPlayer {
   x: number;
   y: number;
   z: number;
+  renderKind: 'mesh';
+  action: AnimationClip;
+  equippedWeaponId: number | null;
 }
 
 export interface GameStateNpc {

@@ -21,10 +21,26 @@ describe('test-hook multiplayer state', () => {
     initGameState();
   });
 
-  it('stores remote players in others', () => {
+  it('stores remote players in others with mesh hook fields', () => {
     const input = [
-      { id: 'a', x: 1, y: 2, z: 3 },
-      { id: 'b', x: 4, y: 5, z: 6 },
+      {
+        id: 'a',
+        x: 1,
+        y: 2,
+        z: 3,
+        renderKind: 'mesh' as const,
+        action: 'move' as const,
+        equippedWeaponId: 2369,
+      },
+      {
+        id: 'b',
+        x: 4,
+        y: 5,
+        z: 6,
+        renderKind: 'mesh' as const,
+        action: 'idle' as const,
+        equippedWeaponId: null,
+      },
     ];
     setOthers(input);
 
