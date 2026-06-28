@@ -1,52 +1,97 @@
 import * as THREE from 'three';
+import type { AnimationClip } from '@nj/game-core';
+import {
+  createRemotePlayerAvatar,
+  type RemotePlayerAvatar,
+  type RemotePlayerAvatarSync,
+} from './remote-player-avatar';
 
-export type RemotePlayerMeshMap = Map<string, THREE.Mesh>;
+export interface OtherPlayerHookEntry {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  renderKind: 'mesh';
+  action: AnimationClip;
+  equippedWeaponId: number | null;
+}
 
-const REMOTE_PLAYER_COLOR = 0xcc6633;
+export type RemotePlayerMap = Map<string, RemotePlayerInstance>;
 
-export function createRemotePlayerMesh(): THREE.Mesh {
-  return new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.4, 1, 4, 8),
-    new THREE.MeshLambertMaterial({ color: REMOTE_PLAYER_COLOR, flatShading: true })
-  );
+export interface RemotePlayerInstance {
+  group: THREE.Group;
+  avatar: RemotePlayerAvatar;
+  lastClip: AnimationClip;
+  equippedWeaponItemId: number;
 }
 
 export function upsertRemotePlayer(
-  map: RemotePlayerMeshMap,
+  map: RemotePlayerMap,
   sessionId: string,
-  x: number,
-  y: number,
-  z: number,
+  sync: RemotePlayerAvatarSync,
   scene: THREE.Scene
-): THREE.Mesh {
-  let mesh = map.get(sessionId);
-  if (!mesh) {
-    mesh = createRemotePlayerMesh();
-    scene.add(mesh);
-    map.set(sessionId, mesh);
+): RemotePlayerInstance {
+  let instance = map.get(sessionId);
+  if (!instance) {
+    const avatar = createRemotePlayerAvatar();
+    instance = {
+      group: avatar.group,
+      avatar,
+      lastClip: 'idle',
+      equippedWeaponItemId: 0,
+    };
+    scene.add(avatar.group);
+    map.set(sessionId, instance);
   }
-  mesh.position.set(x, y, z);
-  return mesh;
+
+  instance.avatar.sync(sync);
+  instance.equippedWeaponItemId = sync.equippedWeaponItemId ?? 0;
+  return instance;
 }
 
 export function removeRemotePlayer(
-  map: RemotePlayerMeshMap,
+  map: RemotePlayerMap,
   sessionId: string,
   scene: THREE.Scene
 ): void {
-  const mesh = map.get(sessionId);
-  if (!mesh) return;
-  scene.remove(mesh);
+  const instance = map.get(sessionId);
+  if (!instance) return;
+  scene.remove(instance.group);
   map.delete(sessionId);
 }
 
-export function listRemotePlayers(
-  map: RemotePlayerMeshMap
-): { id: string; x: number; y: number; z: number }[] {
-  return [...map.entries()].map(([id, mesh]) => ({
+export function tickRemotePlayers(
+  map: RemotePlayerMap,
+  dt: number,
+  nowMs = performance.now()
+): Map<string, AnimationClip> {
+  const clips = new Map<string, AnimationClip>();
+  for (const [sessionId, instance] of map.entries()) {
+    instance.lastClip = instance.avatar.update(dt, nowMs);
+    clips.set(sessionId, instance.lastClip);
+  }
+  return clips;
+}
+
+export function listRemotePlayers(map: RemotePlayerMap): OtherPlayerHookEntry[] {
+  return [...map.entries()].map(([id, instance]) => ({
     id,
-    x: mesh.position.x,
-    y: mesh.position.y,
-    z: mesh.position.z,
+    x: instance.group.position.x,
+    y: instance.group.position.y + 0.9,
+    z: instance.group.position.z,
+    renderKind: 'mesh' as const,
+    action: instance.lastClip,
+    equippedWeaponId:
+      instance.equippedWeaponItemId > 0 ? instance.equippedWeaponItemId : null,
   }));
+}
+
+export function usesCapsuleGeometry(group: THREE.Group): boolean {
+  let found = false;
+  group.traverse((node) => {
+    if (node instanceof THREE.Mesh && node.geometry instanceof THREE.CapsuleGeometry) {
+      found = true;
+    }
+  });
+  return found;
 }

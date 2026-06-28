@@ -1,43 +1,105 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as THREE from 'three';
 import {
-  createRemotePlayerMesh,
+  listRemotePlayers,
   removeRemotePlayer,
+  tickRemotePlayers,
   upsertRemotePlayer,
-  type RemotePlayerMeshMap,
+  usesCapsuleGeometry,
+  type RemotePlayerMap,
 } from './remote-players';
+import type { RemotePlayerAvatar } from './remote-player-avatar';
+
+function stubAvatar(): RemotePlayerAvatar {
+  const group = new THREE.Group();
+  return {
+    group,
+    sync: () => undefined,
+    update: () => 'idle',
+    ready: Promise.resolve(),
+  };
+}
+
+vi.mock('./remote-player-avatar', () => ({
+  createRemotePlayerAvatar: () => stubAvatar(),
+}));
 
 describe('remote-players', () => {
-  it('creates and updates a remote player mesh in the map', () => {
-    const scene = { add: () => undefined, remove: () => undefined };
-    const map: RemotePlayerMeshMap = new Map();
+  it('creates mesh avatars without capsule geometry', () => {
+    const scene = new THREE.Scene();
+    const map: RemotePlayerMap = new Map();
 
-    upsertRemotePlayer(map, 'session-a', 1, 2, 3, scene as never);
-    expect(map.size).toBe(1);
-    const first = map.get('session-a')!;
-    expect(first.position.x).toBe(1);
-    expect(first.position.y).toBe(2);
-    expect(first.position.z).toBe(3);
-
-    upsertRemotePlayer(map, 'session-a', 4, 5, 6, scene as never);
-    expect(map.size).toBe(1);
-    expect(map.get('session-a')).toBe(first);
-    expect(first.position.x).toBe(4);
-    expect(first.position.z).toBe(6);
+    upsertRemotePlayer(map, 'session-a', { x: 1, y: 2, z: 3 }, scene);
+    const instance = map.get('session-a')!;
+    expect(usesCapsuleGeometry(instance.group)).toBe(false);
+    expect(scene.children).toContain(instance.group);
   });
 
-  it('removes a remote player mesh from the map and scene', () => {
-    const removed: unknown[] = [];
+  it('upserts idempotently per sessionId', () => {
+    const scene = { add: vi.fn(), remove: vi.fn() } as unknown as THREE.Scene;
+    const map: RemotePlayerMap = new Map();
+
+    const first = upsertRemotePlayer(map, 'session-a', { x: 1, y: 2, z: 3 }, scene);
+    const second = upsertRemotePlayer(map, 'session-a', { x: 4, y: 5, z: 6 }, scene);
+
+    expect(map.size).toBe(1);
+    expect(second).toBe(first);
+  });
+
+  it('removes remote player from map and scene', () => {
+    const removed: THREE.Object3D[] = [];
     const scene = {
       add: () => undefined,
-      remove: (mesh: unknown) => removed.push(mesh),
-    };
-    const map: RemotePlayerMeshMap = new Map();
-    const mesh = createRemotePlayerMesh();
-    map.set('session-b', mesh);
+      remove: (obj: THREE.Object3D) => removed.push(obj),
+    } as unknown as THREE.Scene;
+    const map: RemotePlayerMap = new Map();
+    upsertRemotePlayer(map, 'session-b', { x: 0, y: 0, z: 0 }, scene);
+    const group = map.get('session-b')!.group;
 
-    removeRemotePlayer(map, 'session-b', scene as never);
+    removeRemotePlayer(map, 'session-b', scene);
 
     expect(map.has('session-b')).toBe(false);
-    expect(removed).toEqual([mesh]);
+    expect(removed).toContain(group);
+  });
+
+  it('tickRemotePlayers invokes avatar update', () => {
+    const update = vi.fn(() => 'move' as const);
+    const map: RemotePlayerMap = new Map();
+    const group = new THREE.Group();
+    map.set('s1', {
+      group,
+      avatar: { group, sync: () => undefined, update, ready: Promise.resolve() },
+      lastClip: 'idle',
+      equippedWeaponItemId: 0,
+    });
+
+    const clips = tickRemotePlayers(map, 0.016, 100);
+    expect(update).toHaveBeenCalledWith(0.016, 100);
+    expect(clips.get('s1')).toBe('move');
+    expect(map.get('s1')!.lastClip).toBe('move');
+  });
+
+  it('listRemotePlayers exposes mesh hook fields', () => {
+    const map: RemotePlayerMap = new Map();
+    const group = new THREE.Group();
+    group.position.set(1, 0.1, 3);
+    map.set('remote-1', {
+      group,
+      avatar: { group, sync: () => undefined, update: () => 'attack', ready: Promise.resolve() },
+      lastClip: 'attack',
+      equippedWeaponItemId: 2369,
+    });
+
+    expect(listRemotePlayers(map)).toEqual([
+      {
+        id: 'remote-1',
+        x: 1,
+        y: 1,
+        z: 3,
+        renderKind: 'mesh',
+        action: 'attack',
+        equippedWeaponId: 2369,
+      },
+    ]);
   });
 });
