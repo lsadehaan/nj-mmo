@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { generateTerrain, createTerrainMesh } from './terrain';
-import { scatterProps } from './scatter';
 import { type MovementIntent, TERRAIN_CONFIG } from '@nj/game-core';
 import { buildPathPreviewPoints } from './path-preview';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
@@ -40,7 +39,7 @@ import {
 import { createPlayerAvatar } from './player-avatar';
 import type { AnimationClip } from '@nj/game-core';
 import { EntityAction } from '@nj/game-core';
-import { placeVillageEnvironment } from './environment-renderer';
+import { buildEnvironmentScene } from './environment-renderer';
 
 const WORLD_SEED = TERRAIN_CONFIG.seed;
 const TERRAIN_OPTS = TERRAIN_CONFIG;
@@ -139,32 +138,6 @@ function findMobId(object: THREE.Object3D): string | null {
   return null;
 }
 
-function addTree(x: number, y: number, z: number, scale: number): THREE.Group {
-  const group = new THREE.Group();
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2 * scale, 0.3 * scale, 2 * scale, 6),
-    new THREE.MeshLambertMaterial({ color: 0x5c4033, flatShading: true })
-  );
-  trunk.position.y = y + scale;
-  const foliage = new THREE.Mesh(
-    new THREE.ConeGeometry(1 * scale, 2.5 * scale, 6),
-    new THREE.MeshLambertMaterial({ color: 0x228b22, flatShading: true })
-  );
-  foliage.position.y = y + 2.2 * scale;
-  group.add(trunk, foliage);
-  group.position.set(x, 0, z);
-  return group;
-}
-
-function addRock(x: number, y: number, z: number, scale: number): THREE.Mesh {
-  const mesh = new THREE.Mesh(
-    new THREE.DodecahedronGeometry(0.8 * scale, 0),
-    new THREE.MeshLambertMaterial({ color: 0x808080, flatShading: true })
-  );
-  mesh.position.set(x, y + 0.4 * scale, z);
-  return mesh;
-}
-
 export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRenderer> {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -189,20 +162,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
   const terrainMesh = createTerrainMesh(THREE, terrainData);
   scene.add(terrainMesh);
 
-  await placeVillageEnvironment({ scene, terrainData });
-
-  for (const prop of scatterProps(WORLD_SEED, terrainData, {
-    count: 80,
-    fieldMin: -90,
-    fieldMax: 90,
-    villageRadius: 25,
-  })) {
-    scene.add(
-      prop.kind === 'tree'
-        ? addTree(prop.x, prop.y, prop.z, prop.scale)
-        : addRock(prop.x, prop.y, prop.z, prop.scale)
-    );
-  }
+  await buildEnvironmentScene({ scene, terrainData });
 
   const playerAvatar = createPlayerAvatar();
   scene.add(playerAvatar.group);
