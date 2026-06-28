@@ -212,8 +212,10 @@ describe('mobs visual mapping', () => {
       template: { scene: mobRoot, animations: [] },
     });
 
+    const clubScene = new THREE.Group();
+    clubScene.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1)));
     vi.spyOn(await import('./creature/mesh-character'), 'loadGltfTemplate').mockResolvedValue({
-      scene: new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1)),
+      scene: clubScene,
       animations: [],
     });
 
@@ -282,8 +284,10 @@ describe('mobs visual mapping', () => {
       template,
     });
 
+    const clubScene = new THREE.Group();
+    clubScene.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1)));
     vi.spyOn(await import('./creature/mesh-character'), 'loadGltfTemplate').mockResolvedValue({
-      scene: new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1)),
+      scene: clubScene,
       animations: [],
     });
 
