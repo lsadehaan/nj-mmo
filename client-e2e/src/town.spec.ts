@@ -105,6 +105,13 @@ test('buying Healing Potion at Katerina updates adena 1000 to 897', async ({ pag
   );
   expect(shopVisible).toBe(true);
 
+  await expect(
+    page.locator('#shop-window img[src*="healing-potion"]')
+  ).toBeVisible();
+  await expect(
+    page.locator('#power-strike-cooldown img[data-icon-skill-id="3"]')
+  ).toBeVisible();
+
   await page.waitForFunction(() => typeof window.__buyItem__ === 'function');
   await page.evaluate(
     (npcId) => window.__buyItem__?.(npcId, 1060, 1),

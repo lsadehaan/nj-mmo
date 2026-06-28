@@ -81,7 +81,7 @@ export function renderShopWindow(options: ShopRenderOptions): void {
   panel.hidden = !options.visible;
 
   const adenaRow = panel.querySelector('[data-role="adena-row"]');
-  if (adenaRow) {
+  if (adenaRow instanceof HTMLElement) {
     adenaRow.innerHTML = '';
     adenaRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;';
     const adenaIcon = createIconImg({
