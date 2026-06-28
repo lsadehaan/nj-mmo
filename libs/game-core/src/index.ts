@@ -13,3 +13,4 @@ export * from './player-death';
 export * from './drop-roll';
 export * from './peace-zone';
 export * from './animation/entity-action';
+export * from './animation/animation-state';
