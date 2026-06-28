@@ -83,13 +83,17 @@ Never run phases in parallel.
 
 ---
 
-## Post-MVP — Asset Pipeline (procedural, AI-autonomous)
+## Post-MVP — Asset Pipeline (rigged GLTF, curated-then-AI)
 
-> Goal: build all visual assets (characters, mobs, NPCs, animations) as procedural
-> low-poly Three.js primitives (AD-005), via a constrained archetype-builder
-> pipeline. Data chooses structure (archetype from `race`/`type`); AI fills flavor
-> params; recipes commit to a manifest; validation is layered (deterministic unit +
-> `__GAME_STATE__` e2e in CI; vision/turntable offline-only).
+> Goal: build all visual assets (characters, mobs, NPCs, animations) from
+> **license-clean rigged GLTF meshes** with skeletal animation (AD-017,
+> superseding AD-005's procedural-primitives-only rule). Curated CC0 packs first
+> (KayKit/Quaternius/Mixamo) with a shared animation vocabulary; AI mesh
+> generation as a later per-entity variety layer. Data → manifest (`model` GLB +
+> `clipMap`); the `game-core` animation state machine still decides *which* clip;
+> validation is layered (deterministic unit + `__GAME_STATE__` e2e in CI) **plus a
+> mandatory rendered visual gate** (`client/character-lab.html` +
+> `scripts/shoot-character.mjs`) reviewed before any character phase is `[x]`.
 
 ## Phase 8 — Player character: procedural humanoid rig + action animation `[x]`
 
@@ -101,9 +105,68 @@ Never run phases in parallel.
 
 - [x] Shared `EntityAction` enum + pure animation state machine (`game-core`)
 - [x] Render-only `action`/`actionSeq` on `PlayerState`; server sets on attack/skill/death
-- [x] Procedural segmented humanoid builder + named-socket rig contract (client)
-- [x] Procedural clips (idle/move/attack/cast/die) + animator; capsule replaced
-- [x] `__GAME_STATE__.player.action` + Playwright transitions (idle→move→attack→cast)
+- [x] `__GAME_STATE__.player.action` + Playwright transitions (idle→move→idle→attack→cast)
+- [~] **Superseded by AD-017**: procedural primitive rig replaced by a rigged GLTF
+  backend (`mesh-character.ts`: `GLTFLoader` + `AnimationMixer`). Player avatar =
+  KayKit **Rogue** (CC0, beginner leather look); clip map idle/move/attack/cast/die
+  → KayKit tracks. (Knight/Mage/Hooded/Barbarian GLBs also vendored, same rig.)
+  Locomotion fixed (coast-timer, no flicker / no stuck-move). Procedural
+  `humanoid`/`clips`/`animator`/`rig-contract` removed.
+- [x] Visual gate built + used (`character-lab.html`, `scripts/shoot-character.mjs`)
+
+### Known follow-ups (player character)
+- GLB load is async → ~1s avatar pop-in at spawn (add a placeholder or preload).
+- Spawn tile (0,0) overlaps a village decoration; reads cluttered until you move.
+- Follow camera is far → hero reads small; consider a closer camera or larger scale.
+- Apply the same GLTF backend to remote players, mobs, and NPCs (still capsules).
+
+## Phase 9 — Terrain walkability & collision `[ ]`
+
+> Done when: characters follow terrain height, cannot walk through cliffs or
+> buildings, and click-to-move routes **around** obstacles with the server
+> validating every step. Supersedes the AD-006 trade-off ("no collision") for the
+> MVP heightmap world; **L2J geodata (Tier 4) stays deferred.**
+> Spec: `.specs/features/phase-9-terrain-walkability/`.
+>
+> **Depends on:** Phases 2–4 (heightmap renderer, authoritative movement, mob AI).
+
+### Tier 1 — Height snapping (feet on ground)
+
+- [ ] Move `generateTerrain` / `sampleHeight` into `libs/game-core` (shared
+      `TERRAIN_SEED`, size, segments, `heightScale`; client imports from lib)
+- [ ] Server sets `player.y = sampleHeight(x, z) + FEET_OFFSET` each movement tick
+- [ ] Mobs and NPCs use the same height rule on spawn and during AI movement
+- [ ] `SPAWN_Y` derived from shared terrain (no client/server drift)
+- [ ] Unit tests: `sampleHeight` deterministic; Y snap at arbitrary `(x, z)`
+
+### Tier 2 — Walkability & blockers (no walking through geometry)
+
+- [ ] `isWalkable(from, to)` in `game-core`: max step height, max slope (from
+      terrain gradient), world bounds (existing `WORLD_MIN`/`WORLD_MAX`)
+- [ ] Hand-authored blocker volumes for village buildings + large props (circles
+      or AABBs in shared data; same coords as `village.ts` / `scatter.ts`)
+- [ ] `TownRoom.simulate()` clamps or rejects moves that fail `isWalkable`
+- [ ] Mob wander/aggro chase respects `isWalkable` (no mobs through cliffs)
+- [ ] Room-integration tests: move into cliff/building does not change `x,z`
+
+### Tier 3 — Navmesh pathfinding (route around obstacles)
+
+- [ ] Bake a walkability grid (1 m cells) or lightweight navmesh from heightmap +
+      slope limits + blocker volumes
+- [ ] Deterministic A* in `game-core` (no client trust; prefer zero new deps)
+- [ ] Click-to-move: client pathfinds for preview/UX; server recomputes path and
+      follows waypoints in `step()` (not a straight line to final click)
+- [ ] Server validates each waypoint segment with `isWalkable` before advancing
+- [ ] E2E via `__GAME_STATE__`: click behind a building routes around it (position
+      trail never intersects blocker)
+
+### Out of scope (Phase 9)
+
+| Feature | Reason |
+| ------- | ------ |
+| L2J geodata / NSWE cell parsing (Tier 4) | Heavy; authentic L2 collision deferred post-MVP (AD-006) |
+| Client-side prediction / interpolation | Deferred per Phase 3 spec |
+| Dynamic destructible terrain | Not needed for TI vertical slice |
 
 ---
 

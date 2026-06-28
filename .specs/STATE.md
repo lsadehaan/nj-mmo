@@ -40,7 +40,7 @@
 - **Trade-off**: Lower visual fidelity than authored models.
 - **Scope**: Client rendering, all phases.
 - **Date**: 2026-06-27
-- **Status**: active
+- **Status**: superseded by AD-017
 
 ### AD-006
 - **Decision**: Map strategy is Level-1 semantic only for MVP — a hand-authored low-poly heightmap for the TI village + field, using L2J spawn/town coordinates as placement reference; geodata terrain is deferred post-MVP.
@@ -129,6 +129,16 @@
 - **Trade-off**: Lower fidelity than authored/skinned models; articulation limited to rigid joint rotation.
 - **Scope**: Client rendering + `game-core`; all procedural creatures, all future asset phases.
 - **Date**: 2026-06-28
+- **Status**: amended by AD-017 (the **animation state machine** + clip vocabulary are retained; the **procedural named-socket primitive rig** is replaced by a GLTF skeleton + AnimationMixer).
+
+### AD-017
+- **Decision**: Character/creature visuals use **license-clean rigged 3D mesh assets** (GLTF/GLB) with **skeletal animation**, rendered via Three.js `GLTFLoader` + `AnimationMixer`. Assets are sourced curated-first from **CC0 / owned / commercially-licensed-AI** packs (e.g. Quaternius, KayKit, Mixamo), with AI-mesh-generation as a later per-entity variety layer behind the same manifest. This **supersedes AD-005** ("procedural primitives only / no external 3D asset files"). The render-only server **action signal (AD-015)** and the **`game-core` animation state machine (AD-016)** are unchanged — they still decide *which* clip plays; only the backend changes from procedural joint-posing to `mixer.crossFade(clip)`. A clip-name map translates our `AnimationClip` vocabulary (`idle/move/attack/cast/die`) to each asset's animation track names. The manifest gains `model` (GLB path) + `clipMap` per entity.
+- **Reason**: The procedural-primitive constraint structurally could not produce a real game character (user goal: a rigged stylized low-poly humanoid like the provided monk reference). Rigged GLTF is native to Three.js, looks professional, is license-clean when sourced from CC0/owned assets, and fits the autonomous pipeline better (prompt/select → rigged mesh).
+- **Trade-off**: Adds binary asset files + a loader/mixer pipeline + license hygiene per asset; introduces an asset-acquisition step (curated download or AI-gen) that the procedural approach avoided. Larger client payload.
+- **Guardrail (AD-004 stays in force)**: never ship proprietary L2 assets, never the real L2 protocol; every mesh must be CC0/owned/properly-licensed.
+- **Process**: A **visual gate** is now mandatory before any character/creature phase is marked done — the asset is rendered to an image and reviewed (vision check + human approval) so a green logical-state test can never again pass a pixel-blind result.
+- **Scope**: All character/creature rendering + the asset pipeline; supersedes AD-005, amends AD-016.
+- **Date**: 2026-06-28
 - **Status**: active
 
 ## Handoff
@@ -143,12 +153,14 @@ segmented articulated humanoid (no capsule); idle/move/attack/cast/die animation
 by server-replicated render-only `action`/`actionSeq` signal (AD-015/AD-016).
 ROADMAP Phase 8 flipped to `[x]`.
 
-**Loop status: STOPPED — no further unchecked in-scope phases remain.**
+**Loop status: STOPPED — MVP phases 1–8 complete.**
 The autonomous `/loop` heartbeat is NOT re-armed.
 
-**Next step:** Post-MVP phases (asset pipeline, deployment) are out of current scope.
-To continue, scope a new phase (remote player avatars, NPC/mob animation using the
-established rig contract, or production deployment when credentials are available).
+**Next step:** **Phase 9 — Terrain walkability & collision** (`.specs/ROADMAP.md`).
+Three tiers: (1) shared `sampleHeight` + server Y snap, (2) `isWalkable` + village
+blockers, (3) grid navmesh + A* pathfinding with server-validated waypoints.
+Planner writes `.specs/features/phase-9-terrain-walkability/` before implement.
+L2J geodata (Tier 4) remains deferred per AD-006.
 
 ### Phase 8 deviations (Implementer)
 

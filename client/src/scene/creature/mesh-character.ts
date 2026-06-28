@@ -1,0 +1,113 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { AnimationClip as ClipName } from '@nj/game-core';
+
+/**
+ * Maps our engine's clip vocabulary to the animation track names shared by the
+ * KayKit "Adventurers" universal rig (every character GLB exposes the same 76
+ * named clips). One map drives all humanoids — matching the game-core animation
+ * state machine that decides *which* clip plays (AD-016/AD-017).
+ */
+export const KAYKIT_CLIP_MAP: Record<ClipName, string> = {
+  idle: 'Idle',
+  move: 'Walking_A',
+  attack: '1H_Melee_Attack_Chop',
+  cast: 'Spellcast_Shoot',
+  die: 'Death_A',
+};
+
+const ONE_SHOT: ReadonlySet<ClipName> = new Set<ClipName>(['attack', 'cast', 'die']);
+const CROSSFADE_S = 0.18;
+
+export interface MeshCharacterOptions {
+  clipMap?: Record<ClipName, string>;
+  scale?: number;
+  loader?: GLTFLoader;
+}
+
+export interface MeshCharacter {
+  /** Container added to the scene; the loaded model is attached when ready. */
+  readonly object: THREE.Group;
+  /** Resolves once the GLB is loaded and the first clip is playing. */
+  readonly ready: Promise<void>;
+  /** Select the clip to play (no-op if already active); crossfades smoothly. */
+  play(clip: ClipName): void;
+  /** Advance the animation mixer (seconds). */
+  update(dt: number): void;
+  /** Deterministic posing for screenshots/tests: jump the mixer to a time. */
+  setTime(seconds: number): void;
+}
+
+export function createMeshCharacter(
+  url: string,
+  options: MeshCharacterOptions = {}
+): MeshCharacter {
+  const clipMap = options.clipMap ?? KAYKIT_CLIP_MAP;
+  const scale = options.scale ?? 1;
+  const object = new THREE.Group();
+  object.name = 'mesh-character';
+
+  const actions = new Map<string, THREE.AnimationAction>();
+  let mixer: THREE.AnimationMixer | null = null;
+  let current: THREE.AnimationAction | null = null;
+  let currentClip: ClipName | null = null;
+  let pending: ClipName | null = null;
+
+  const loader = options.loader ?? new GLTFLoader();
+
+  const ready = new Promise<void>((resolve, reject) => {
+    loader.load(
+      url,
+      (gltf) => {
+        const model = gltf.scene;
+        model.scale.setScalar(scale);
+        model.traverse((node) => {
+          node.castShadow = true;
+        });
+        object.add(model);
+
+        mixer = new THREE.AnimationMixer(model);
+        for (const clip of gltf.animations) {
+          actions.set(clip.name, mixer.clipAction(clip));
+        }
+        play(pending ?? 'idle');
+        resolve();
+      },
+      undefined,
+      (err) => reject(err instanceof Error ? err : new Error(String(err)))
+    );
+  });
+
+  function play(clip: ClipName): void {
+    if (!mixer) {
+      pending = clip;
+      return;
+    }
+    if (clip === currentClip) return;
+    const name = clipMap[clip];
+    const next = actions.get(name);
+    if (!next) return;
+
+    const oneShot = ONE_SHOT.has(clip);
+    next.reset();
+    next.enabled = true;
+    next.setEffectiveWeight(1);
+    next.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+    next.clampWhenFinished = clip === 'die';
+
+    if (current) {
+      next.crossFadeFrom(current, CROSSFADE_S, false);
+    }
+    next.play();
+    current = next;
+    currentClip = clip;
+  }
+
+  return {
+    object,
+    ready,
+    play,
+    update: (dt: number) => mixer?.update(dt),
+    setTime: (seconds: number) => mixer?.setTime(seconds),
+  };
+}
