@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { gotoGame } from './game-page';
 
 const KATERINA_NPC_ID = 30004;
+const ROXXY_NPC_ID = 30006;
 
 async function waitReady(page: import('@playwright/test').Page) {
   await page.waitForFunction(() => window.__GAME_STATE__?.ready === true, undefined, {
@@ -44,6 +45,24 @@ async function walkTowardInPeaceZone(
     .toBe(true);
 }
 
+test('town NPCs render as rigged meshes idling at join', async ({ page }, testInfo) => {
+  await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
+  await gotoGame(page, testInfo);
+  await waitReady(page);
+
+  await page.waitForFunction(() => (window.__GAME_STATE__?.npcs?.length ?? 0) >= 2, undefined, {
+    timeout: 20_000,
+  });
+
+  const npcs = await page.evaluate(() => window.__GAME_STATE__.npcs);
+  const katerina = npcs.find((npc) => npc.npcId === KATERINA_NPC_ID);
+  const roxxy = npcs.find((npc) => npc.npcId === ROXXY_NPC_ID);
+  expect(katerina?.renderKind).toBe('mesh');
+  expect(roxxy?.renderKind).toBe('mesh');
+  expect(katerina?.action).toBe('idle');
+  expect(roxxy?.action).toBe('idle');
+});
+
 test('buying Healing Potion at Katerina updates adena 1000 to 897', async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
   await gotoGame(page, testInfo);
@@ -70,6 +89,17 @@ test('buying Healing Potion at Katerina updates adena 1000 to 897', async ({ pag
     timeout: 10_000,
   });
 
+  await expect
+    .poll(
+      async () =>
+        page.evaluate((npcId) => {
+          const npc = window.__GAME_STATE__.npcs.find((entry) => entry.npcId === npcId);
+          return npc?.action ?? null;
+        }, KATERINA_NPC_ID),
+      { timeout: 2_000, intervals: [50, 100, 200] }
+    )
+    .toBe('cast');
+
   const shopVisible = await page.evaluate(
     () => document.getElementById('shop-window')?.hidden === false
   );
@@ -95,6 +125,42 @@ test('buying Healing Potion at Katerina updates adena 1000 to 897', async ({ pag
     document.querySelector('#shop-window [data-adena]')?.textContent?.trim()
   );
   expect(domAdena).toBe('897');
+});
+
+test('opening Roxxy helper dialog triggers greet cast animation', async ({ page }, testInfo) => {
+  await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
+  await gotoGame(page, testInfo);
+  await waitReady(page);
+
+  await page.waitForFunction(() => (window.__GAME_STATE__?.npcs?.length ?? 0) >= 2, undefined, {
+    timeout: 20_000,
+  });
+
+  await walkTowardInPeaceZone(page, { x: 4, z: 10 }, 2.8);
+
+  await page.waitForFunction(() => window.__GAME_STATE__?.canInteract === true, undefined, {
+    timeout: 15_000,
+  });
+
+  await page.waitForFunction(() => typeof window.__interact__ === 'function');
+  await page.evaluate((npcId) => window.__interact__?.(npcId), ROXXY_NPC_ID);
+
+  await page.waitForFunction(
+    () => document.getElementById('npc-dialog')?.hidden === false,
+    undefined,
+    { timeout: 10_000 }
+  );
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate((npcId) => {
+          const npc = window.__GAME_STATE__.npcs.find((entry) => entry.npcId === npcId);
+          return npc?.action ?? null;
+        }, ROXXY_NPC_ID),
+      { timeout: 2_000, intervals: [50, 100, 200] }
+    )
+    .toBe('cast');
 });
 
 test('attack inside peace zone does not reduce mob HP or grant XP', async ({ page }, testInfo) => {
