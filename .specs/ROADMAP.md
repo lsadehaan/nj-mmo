@@ -90,7 +90,7 @@ Never run phases in parallel.
 > superseding AD-005's procedural-primitives-only rule). Curated CC0 packs first
 > (KayKit/Quaternius/Mixamo) with a shared animation vocabulary; AI mesh
 > generation as a later per-entity variety layer. Data → manifest (`model` GLB +
-> `clipMap`); the `game-core` animation state machine still decides *which* clip;
+> `clipMap`); the `game-core` animation state machine still decides _which_ clip;
 > validation is layered (deterministic unit + `__GAME_STATE__` e2e in CI) **plus a
 > mandatory rendered visual gate** (`client/character-lab.html` +
 > `scripts/shoot-character.mjs`) reviewed before any character phase is `[x]`.
@@ -115,6 +115,7 @@ Never run phases in parallel.
 - [x] Visual gate built + used (`character-lab.html`, `scripts/shoot-character.mjs`)
 
 ### Known follow-ups (player character)
+
 - GLB load is async → ~1s avatar pop-in at spawn (add a placeholder or preload).
 - Spawn tile (0,0) overlaps a village decoration; reads cluttered until you move.
 - Follow camera is far → hero reads small; consider a closer camera or larger scale.
@@ -153,7 +154,7 @@ Never run phases in parallel.
 
 - [x] Bake a walkability grid (1 m cells) or lightweight navmesh from heightmap +
       slope limits + blocker volumes
-- [x] Deterministic A* in `game-core` (no client trust; prefer zero new deps)
+- [x] Deterministic A\* in `game-core` (no client trust; prefer zero new deps)
 - [x] Click-to-move: client pathfinds for preview/UX; server recomputes path and
       follows waypoints in `step()` (not a straight line to final click)
 - [x] Server validates each waypoint segment with `isWalkable` before advancing
@@ -162,11 +163,11 @@ Never run phases in parallel.
 
 ### Out of scope (Phase 9)
 
-| Feature | Reason |
-| ------- | ------ |
+| Feature                                  | Reason                                                   |
+| ---------------------------------------- | -------------------------------------------------------- |
 | L2J geodata / NSWE cell parsing (Tier 4) | Heavy; authentic L2 collision deferred post-MVP (AD-006) |
-| Client-side prediction / interpolation | Deferred per Phase 3 spec |
-| Dynamic destructible terrain | Not needed for TI vertical slice |
+| Client-side prediction / interpolation   | Deferred per Phase 3 spec                                |
+| Dynamic destructible terrain             | Not needed for TI vertical slice                         |
 
 ---
 
@@ -181,17 +182,17 @@ Never run phases in parallel.
 > its recipe in a **Skill:** line below.
 >
 > **Fidelity is law (skill golden rule 2).** Each asset must be the closest available
-> representation of the *specific* entity — a Gremlin looks like a gremlin, a house
+> representation of the _specific_ entity — a Gremlin looks like a gremlin, a house
 > like a house. The source pack is not approval: a legal-but-wrong asset FAILs.
 > Never substitute a wrong-category default or copy another entity's GLB; if a match
-> can't be sourced, search harder / create one high-quality / halt. *License* may be
-> relaxed pre-live (tracked placeholders OK); *fidelity* may not.
+> can't be sourced, search harder / create one high-quality / halt. _License_ may be
+> relaxed pre-live (tracked placeholders OK); _fidelity_ may not.
 >
 > **The visual gate is BLOCKING and two-layered** — no phase flips to `[x]` until
 > both pass: (1) **structural** `node scripts/visual-gate.mjs` (dedup, static-vs-rigged,
 > no creature bones in props, no empty stubs), and (2) **fidelity/perception** —
 > render via `client/character-lab.html` + `scripts/shoot-character.mjs` and actually
-> *look*, judging each asset against the entity description. A captured screenshot
+> _look_, judging each asset against the entity description. A captured screenshot
 > nobody perceived is not evidence (the Phase 8 + Phase 10/15 lesson).
 >
 > **Shared clip vocabulary:** `idle | move | attack | cast | die` (`AnimationClip`);
@@ -300,6 +301,241 @@ Never run phases in parallel.
 - [x] Peace-zone marker prop
 - [x] Visual gate: town overview reviewed
 
+---
+
+## Phase 16 — Talking Island mob expansion (+5) `[ ]`
+
+> Done when: five additional **authentic Talking Island** mobs (seed stats, drops,
+> spawns, rigged GLBs) are playable end-to-end — killable on the server, visible
+> as distinct creatures on the client, placed in level-appropriate field rings
+> outside the peace zone.
+>
+> **Depends on:** Phase 4 (mob AI/combat/spawn), Phase 9 (walkability for spawn
+> placement), Phase 10 (clone-per-instance creature backend + manifest).
+>
+> **Skill:** `game-designer` → `references/create-monster.md` (read
+> `create-character.md` first). One asset task per mob; reuse Phase 10 backend
+> (no new animation architecture).
+
+### Selection (next 5 missing by TI level)
+
+Sourced from L2J Classic `spawns/TalkingIsland/TalkingIslandMonsters.xml` +
+`stats/npcs/*.xml`. The MVP already seeds **Gremlin** (20001), **Bearded Keltir**
+(20481), **Wolf** (20120), and **Goblin** (20003) with GLBs (Phase 10). Those
+four cover lv 1 / 4 / 5 but omit several **TI-native** types at the same tiers.
+The next five **TI spawn-table** mobs by ascending level not yet in the DB or
+manifest:
+
+| npcId | Name | Lv | Silhouette | TI spawn role |
+| ----- | ---- | -- | ---------- | --------------- |
+| 20432 | Elpy | 1 | Small passive quadruped | Near-village starter fodder |
+| 20544 | Elder Keltir | 3 | Quadruped (Keltir family) | First step up from Bearded Keltir |
+| 20442 | Elder Wolf | 5 | Quadruped (Wolf family) | Mid-field wolf pack |
+| 20121 | Giant Toad | 5 | Amphibian / bulky quadruped | Swamp-adjacent field ring |
+| 20130 | Orc | 6 | Humanoid biped | Outer-field humanoid tier |
+
+*(Next batch after this phase, for reference: Orc Soldier 20131 lv7, Goblin Scout
+20326 lv8, Orc Archer 20006 lv8, Werewolf 20132 lv9 …)*
+
+### Scope (full pipeline per mob)
+
+Each mob runs the same end-to-end path Phase 10 established — executed via
+`spec-driven-execution` (Planner → Implementer → Verifier):
+
+1. **Seed (server authority)** — extend `TI_MOB_IDS` in `server/src/seed/paths.ts`;
+   parse authentic stats + drop tables from L2J XML (`monsters.parser`,
+   `drops.parser`); add spawn rows (hand-map TI territory centroids → simplified
+   `(x, z)` rings on our heightmap, walkable + outside peace zone). Seed-data
+   tests assert Classic values per npcId.
+2. **Visual asset (`create-monster`)** — source a **fidelity-first** rigged GLB
+   per entity (CC0 packs: Quaternius Ultimate Monsters / Ultimate Animated Animals;
+   `scripts/import-pack-assets.mjs` where applicable). Inspect track names;
+   per-family `clipMap`; tune scale / feet offset / HP-bar height. Mandatory
+   two-layer visual gate (`visual-gate.mjs` + `character-lab` screenshots).
+3. **Client manifest** — one `CreatureEntry` row per npcId in
+   `creature-manifest.ts`; extend unit tests (`SEEDED_NPC_IDS` → nine ids).
+4. **Runtime** — no new renderer architecture: existing clone-per-instance +
+   server `action`/`actionSeq` on `MobState`; capsule fallback only for unmapped
+   ids during rollout.
+5. **Verification** — room-integration: spawn + attack/death sets mob `action`;
+   e2e: `__GAME_STATE__.mobs` exposes new types after field walk; Nx affected
+   gate green.
+
+### Checklist
+
+- [ ] Planner: `.specs/features/phase-16-ti-mob-expansion/` (`spec.md`, `design.md`,
+      `tasks.md`) — ACs mapped to seed / unit / room / e2e layers
+- [ ] **Elpy** (20432) — seed + GLB + manifest + field spawns
+- [ ] **Elder Keltir** (20544) — seed + GLB + manifest + field spawns
+- [ ] **Elder Wolf** (20442) — seed + GLB + manifest + field spawns
+- [ ] **Giant Toad** (20121) — seed + GLB + manifest + field spawns
+- [ ] **Orc** (20130) — seed + GLB + manifest + field spawns
+- [ ] Spawn layout: lv1–3 near existing Keltir ring; lv5–6 in outer field bands
+      (progression feel: walk east/south from village → harder mobs)
+- [ ] Visual gate: all five mobs rendered (idle + attack + die) and reviewed
+- [ ] Verifier PASS recorded in `.specs/features/phase-16-ti-mob-expansion/validation.md`
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| L2J geodata / exact TI world coordinates | AD-006; keep simplified `(x,z)` rings |
+| Mob weapon attachments (Orc axe, etc.) | Defer to a later attachment pass (Phase 11 pattern) |
+| Replacing Gremlin/Goblin with TI-only roster | MVP seed ids stay; this phase **adds** TI-native types |
+| Mobs beyond these five | Next roadmap batch (Orc Soldier onward) |
+
+---
+
+## Phase 17 — Talking Island NPC expansion (+5) `[ ]`
+
+> Done when: five additional **canonical Talking Island town** NPCs are seeded,
+> placed in the village peace zone, rendered as distinct rigged human GLBs, and
+> interactable with at least a dialog shell (shop where L2J type = Merchant;
+> utility dialog for Warehouse / trainer types).
+>
+> **Depends on:** Phase 6 (NPC interaction + shop plumbing), Phase 12 (rigged
+> NPC manifest + greet gesture).
+>
+> **Skill:** `game-designer` → `references/create-character.md` (NPC note).
+
+### Selection (next 5 missing TI town services)
+
+Sourced from L2J Classic `spawns/Gludio/Gludio.xml` (Talking Island town cluster,
+coords ≈ `x −71000..−87000, y 240000..246000`) + `stats/npcs/30000-30099.xml`.
+The MVP already has **Katerina** (30004, Grocer) and **Roxxy** (30006,
+Gatekeeper / Newbie Helper). The next five **service NPCs** by starter-town
+priority — completing the weapon/armor/accessory shop triangle plus storage and
+the iconic fighter trainer:
+
+| npcId | Name | L2J type | Title | MVP interaction |
+| ----- | ---- | -------- | ----- | ----------------- |
+| 30001 | Lector | Merchant | Weapon Merchant | Buy/sell weapons (seed L2J buylist subset) |
+| 30002 | Jackson | Merchant | Armor Merchant | Buy/sell armor (seed buylist subset) |
+| 30003 | Silvia | Merchant | Accessory Merchant | Buy/sell accessories (seed buylist subset) |
+| 30005 | Wilford | Warehouse | Warehouse Keeper | Dialog + deposit/withdraw stub *(or “coming soon”)* |
+| 30026 | Bitz | VillageMasterFighter | Grand Master | Trainer dialog shell *(class change deferred)* |
+
+*(Next batch after this phase: High Priest Biotin 30031, guards 30039–30046,
+folk trainers 30027–30036 …)*
+
+### Scope (full pipeline per NPC)
+
+Executed via `spec-driven-execution` (Planner → Implementer → Verifier):
+
+1. **Seed (server)** — extend `TI_NPC_IDS` in `server/src/seed/paths.ts`; parse
+   npc defs from L2J XML; add `npc_spawns` rows (hand-map Gludio spawn coords →
+   village `(x, z)` inside peace zone, non-overlapping with existing buildings).
+   For merchants **30001–30003**: seed `merchant_items` from L2J buylists
+   (`3000101.xml`, `3000201.xml`, `3000301.xml`) — MVP subset per Phase 6 pattern.
+2. **Visual asset (`create-character` NPC note)** — one rigged human GLB per NPC;
+   distinct silhouette (weapon merchant ≠ armor merchant ≠ accessory merchant);
+   `npc-manifest.ts` row with `clipMap`, scale, feet offset, `displayName`.
+   Mandatory visual gate (idle + greet/cast).
+3. **Interaction** — reuse Phase 6 proximity + `interact` flow:
+   - Merchants open shop window keyed by `npcId` (extend `shop-window.ts` beyond
+     Katerina-only constant).
+   - Warehouse / trainer: dialog panel with placeholder actions (no warehouse DB
+     or class change yet — server rejects unsupported actions safely).
+4. **Client** — extend `__GAME_STATE__.npcs` coverage; e2e asserts all seven TI
+   NPCs render `renderKind: 'mesh'` when manifest rows exist.
+5. **Verification** — seed-data tests per npcId; room-integration buy at Lector;
+   e2e walk village and interact with at least one new merchant.
+
+### Checklist
+
+- [ ] Planner: `.specs/features/phase-17-ti-npc-expansion/` (`spec.md`, `design.md`,
+      `tasks.md`)
+- [ ] **Lector** (30001) — seed + buylist + spawn + GLB + shop wiring
+- [ ] **Jackson** (30002) — seed + buylist + spawn + GLB + shop wiring
+- [ ] **Silvia** (30003) — seed + buylist + spawn + GLB + shop wiring
+- [ ] **Wilford** (30005) — seed + spawn + GLB + dialog shell
+- [ ] **Bitz** (30026) — seed + spawn + GLB + trainer dialog shell
+- [ ] Village layout: place five NPCs around existing Katerina/Roxxy without
+      blocker overlap (Phase 9 `world-blockers.ts`)
+- [ ] Visual gate: all five NPCs rendered (idle + greet) and reviewed
+- [ ] Verifier PASS in `.specs/features/phase-17-ti-npc-expansion/validation.md`
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Full warehouse storage / item deposit | Separate feature; dialog stub only |
+| Class change / skill learning (Bitz) | Progression system deferred post-MVP |
+| Teleport destinations (Roxxy L2J role) | Still deferred |
+| Guards with patrol AI | Static idle NPCs only (Phase 12 pattern) |
+| NPCs beyond these five | Next roadmap batch |
+
+---
+
+## Phase 18 — Consumable item use (Healing Potion) `[ ]`
+
+> Done when: a player can **use** a Healing Potion (item **1060**) from inventory
+> — server validates ownership, applies authentic L2J healing, decrements count,
+> enforces reuse delay — with inventory UI + optional hotkey and e2e proof.
+>
+> **Depends on:** Phase 6–7 (inventory, buy/grant potions), Phase 14 (potion icon).
+>
+> **Skill:** none (gameplay/UI; reuse existing potion icon from Phase 14).
+
+### Problem
+
+Healing Potions are buyable (Katerina) and granted (Roxxy starter kit) but
+**not usable** — the only HP restore today is Roxxy's full heal dialog. Classic
+gameplay expects in-field recovery via consumables.
+
+### L2J anchor (item 1060 → skill 2031)
+
+From `stats/items/01000-01099.xml` + `stats/skills/02000-02099.xml`:
+
+| Property | Classic value |
+| -------- | ------------- |
+| Item | **1060** Healing Potion, `etcitem_type=POTION`, stackable |
+| Effect skill | **2031** Healing Potion — `HealOverTime` **power 8**, **ticks 3**, **abnormalTime 15s** |
+| Reuse delay | **10s** (`reuse_delay` on item) |
+
+MVP may implement HoT tick-by-tick on the server tick **or** a single server
+grant of `8 × 3 = 24` HP per use — Planner picks the simpler option that stays
+spec-anchored; instant full-heal is **not** acceptable.
+
+### Scope (full pipeline)
+
+Via `spec-driven-execution`:
+
+1. **Server authority (`AD-001`)** — new Colyseus intent `useItem { itemId }`:
+   - Reject if item not consumable / not in inventory / count ≤ 0.
+   - Reject if reuse cooldown active (per-item, per-character, server clock).
+   - Reject in peace zone **optional** — default **allow** (potions usable in town).
+   - Apply heal: `hp = min(maxHp, hp + healAmount)` per tick or per use per spec.
+   - Decrement `character_items` count; sync `PlayerState`; persist debounced.
+   - Pure function `applyConsumable(...)` in `@nj/game-core` or `server/` with
+     unit tests anchored to skill 2031 values.
+2. **Client** — inventory row **Use** button for `type=consumable` items; optional
+   assign potion to a consumable hotkey slot (lower priority than Use button).
+   Send `useItem` intent; reflect cooldown in UI if server exposes reuse timestamp.
+3. **Test layers** — unit (heal math + cooldown); room-integration (use reduces
+   count, raises HP, rejects double-use within 10s); e2e (take field damage →
+   open inventory → use potion → `__GAME_STATE__.hp` increases, count decreases).
+4. **Regression** — Roxxy heal + shop buy/sell unchanged; equip still rejects 1060.
+
+### Checklist
+
+- [ ] Planner: `.specs/features/phase-18-consumable-use/` (`spec.md`, `design.md`,
+      `tasks.md`)
+- [ ] `applyConsumable` / potion heal pure logic + unit tests (skill 2031 values)
+- [ ] Server `useItem` handler in `TownRoom` + reuse cooldown tracking
+- [ ] Inventory UI **Use** action + `window.__useItem__` test hook
+- [ ] Room-integration: use potion, cooldown reject, out-of-stock reject
+- [ ] E2E: damage → use potion → HP/count assertions via `__GAME_STATE__`
+- [ ] Verifier PASS in `.specs/features/phase-18-consumable-use/validation.md`
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Mana potions / soulshots as consumables | Healing Potion only for this phase |
+| Cast bar / interrupt on damage | MVP instant/HoT server apply suffices |
+| Auto-use hotbar slot | Optional stretch; Use button is MVP |
+| MP potions, buff scrolls, other etcitems | Future consumable pass |
 
 ---
 
