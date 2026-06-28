@@ -83,6 +83,30 @@ Never run phases in parallel.
 
 ---
 
+## Post-MVP — Asset Pipeline (procedural, AI-autonomous)
+
+> Goal: build all visual assets (characters, mobs, NPCs, animations) as procedural
+> low-poly Three.js primitives (AD-005), via a constrained archetype-builder
+> pipeline. Data chooses structure (archetype from `race`/`type`); AI fills flavor
+> params; recipes commit to a manifest; validation is layered (deterministic unit +
+> `__GAME_STATE__` e2e in CI; vision/turntable offline-only).
+
+## Phase 8 — Player character: procedural humanoid rig + action animation `[ ]`
+
+> Done when: the local player renders as an articulated low-poly humanoid (no
+> capsule) that idles, walks/faces travel direction, attacks, casts, and dies —
+> all driven by a server-replicated render-only action signal. Establishes the
+> reusable rig contract + pure animation state machine (AD-015, AD-016).
+> Spec: `.specs/features/phase-8-character-rig-animation/`.
+
+- [ ] Shared `EntityAction` enum + pure animation state machine (`game-core`)
+- [ ] Render-only `action`/`actionSeq` on `PlayerState`; server sets on attack/skill/death
+- [ ] Procedural segmented humanoid builder + named-socket rig contract (client)
+- [ ] Procedural clips (idle/move/attack/cast/die) + animator; capsule replaced
+- [ ] `__GAME_STATE__.player.action` + Playwright transitions (idle→move→attack→cast)
+
+---
+
 ## Per-phase execution (how each `[ ]` gets to `[x]`)
 
 1. **Plan** — Planner writes `spec.md` (+ `design.md`/`tasks.md`) under `.specs/features/<phase>/`, deciding autonomously and logging assumptions (no approval gate).

@@ -115,6 +115,22 @@
 - **Status**: active
 - **Result**: `nx test server` ~9.2 s → ~2.3 s; full `nx run-many -t build lint test` ~15.5 s → ~11 s; `nx e2e client-e2e` ~56 s → ~23 s and reliably green (14 consecutive cold runs). All test counts unchanged (game-core 44, client 57, server 135, e2e 12); no tests skipped/weakened; L-001 source resolution preserved (vitest `resolve.alias`, `nx test` has no `^build` dep).
 
+### AD-015
+- **Decision**: Entities carry a **render-only action signal** — replicated scalar fields `action` (enum: `None/Attack/Cast/Die`) + `actionSeq` (bumped per firing) on the entity schema. The authoritative server sets them when an action resolves (attack/skill/death); the client only animates from them. The signal NEVER affects gameplay outcomes (HP/XP/position/combat) and is NEVER persisted to the DB (defaults to `None`/`0` on load/reconnect).
+- **Reason**: Player death is instantaneous server-side and remote/mob actions are unobservable from position/HP alone; an explicit server-set signal is the only correct, authoritative source for animation, while keeping the client a pure renderer (honors AD-001/AD-009).
+- **Trade-off**: Two extra scalar fields per entity on the wire; a clear "cosmetic-but-on-the-authoritative-schema" boundary that must be respected (never read by gameplay logic).
+- **Scope**: All animated entities (player now; remote players, NPCs, mobs later); asset/animation pipeline.
+- **Date**: 2026-06-28
+- **Status**: active
+
+### AD-016
+- **Decision**: Procedural creatures use a shared **named-socket segmented rig** (primitives parented to joint pivots exposing `root/spine/head/handL/handR/footL/footR`, optional `tail/wing*`) animated by **joint rotation** (no skinning/bones/GLTF), plus a **pure animation state machine in `game-core`** that selects `{clip, phase}` from `(replicated action+seq, client-derived locomotion, nowMs)` with precedence `die>cast>attack>move>idle`. Builders are parameterized (params → rig) to become manifest-driven; locomotion + facing are client-derived (no server rotation).
+- **Reason**: Establishes one reusable, testable animation brain + rig contract for the entire bestiary; keeps art procedural (AD-005) and clip-selection at the cheapest test layer (AD-010).
+- **Trade-off**: Lower fidelity than authored/skinned models; articulation limited to rigid joint rotation.
+- **Scope**: Client rendering + `game-core`; all procedural creatures, all future asset phases.
+- **Date**: 2026-06-28
+- **Status**: active
+
 ## Handoff
 
 **Phase 7 — Progression loop: COMPLETE (Verifier PASS). 🎉 MVP COMPLETE.**
