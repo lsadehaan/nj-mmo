@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { EntityAction } from '@nj/game-core';
 import {
@@ -9,6 +9,15 @@ import {
 } from './player-avatar';
 import type { MeshCharacter } from './creature/mesh-character';
 import { initGameState, setMobs, setTargetMobId } from '../test-hook';
+import { syncWeaponVisual } from './creature/weapon-visual';
+
+vi.mock('./creature/weapon-visual', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./creature/weapon-visual')>();
+  return {
+    ...actual,
+    syncWeaponVisual: vi.fn(actual.syncWeaponVisual),
+  };
+});
 
 function stubMesh(): MeshCharacter {
   return {
@@ -25,6 +34,7 @@ describe('createPlayerAvatar', () => {
     initGameState();
     setMobs([]);
     setTargetMobId(null);
+    vi.mocked(syncWeaponVisual).mockClear();
   });
 
   it('enters move on a server step and coasts to idle after movement stops', () => {
@@ -70,6 +80,30 @@ describe('createPlayerAvatar', () => {
 
     const expected = Math.atan2(10, 0);
     expect(avatar.group.rotation.y).toBeCloseTo(expected, 1);
+  });
+
+  it('syncs weapon visual when Squire Sword is equipped', () => {
+    const avatar = createPlayerAvatar({ mesh: stubMesh() });
+    avatar.sync({ x: 0, y: 0, z: 0, equippedWeaponItemId: 2369 }, 0);
+    expect(syncWeaponVisual).toHaveBeenCalledWith(
+      expect.anything(),
+      2369,
+      expect.any(Object)
+    );
+  });
+
+  it('syncs weapon detach when unequipped', () => {
+    const avatar = createPlayerAvatar({ mesh: stubMesh() });
+    avatar.sync({ x: 0, y: 0, z: 0, equippedWeaponItemId: 2369 }, 0);
+    avatar.sync({ x: 0, y: 0, z: 0, equippedWeaponItemId: 0 }, 16);
+    expect(syncWeaponVisual).toHaveBeenLastCalledWith(expect.anything(), 0, expect.any(Object));
+  });
+
+  it('ignores unmapped positive weapon ids without throwing', () => {
+    const avatar = createPlayerAvatar({ mesh: stubMesh() });
+    expect(() =>
+      avatar.sync({ x: 0, y: 0, z: 0, equippedWeaponItemId: 9999 }, 0)
+    ).not.toThrow();
   });
 });
 

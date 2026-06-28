@@ -8,6 +8,11 @@ import {
 } from '@nj/game-core';
 import { createMeshCharacter, type MeshCharacter } from './creature/mesh-character';
 import { getGameState } from '../test-hook';
+import {
+  createWeaponVisualState,
+  syncWeaponVisual,
+  type WeaponVisualState,
+} from './creature/weapon-visual';
 
 /** Min server-step displacement (per sync) that counts as movement. */
 const MOVE_THRESHOLD = 0.02;
@@ -33,6 +38,7 @@ export interface PlayerAvatarSync {
   z: number;
   action?: EntityAction;
   actionSeq?: number;
+  equippedWeaponItemId?: number;
 }
 
 export interface PlayerAvatar {
@@ -73,6 +79,7 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
   let action = EntityAction.None;
   let actionSeq = 0;
   let initialized = false;
+  const weaponState: WeaponVisualState = createWeaponVisualState();
 
   const sync = (p: PlayerAvatarSync, nowMs = performance.now()): void => {
     if (!initialized) {
@@ -95,6 +102,8 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
 
     if (typeof p.action === 'number') action = p.action;
     if (typeof p.actionSeq === 'number') actionSeq = p.actionSeq;
+
+    syncWeaponVisual(character.object, p.equippedWeaponItemId ?? 0, weaponState);
 
     group.position.set(p.x, p.y - FEET_OFFSET_Y, p.z);
     prevX = p.x;
