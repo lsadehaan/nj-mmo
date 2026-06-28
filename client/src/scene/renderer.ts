@@ -7,7 +7,8 @@ import { buildPathPreviewPoints } from './path-preview';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
 import { getGameState, setPlayer, setTarget, setMobs, setOthers } from '../test-hook';
-import { createSkillFlash } from './skill-flash';
+import { createVfxManager, type VfxManager } from './vfx/vfx-manager';
+import { EntityAction } from '@nj/game-core';
 import {
   listRemotePlayers,
   removeRemotePlayer,
@@ -105,7 +106,25 @@ export interface GameRenderer {
   }>;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   setMobTargetHandler: (handler: (mobId: string) => void) => void;
-  triggerSkillFlash: () => void;
+  setVfxTargetMobId: (mobId: string | null) => void;
+  syncPlayerVfx: (snapshot: {
+    hp: number;
+    level: number;
+    action: number;
+    actionSeq: number;
+    x: number;
+    y: number;
+    z: number;
+  }) => void;
+  syncMobVfx: (snapshot: {
+    id: string;
+    hp: number;
+    x: number;
+    y: number;
+    z: number;
+    action: number;
+    actionSeq: number;
+  }) => void;
   setAfterTick: (handler: (() => void) | null) => void;
   dispose: () => void;
 }
@@ -200,6 +219,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const playerAvatar = createPlayerAvatar();
   scene.add(playerAvatar.group);
+  const vfxManager: VfxManager = createVfxManager(scene);
 
   const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
   let currentAnimationClip: AnimationClip = 'idle';
@@ -214,7 +234,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const npcMeshes: NpcMeshMap = new Map();
   const npcInstances = createNpcInstanceMap();
   const npcSnapshots = new Map<string, ReturnType<typeof npcStateToVisual>>();
-  let pathPreviewLine: THREE.Line | null = null;
+  let prevPlayerActionSeq = 0;
+  let prevPlayerDieSeq = -1;
 
   const raycaster = new THREE.Raycaster();
 
@@ -279,17 +300,74 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     afterTickHandler = handler;
   };
 
-  const triggerSkillFlash = (): void => {
-    const state = getGameState();
-    const mob = state.mobs.find((entry) => entry.id === state.targetMobId);
-    if (!mob) return;
-    const player = state.player;
-    createSkillFlash(
-      scene,
-      { x: player.x, y: player.y, z: player.z },
-      { x: mob.x, y: mob.y, z: mob.z }
-    );
+
+  const syncPlayerVfx = (snapshot: {
+    hp: number;
+    level: number;
+    action: number;
+    actionSeq: number;
+    x: number;
+    y: number;
+    z: number;
+  }): void => {
+    vfxManager.syncPlayer({
+      hp: snapshot.hp,
+      level: snapshot.level,
+      action: snapshot.action as EntityAction,
+      actionSeq: snapshot.actionSeq,
+      x: snapshot.x,
+      y: snapshot.y,
+      z: snapshot.z,
+    });
+    if (snapshot.action === EntityAction.Die && snapshot.actionSeq !== prevPlayerDieSeq) {
+      vfxManager.attachPlayerDissolve(playerAvatar.group, performance.now());
+      prevPlayerDieSeq = snapshot.actionSeq;
+    }
+    prevPlayerActionSeq = snapshot.actionSeq;
+    vfxManager.publishHook(getGameState().vfx);
   };
+
+  const syncMobVfx = (snapshot: {
+    id: string;
+    hp: number;
+    x: number;
+    y: number;
+    z: number;
+    action: number;
+    actionSeq: number;
+  }): void => {
+    vfxManager.syncMob({
+      id: snapshot.id,
+      hp: snapshot.hp,
+      x: snapshot.x,
+      y: snapshot.y,
+      z: snapshot.z,
+      action: snapshot.action as EntityAction,
+      actionSeq: snapshot.actionSeq,
+    });
+    vfxManager.publishHook(getGameState().vfx);
+  };
+
+  const setVfxTargetMobId = (mobId: string | null): void => {
+    const snapshots = new Map(
+      [...mobSnapshots.entries()].map(([id, snap]) => [
+        id,
+        {
+          id,
+          hp: snap.hp,
+          x: snap.x,
+          y: snap.y,
+          z: snap.z,
+          action: (snap.action ?? EntityAction.None) as EntityAction,
+          actionSeq: snap.actionSeq ?? 0,
+        },
+      ])
+    );
+    vfxManager.setTargetMobId(mobId, snapshots);
+    vfxManager.publishHook(getGameState().vfx);
+  };
+
+  let pathPreviewLine: THREE.Line | null = null;
 
   const syncRemotePlayer = (sessionId: string, sync: RemotePlayerAvatarSync): void => {
     upsertRemotePlayer(remotePlayers, sessionId, sync, scene);
@@ -358,6 +436,10 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   };
 
   const removeMobById = (mobId: string): void => {
+    const group = mobMeshes.get(mobId);
+    if (group) {
+      vfxManager.attachMobDissolve(mobId, group, performance.now());
+    }
     const removed = removeMob(mobMeshes, mobInstances, mobId, scene);
     if (removed) {
       mobSnapshots.delete(mobId);
@@ -429,6 +511,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     }
 
     tickNpcVisuals(npcInstances, dt, nowMs);
+    vfxManager.tick(nowMs);
+    vfxManager.publishHook(getGameState().vfx);
     afterTickHandler?.();
   };
 
@@ -491,6 +575,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const dispose = (): void => {
     clearPathPreview();
+    vfxManager.dispose();
     renderer.dispose();
   };
 
@@ -518,7 +603,9 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     getNpcHookEntries: getNpcHookEntriesForRoom,
     setMoveIntentHandler,
     setMobTargetHandler,
-    triggerSkillFlash,
+    setVfxTargetMobId,
+    syncPlayerVfx,
+    syncMobVfx,
     setAfterTick,
     dispose,
   };
