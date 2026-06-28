@@ -151,6 +151,25 @@
 
 ## Handoff
 
+**Phase 11 — Remote players & equipped weapons: COMPLETE (Verifier PASS, fix iteration 2).**
+`.specs/features/phase-11-remote-players-weapons/validation.md` records PASS over diff
+`9b4e7f7..9c166c4`: discrimination sensor 4/4 mutations killed, gate green (128 client
+unit + 17/17 e2e), all 32 ACs (RPW-01–RPW-32) traced. Fix iteration 1 (`5194e53`)
+closed RPW-02/03/23 test gaps + captured visual PNGs. Fix iteration 2 (`9c166c4`)
+corrected KayKit GLTFLoader bone-name sanitization (`handslot.r` → `handslotr`) and
+awaited async weapon load before visual capture — both visual ACs passed human review.
+Remote players render as rigged mesh avatars; Squire's Sword and Goblin Club attach to
+the correct hand bone. ROADMAP Phase 11 flipped to `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 12.**
+
+**Next step:** **Phase 12 — NPCs: rigged human GLBs** (`.specs/ROADMAP.md`).
+Depends on Phase 6 (NPC placement + interaction) + Phase 8 (mesh backend).
+Replace NPC capsules with rigged human female GLBs (Katerina 30004, Roxxy 30006);
+optional greet gesture; visual gate.
+
+---
+
 **Phase 10 — Monsters: rigged GLB mobs + clone-per-instance: COMPLETE (Verifier PASS).**
 `.specs/features/phase-10-monsters-glb/validation.md` records PASS over diff
 `ddf6325..2b66ff0`: discrimination sensor 4/5 mutations killed (M2 surviving mutant

@@ -213,7 +213,7 @@ Never run phases in parallel.
 - [x] Room-integration test: mob attack/death sets `action`; e2e exposes mob
       `action` via `__GAME_STATE__`
 
-## Phase 11 — Remote players & equipped weapons `[ ]`
+## Phase 11 — Remote players & equipped weapons `[x]`
 
 > Done when: other players render as the rigged human avatar (no capsule) with the
 > same idle/move/attack/cast/die set, and an equipped weapon (Squire's Sword) shows
@@ -223,13 +223,13 @@ Never run phases in parallel.
 >
 > **Skill:** `game-designer` → `references/create-character.md` (Remote-player note) + `references/create-attachment.md` (weapons).
 
-- [ ] Remote players reuse the `mesh-character` backend (replace `remote-players.ts`
+- [x] Remote players reuse the `mesh-character` backend (replace `remote-players.ts`
       capsule); locomotion derived from replicated position, action from state
-- [ ] Hand socket on the humanoid rig + weapon-attach helper
-- [ ] **Squire's Sword** (2369) prop GLB attached to the player's right hand
-- [ ] **Goblin Club** (item 4) attached to the Goblin mob (carries Phase 10)
-- [ ] Visual gate: two-avatar scene (idle + attack) reviewed
-- [ ] E2E: second session renders a non-capsule avatar with the correct action
+- [x] Hand socket on the humanoid rig + weapon-attach helper
+- [x] **Squire's Sword** (2369) prop GLB attached to the player's right hand
+- [x] **Goblin Club** (item 4) attached to the Goblin mob (carries Phase 10)
+- [x] Visual gate: two-avatar scene (idle + attack) reviewed
+- [x] E2E: second session renders a non-capsule avatar with the correct action
 
 ## Phase 12 — NPCs: rigged human GLBs `[ ]`
 
