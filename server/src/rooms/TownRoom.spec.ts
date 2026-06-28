@@ -542,6 +542,43 @@ describe('TownRoom combat', () => {
     }
   });
 
+  it('sets ATTACK action and increments actionSeq on confirmed melee', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(0);
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: clock.now,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+
+      expect(player.action).toBe(0);
+      expect(player.actionSeq).toBe(0);
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
+
+      expect(player.action).toBe(1);
+      expect(player.actionSeq).toBe(1);
+
+      clock.advance(1700);
+      await deliverAndTick(room, client, [['attack', {}]]);
+
+      expect(player.action).toBe(1);
+      expect(player.actionSeq).toBe(2);
+
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('attack in range reduces Gremlin HP by 17', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {

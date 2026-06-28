@@ -13,6 +13,7 @@ import {
   type DropRow,
   type ExperienceCurveRow,
   type SeededRng,
+  EntityAction,
 } from '@nj/game-core';
 import { getDb, type AppDatabase } from '../db/client';
 import {
@@ -533,6 +534,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       });
 
       if (result.damage > 0) {
+        this.emitPlayerAction(player, EntityAction.Attack);
         const mobState = this.state.mobs.get(runtime.id);
         if (mobState) syncMobState(mobState, runtime);
         if (result.killed) {
@@ -569,6 +571,11 @@ export class TownRoom extends Room<{ state: TownState }> {
     }
 
     this.processRespawns(now);
+  }
+
+  private emitPlayerAction(player: PlayerState, action: EntityAction): void {
+    player.action = action;
+    player.actionSeq = (player.actionSeq + 1) & 0xffff;
   }
 
   private handlePlayerDeath(sessionId: string): void {
