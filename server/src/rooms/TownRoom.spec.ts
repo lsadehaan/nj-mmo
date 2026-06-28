@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
+import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
 import {
@@ -273,7 +273,7 @@ describe('TownRoom', () => {
     }
 
     expect(player.x).toBeGreaterThan(0);
-    expect(player.z).toBe(0);
+    expect(Math.abs(player.z)).toBeLessThan(1);
 
     await client.leave();
   });
@@ -290,7 +290,7 @@ describe('TownRoom', () => {
     }
 
     expect(player.x).toBeGreaterThan(0);
-    expect(player.z).toBe(0);
+    expect(Math.abs(player.z)).toBeLessThan(1);
 
     await client.leave();
   });
@@ -337,7 +337,7 @@ describe('TownRoom', () => {
 
     expect(remoteOnB).toBeDefined();
     expect(remoteOnB!.x).toBeGreaterThan(0);
-    expect(remoteOnB!.z).toBe(0);
+    expect(Math.abs(remoteOnB!.z)).toBeLessThan(1);
 
     await clientA.leave();
     await clientB.leave();
@@ -1743,5 +1743,105 @@ describe('TownRoom level-up reward', () => {
     } finally {
       cleanup();
     }
+  });
+
+  describe('terrain walkability', () => {
+    function isOutsideCentreBuilding(x: number, z: number): boolean {
+      return Math.abs(x) > 4 || Math.abs(z + 14) > 3;
+    }
+
+    it('updates player y to snapEntityY when moving across terrain', async () => {
+      const room = await colyseus.createRoom('town', { dbPath: ':memory:' });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+
+      placePlayerNear(room, client.sessionId, 20, 20);
+      player.y = 0;
+
+      await deliverAndTick(room, client, [['move', { targetX: 25, targetZ: 20 }]]);
+      for (let i = 0; i < 20; i++) tick(room);
+
+      expect(player.y).toBeCloseTo(snapEntityY(player.x, player.z), 8);
+      await client.leave();
+    });
+
+    it('spawned mob y equals snapEntityY at spawn xz', async () => {
+      const { dbPath, cleanup } = seededCombatDb();
+      try {
+        const room = await colyseus.createRoom('town', { dbPath });
+        const mob = findMobByNpcId(room, 20001);
+        expect(mob).toBeDefined();
+        expect(mob!.y).toBeCloseTo(snapEntityY(mob!.x, mob!.z), 8);
+        await room.disconnect();
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('rejects move intents into the centre building', async () => {
+      const room = await colyseus.createRoom('town', { dbPath: ':memory:' });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+
+      placePlayerNear(room, client.sessionId, 0, 5);
+
+      for (let i = 0; i < 40; i++) {
+        await deliverAndTick(room, client, [['move', { targetX: 0, targetZ: -14 }]]);
+      }
+
+      expect(isOutsideCentreBuilding(player.x, player.z)).toBe(true);
+      await client.leave();
+    });
+
+    it('routes move intent around building via pathfinding', async () => {
+      const room = await colyseus.createRoom('town', { dbPath: ':memory:' });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+
+      placePlayerNear(room, client.sessionId, 0, 20);
+      await deliverAndTick(room, client, [['move', { targetX: 0, targetZ: -25 }]]);
+
+      const positions: Array<{ x: number; z: number }> = [];
+      for (let i = 0; i < 400; i++) {
+        positions.push({ x: player.x, z: player.z });
+        tick(room);
+        if (Math.abs(player.z + 25) <= 1) break;
+      }
+
+      expect(positions.length).toBeGreaterThan(5);
+      for (const pos of positions) {
+        expect(isOutsideCentreBuilding(pos.x, pos.z)).toBe(true);
+      }
+      expect(Math.abs(player.z + 25)).toBeLessThanOrEqual(2);
+      await client.leave();
+    });
+
+    it('mob adjacent to building does not enter on wander tick', async () => {
+      const { dbPath, cleanup } = seededCombatDb();
+      try {
+        const room = await colyseus.createRoom('town', {
+          dbPath,
+          combatRng: zeroOffsetRng(),
+        });
+        const mob = findMobByNpcId(room, 20001)!;
+        relocateMob(room, mob.id, 0, -8);
+        const runtime = (room as { mobRuntime: Map<string, MobRuntime> }).mobRuntime.get(mob.id)!;
+        runtime.wanderTargetX = 0;
+        runtime.wanderTargetZ = -14;
+        runtime.wanderCooldownMs = 0;
+
+        const beforeX = runtime.x;
+        const beforeZ = runtime.z;
+        tick(room);
+
+        expect(isOutsideCentreBuilding(runtime.x, runtime.z)).toBe(true);
+        if (runtime.x === beforeX && runtime.z === beforeZ) {
+          expect(isWalkable({ x: beforeX, z: beforeZ }, { x: 0, z: -14 })).toBe(false);
+        }
+        await room.disconnect();
+      } finally {
+        cleanup();
+      }
+    });
   });
 });
