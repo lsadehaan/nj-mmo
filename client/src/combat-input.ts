@@ -9,6 +9,7 @@ export function wireCombatControls(room: Room, game: GameRenderer): void {
 
   const targetMob = (mobId: string): void => {
     setTargetMobId(mobId);
+    game.setVfxTargetMobId(mobId);
     room.send('setTarget', { mobId });
   };
 

@@ -10,6 +10,7 @@ describe('combat input', () => {
   const game = {
     setMoveIntentHandler: vi.fn(),
     setMobTargetHandler: vi.fn(),
+    setVfxTargetMobId: vi.fn(),
   } as unknown as GameRenderer;
 
   beforeEach(() => {
@@ -40,5 +41,11 @@ describe('combat input', () => {
     window.__useSkill__?.();
     expect(send).toHaveBeenCalledWith('useSkill', { skillId: 3 });
     expect(window.__GAME_STATE__.mobs[0].hp).toBe(41);
+  });
+
+  it('calls setVfxTargetMobId when mob is targeted', () => {
+    window.__handleMobTarget__?.('mob-1');
+    expect(game.setVfxTargetMobId).toHaveBeenCalledWith('mob-1');
+    expect(send).toHaveBeenCalledWith('setTarget', { mobId: 'mob-1' });
   });
 });
