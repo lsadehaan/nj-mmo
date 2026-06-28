@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
+import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
 import {
@@ -779,10 +779,21 @@ describe('TownRoom combat', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
 
+      let hpWhenDieEmitted: number | undefined;
+      const roomInternals = room as unknown as {
+        emitPlayerAction: (p: typeof player, action: EntityAction) => void;
+      };
+      const originalEmit = roomInternals.emitPlayerAction.bind(roomInternals);
+      vi.spyOn(roomInternals, 'emitPlayerAction').mockImplementation((p, action) => {
+        if (action === EntityAction.Die) hpWhenDieEmitted = p.hp;
+        originalEmit(p, action);
+      });
+
       player.hp = 0;
       tick(room);
 
-      expect(player.action).toBe(3);
+      expect(hpWhenDieEmitted).toBe(0);
+      expect(player.action).toBe(EntityAction.Die);
       expect(player.actionSeq).toBe(1);
       expect(player.hp).toBe(100);
       expect(player.x).toBe(SPAWN_X);
@@ -1469,6 +1480,49 @@ describe('TownRoom equip', () => {
 });
 
 describe('TownRoom player death', () => {
+  it('emits DIE before same-tick respawn restores HP after lethal mob hit (CHAR-08)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: () => 0,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+
+      player.hp = 1;
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+
+      let hpWhenDieEmitted: number | undefined;
+      const roomInternals = room as unknown as {
+        emitPlayerAction: (p: typeof player, action: EntityAction) => void;
+      };
+      const originalEmit = roomInternals.emitPlayerAction.bind(roomInternals);
+      vi.spyOn(roomInternals, 'emitPlayerAction').mockImplementation((p, action) => {
+        if (action === EntityAction.Die) hpWhenDieEmitted = p.hp;
+        originalEmit(p, action);
+      });
+
+      tick(room);
+
+      expect(hpWhenDieEmitted).toBe(0);
+      expect(player.action).toBe(EntityAction.Die);
+      expect(player.actionSeq).toBe(1);
+      expect(player.hp).toBe(player.maxHp);
+      expect(player.x).toBe(SPAWN_X);
+      expect(player.z).toBe(SPAWN_Z);
+
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('mob kill respawns player at spawn with full HP and unchanged xp', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
