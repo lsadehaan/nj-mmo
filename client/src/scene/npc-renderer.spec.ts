@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import {
   buildNpcMesh,
@@ -14,6 +14,14 @@ import {
 import { createNpcAvatar } from './npc-avatar';
 import { KATERINA_CLIP_MAP } from './creature/npc-manifest';
 import type { MeshCharacter } from './creature/mesh-character';
+
+vi.mock('./npc-avatar', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./npc-avatar')>();
+  return {
+    ...actual,
+    createNpcAvatar: vi.fn(actual.createNpcAvatar),
+  };
+});
 
 function stubMesh(): MeshCharacter {
   return {
@@ -137,6 +145,70 @@ describe('npc-renderer', () => {
     expect(map.has('npc-30006')).toBe(false);
     expect(instances.has('npc-30006')).toBe(false);
     expect(scene.children).toHaveLength(0);
+  });
+
+  it('falls back to capsule when GLB load fails', async () => {
+    const ready = Promise.reject(new Error('GLB load failed'));
+    vi.mocked(createNpcAvatar).mockReturnValueOnce({
+      group: new THREE.Group(),
+      sync: () => undefined,
+      update: () => 'idle',
+      triggerGreet: () => undefined,
+      ready,
+    });
+
+    const scene = new THREE.Scene();
+    const map = new Map<string, THREE.Group>();
+    const instances = createNpcInstanceMap();
+    const group = syncNpcVisual(
+      map,
+      instances,
+      npcStateToVisual({
+        id: 'npc-30004',
+        npcId: 30004,
+        type: 'Merchant',
+        x: -6,
+        y: 4.26,
+        z: -8,
+      }),
+      scene
+    );
+
+    await ready.catch(() => undefined);
+
+    const instance = instances.get('npc-30004');
+    expect(instance?.usesCapsule).toBe(true);
+    expect(group.userData.renderKind).toBe('capsule');
+    expect(group.getObjectByName('body')).not.toBeNull();
+
+    let meshCount = 0;
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) meshCount += 1;
+    });
+    expect(meshCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('tickNpcVisuals invokes avatar update each tick', () => {
+    const update = vi.fn(() => 'idle' as const);
+    const instances = createNpcInstanceMap();
+    const group = new THREE.Group();
+    instances.set('npc-30004', {
+      group,
+      avatar: {
+        group,
+        sync: () => undefined,
+        update,
+        triggerGreet: () => undefined,
+        ready: Promise.resolve(),
+      },
+      usesCapsule: false,
+      npcId: 30004,
+      currentClip: 'idle',
+    });
+
+    const clips = tickNpcVisuals(instances, 0.016, 100);
+    expect(update).toHaveBeenCalledWith(0.016, 100);
+    expect(clips.get('npc-30004')).toBe('idle');
   });
 
   it('ticks mesh avatars and triggers greet by npcId', () => {
