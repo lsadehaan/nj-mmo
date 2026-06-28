@@ -151,21 +151,17 @@
 
 ## Handoff
 
-**Phase 10 — Monsters: rigged GLB mobs + clone-per-instance: COMPLETE (Verifier PASS).**
-`.specs/features/phase-10-monsters-glb/validation.md` records PASS over diff
-`ddf6325..2b66ff0`: discrimination sensor 4/5 mutations killed (M2 surviving mutant
-noted as L-008 lesson), gate green (98 client + server tests + 16 e2e), 28/31 ACs
-traced. Clone-per-instance backend via `SkeletonUtils.clone`, `npcId`-keyed creature
-manifest, four CC0 GLBs (Gremlin/Goblin/Wolf/Bearded Keltir), `action`/`actionSeq` on
-`MobState`, visual gate 12 mob PNGs reviewed. KayKit biped placeholders documented.
-ROADMAP Phase 10 flipped to `[x]`.
+**Phase 11 — Remote players & equipped weapons: IMPLEMENTED (awaiting Verifier).**
+Implementer completed T1–T15 over commits `9b4e7f7..HEAD`: mesh remote avatars,
+`handslot.r` weapon attach (2369 + Goblin club), `__GAME_STATE__.others` mesh/action
+fields, e2e `remote-avatar.spec.ts`, character-lab weapon/dual modes. Visual gate
+harness extended (`LAB_WEAPON` / `LAB_MOB` / `LAB_DUAL`); PNG capture requires
+preview on :4200.
 
-**Loop status: RUNNING — next unchecked phase: Phase 11.**
+**Loop status: PAUSED — awaiting Verifier PASS on Phase 11.**
 
-**Next step:** **Phase 11 — Remote players & equipped weapons** (`.specs/ROADMAP.md`).
-Depends on Phase 8 (player avatar) + Phase 3 (remote player state). Replaces capsule
-remote players with mesh-character backend; hand socket + weapon-attach; Squire's Sword
-(2369) + Goblin Club (item 4) props; visual gate.
+**Next step:** Dispatch Verifier on Phase 11; on PASS flip validation.md and resume
+**Phase 12 — NPC human GLBs** (`.specs/ROADMAP.md`).
 
 ---
 
