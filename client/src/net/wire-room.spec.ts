@@ -28,6 +28,7 @@ const mockGame = {
   syncMob: vi.fn(),
   removeMob: vi.fn(),
   triggerSkillFlash: mockTriggerSkillFlash,
+  getCurrentAnimationClip: () => 'idle' as const,
 };
 
 describe('wireRoom player combat sync', () => {

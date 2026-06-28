@@ -40,7 +40,13 @@ export interface GameRenderer {
   tick: (dt: number) => void;
   render: () => void;
   handleClick: (ev: RaycastInput) => void;
-  syncLocalPlayer: (x: number, y: number, z: number) => void;
+  syncLocalPlayer: (
+    x: number,
+    y: number,
+    z: number,
+    action?: number,
+    actionSeq?: number
+  ) => void;
   getCurrentAnimationClip: () => AnimationClip;
   syncRemotePlayer: (sessionId: string, x: number, y: number, z: number) => void;
   removeRemotePlayer: (sessionId: string) => void;
@@ -169,11 +175,18 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const raycaster = new THREE.Raycaster();
 
-  const syncLocalPlayer = (x: number, y: number, z: number): void => {
+  const syncLocalPlayer = (
+    x: number,
+    y: number,
+    z: number,
+    action = 0,
+    actionSeq = 0
+  ): void => {
     localPosition.x = x;
     localPosition.y = y;
     localPosition.z = z;
-    playerAvatar.sync({ x, y, z });
+    playerAvatar.sync({ x, y, z, action, actionSeq });
+    currentAnimationClip = playerAvatar.update(0);
     applyTo(
       {
         position: camera.position,
@@ -183,7 +196,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       DEFAULT_CAMERA_OFFSET
     );
     const player = getGameState().player;
-    setPlayer({ ...player, x, y, z });
+    setPlayer({ ...player, x, y, z, action: currentAnimationClip });
   };
 
   const setMoveIntentHandler = (handler: (intent: MovementIntent) => void): void => {

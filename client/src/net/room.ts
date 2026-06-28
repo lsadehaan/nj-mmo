@@ -113,6 +113,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     adena: number;
     equippedWeaponItemId: number;
     powerStrikeCooldownEndMs: number;
+    action?: number;
+    actionSeq?: number;
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
   };
 
@@ -251,7 +253,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     }
     prevPowerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
 
-    game.syncLocalPlayer(player.x, player.y, player.z);
+    game.syncLocalPlayer(
+      player.x,
+      player.y,
+      player.z,
+      player.action ?? 0,
+      player.actionSeq ?? 0
+    );
     setPlayer({
       x: player.x,
       y: player.y,
@@ -261,6 +269,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       hp: player.hp,
       mp: player.mp,
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
+      action: game.getCurrentAnimationClip(),
     });
     setMaxHp(player.maxHp ?? 0);
     setMaxMp(player.maxMp ?? 0);
