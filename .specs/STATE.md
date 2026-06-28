@@ -151,6 +151,24 @@
 
 ## Handoff
 
+**Phase 10 — Monsters: rigged GLB mobs + clone-per-instance: COMPLETE (Verifier PASS).**
+`.specs/features/phase-10-monsters-glb/validation.md` records PASS over diff
+`ddf6325..2b66ff0`: discrimination sensor 4/5 mutations killed (M2 surviving mutant
+noted as L-008 lesson), gate green (98 client + server tests + 16 e2e), 28/31 ACs
+traced. Clone-per-instance backend via `SkeletonUtils.clone`, `npcId`-keyed creature
+manifest, four CC0 GLBs (Gremlin/Goblin/Wolf/Bearded Keltir), `action`/`actionSeq` on
+`MobState`, visual gate 12 mob PNGs reviewed. KayKit biped placeholders documented.
+ROADMAP Phase 10 flipped to `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 11.**
+
+**Next step:** **Phase 11 — Remote players & equipped weapons** (`.specs/ROADMAP.md`).
+Depends on Phase 8 (player avatar) + Phase 3 (remote player state). Replaces capsule
+remote players with mesh-character backend; hand socket + weapon-attach; Squire's Sword
+(2369) + Goblin Club (item 4) props; visual gate.
+
+---
+
 **Phase 9 — Terrain walkability & collision: COMPLETE (Verifier PASS, fix iteration 1).**
 `.specs/features/phase-9-terrain-walkability/validation.md` records PASS over diff
 `e0a7e23..228bd32`: discrimination sensor 3/3 mutants killed, gate green (game-core 87,

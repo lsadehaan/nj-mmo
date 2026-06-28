@@ -188,7 +188,7 @@ Never run phases in parallel.
 > server signals are `EntityAction { None, Attack, Cast, Die }`, locomotion is
 > derived client-side. Each entity maps a subset of these to its GLB tracks.
 
-## Phase 10 — Monsters: rigged GLB mobs + clone-per-instance `[ ]`
+## Phase 10 — Monsters: rigged GLB mobs + clone-per-instance `[x]`
 
 > Done when: the 4 seeded mobs render as distinct rigged creatures (no capsules)
 > that idle, move, attack, and die from the server's `action`/`actionSeq` signal,
@@ -198,19 +198,19 @@ Never run phases in parallel.
 >
 > **Skill:** `game-designer` → `references/create-monster.md` (read `create-character.md` first).
 
-- [ ] Clone-per-instance creature backend (`SkeletonUtils.clone`, load each GLB
+- [x] Clone-per-instance creature backend (`SkeletonUtils.clone`, load each GLB
       once, independent `AnimationMixer` per spawn) — extends `mesh-character.ts`
-- [ ] `npcId`-keyed creature manifest (`model` GLB + `clipMap`) replacing the
+- [x] `npcId`-keyed creature manifest (`model` GLB + `clipMap`) replacing the
       capsule in `mobs.ts`
-- [ ] **Gremlin** (20001, fairy biped) GLB — idle/move/attack/die
-- [ ] **Goblin** (20003, humanoid biped, club) GLB — idle/move/attack/die
-- [ ] **Wolf** (20120, animal quadruped) GLB — idle/move/attack/die
-- [ ] **Bearded Keltir** (20481, animal quadruped) GLB — idle/move/attack/die
-- [ ] Mob `action`/`actionSeq` replicated like `PlayerState` (server sets on
+- [x] **Gremlin** (20001, fairy biped) GLB — idle/move/attack/die
+- [x] **Goblin** (20003, humanoid biped, club) GLB — idle/move/attack/die
+- [x] **Wolf** (20120, animal quadruped) GLB — idle/move/attack/die
+- [x] **Bearded Keltir** (20481, animal quadruped) GLB — idle/move/attack/die
+- [x] Mob `action`/`actionSeq` replicated like `PlayerState` (server sets on
       attack/death); client drives clips via the animation state machine
-- [ ] Keep floating HP bars; per-mob scale/facing tuned
-- [ ] Visual gate: each mob rendered (idle + attack + die) and reviewed
-- [ ] Room-integration test: mob attack/death sets `action`; e2e exposes mob
+- [x] Keep floating HP bars; per-mob scale/facing tuned
+- [x] Visual gate: each mob rendered (idle + attack + die) and reviewed
+- [x] Room-integration test: mob attack/death sets `action`; e2e exposes mob
       `action` via `__GAME_STATE__`
 
 ## Phase 11 — Remote players & equipped weapons `[ ]`
