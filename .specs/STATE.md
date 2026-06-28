@@ -151,6 +151,24 @@
 
 ## Handoff
 
+**Phase 9 — Terrain walkability & collision: COMPLETE (Verifier PASS, fix iteration 1).**
+`.specs/features/phase-9-terrain-walkability/validation.md` records PASS over diff
+`e0a7e23..228bd32`: discrimination sensor 3/3 mutants killed, gate green (game-core 87,
+server 178, client 79, e2e 15 — 344 total), all 20 ACs (TERR-01–TERR-13, 3 tiers) traced.
+Fix iteration 1 (`228bd32`) closed 3 coverage gaps (NPC Y snap TERR-04, tick-state
+waypoints TERR-11 AC3, per-segment isWalkable TERR-11 AC4). Shared `sampleHeightAt` /
+`SPAWN_Y` / `isWalkable` / 1 m grid A* in game-core; server rejects unwalkable steps and
+follows A* waypoints; client preview path. AD-018 recorded.
+ROADMAP Phase 9 flipped to `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 10.**
+
+**Next step:** **Phase 10 — Monsters: rigged GLB mobs + clone-per-instance** (`.specs/ROADMAP.md`).
+Depends on: Phase 4 (mob AI/spawning), Phase 8 (mesh-character backend). Clone-per-instance
+creature backend, npcId-keyed manifest, 4 mob GLBs, action/actionSeq replication, visual gate.
+
+---
+
 **Phase 8 — Player character rig & animation: COMPLETE (Verifier PASS, fix iteration 1).**
 `.specs/features/phase-8-character-rig-animation/validation.md` records PASS over diff
 `c35cea9..HEAD`: discrimination sensor 7/7 mutants killed (M1 a behaviorally-equivalent

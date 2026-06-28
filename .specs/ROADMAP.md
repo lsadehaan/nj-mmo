@@ -120,7 +120,7 @@ Never run phases in parallel.
 - Follow camera is far → hero reads small; consider a closer camera or larger scale.
 - Apply the same GLTF backend to remote players, mobs, and NPCs (still capsules).
 
-## Phase 9 — Terrain walkability & collision `[ ]`
+## Phase 9 — Terrain walkability & collision `[x]`
 
 > Done when: characters follow terrain height, cannot walk through cliffs or
 > buildings, and click-to-move routes **around** obstacles with the server
@@ -132,32 +132,32 @@ Never run phases in parallel.
 
 ### Tier 1 — Height snapping (feet on ground)
 
-- [ ] Move `generateTerrain` / `sampleHeight` into `libs/game-core` (shared
+- [x] Move `generateTerrain` / `sampleHeight` into `libs/game-core` (shared
       `TERRAIN_SEED`, size, segments, `heightScale`; client imports from lib)
-- [ ] Server sets `player.y = sampleHeight(x, z) + FEET_OFFSET` each movement tick
-- [ ] Mobs and NPCs use the same height rule on spawn and during AI movement
-- [ ] `SPAWN_Y` derived from shared terrain (no client/server drift)
-- [ ] Unit tests: `sampleHeight` deterministic; Y snap at arbitrary `(x, z)`
+- [x] Server sets `player.y = sampleHeight(x, z) + FEET_OFFSET` each movement tick
+- [x] Mobs and NPCs use the same height rule on spawn and during AI movement
+- [x] `SPAWN_Y` derived from shared terrain (no client/server drift)
+- [x] Unit tests: `sampleHeight` deterministic; Y snap at arbitrary `(x, z)`
 
 ### Tier 2 — Walkability & blockers (no walking through geometry)
 
-- [ ] `isWalkable(from, to)` in `game-core`: max step height, max slope (from
+- [x] `isWalkable(from, to)` in `game-core`: max step height, max slope (from
       terrain gradient), world bounds (existing `WORLD_MIN`/`WORLD_MAX`)
-- [ ] Hand-authored blocker volumes for village buildings + large props (circles
+- [x] Hand-authored blocker volumes for village buildings + large props (circles
       or AABBs in shared data; same coords as `village.ts` / `scatter.ts`)
-- [ ] `TownRoom.simulate()` clamps or rejects moves that fail `isWalkable`
-- [ ] Mob wander/aggro chase respects `isWalkable` (no mobs through cliffs)
-- [ ] Room-integration tests: move into cliff/building does not change `x,z`
+- [x] `TownRoom.simulate()` clamps or rejects moves that fail `isWalkable`
+- [x] Mob wander/aggro chase respects `isWalkable` (no mobs through cliffs)
+- [x] Room-integration tests: move into cliff/building does not change `x,z`
 
 ### Tier 3 — Navmesh pathfinding (route around obstacles)
 
-- [ ] Bake a walkability grid (1 m cells) or lightweight navmesh from heightmap +
+- [x] Bake a walkability grid (1 m cells) or lightweight navmesh from heightmap +
       slope limits + blocker volumes
-- [ ] Deterministic A* in `game-core` (no client trust; prefer zero new deps)
-- [ ] Click-to-move: client pathfinds for preview/UX; server recomputes path and
+- [x] Deterministic A* in `game-core` (no client trust; prefer zero new deps)
+- [x] Click-to-move: client pathfinds for preview/UX; server recomputes path and
       follows waypoints in `step()` (not a straight line to final click)
-- [ ] Server validates each waypoint segment with `isWalkable` before advancing
-- [ ] E2E via `__GAME_STATE__`: click behind a building routes around it (position
+- [x] Server validates each waypoint segment with `isWalkable` before advancing
+- [x] E2E via `__GAME_STATE__`: click behind a building routes around it (position
       trail never intersects blocker)
 
 ### Out of scope (Phase 9)
@@ -172,13 +172,17 @@ Never run phases in parallel.
 
 ## Asset & animation backlog (AD-017, built with the `game-designer` skill)
 
-> Every phase below produces **license-clean rigged GLTF** visuals (AD-017) driven
-> by the `game-core` animation state machine, and is built with the
-> `.cursor/skills/game-designer` skill (read `references/create-character.md` for
-> characters/NPCs, `references/create-monster.md` for mobs). **No phase here flips
-> to `[x]` without the mandatory rendered visual gate** (`client/character-lab.html`
-> + `scripts/shoot-character.mjs`) reviewed alongside the green logic tests — a
-> pixel-blind pass is never enough (the Phase 8 lesson).
+> Every phase below produces rigged-GLTF / visual assets (AD-017) driven by the
+> `game-core` animation state machine, and **must be built with the
+> `.cursor/skills/game-designer` skill** — read its `SKILL.md` first, then the one
+> recipe that matches the task: `create-character` (player/remote/NPC),
+> `create-monster` (mobs), `create-attachment` (weapons/held items), `create-vfx`
+> (effects), `create-icon` (UI icons), `create-prop` (environment). Each phase names
+> its recipe in a **Skill:** line below. Assets may be unlicensed placeholders
+> pre-live (skill golden rule 2) but must be tracked for pre-launch replacement.
+> **No phase here flips to `[x]` without the mandatory rendered visual gate**
+> (`client/character-lab.html` + `scripts/shoot-character.mjs`) reviewed alongside
+> the green logic tests — a pixel-blind pass is never enough (the Phase 8 lesson).
 >
 > **Shared clip vocabulary:** `idle | move | attack | cast | die` (`AnimationClip`);
 > server signals are `EntityAction { None, Attack, Cast, Die }`, locomotion is
@@ -191,6 +195,8 @@ Never run phases in parallel.
 > with many instances spawned cheaply (load-once, clone-per-spawn).
 >
 > **Depends on:** Phase 4 (mob AI/spawning), Phase 8 (mesh-character backend).
+>
+> **Skill:** `game-designer` → `references/create-monster.md` (read `create-character.md` first).
 
 - [ ] Clone-per-instance creature backend (`SkeletonUtils.clone`, load each GLB
       once, independent `AnimationMixer` per spawn) — extends `mesh-character.ts`
@@ -214,6 +220,8 @@ Never run phases in parallel.
 > in the character's hand.
 >
 > **Depends on:** Phase 8 (player avatar), Phase 3 (remote player state).
+>
+> **Skill:** `game-designer` → `references/create-character.md` (Remote-player note) + `references/create-attachment.md` (weapons).
 
 - [ ] Remote players reuse the `mesh-character` backend (replace `remote-players.ts`
       capsule); locomotion derived from replicated position, action from state
@@ -229,6 +237,8 @@ Never run phases in parallel.
 > idle, with an optional greet/talk gesture on interaction.
 >
 > **Depends on:** Phase 6 (NPC placement + interaction), Phase 8 (mesh backend).
+>
+> **Skill:** `game-designer` → `references/create-character.md` (NPC note).
 
 - [ ] NPC creature manifest (human female GLBs) replacing `npc-renderer.ts` capsule
 - [ ] **Katerina** (30004, Merchant/Grocer) — idle (+ optional talk)
@@ -242,6 +252,8 @@ Never run phases in parallel.
 > selection, and a real Power Strike effect — replacing the placeholder primitives.
 >
 > **Depends on:** Phases 4–5 (combat + skill), Phase 10 (mobs).
+>
+> **Skill:** `game-designer` → `references/create-vfx.md`.
 
 - [ ] Replace primitive `skill-flash.ts` with a proper **Power Strike** VFX
 - [ ] **Melee hit/impact** effect on damage application
@@ -256,6 +268,8 @@ Never run phases in parallel.
 
 > Done when: the hotbar, shop, and inventory show real icons instead of text/colour
 > swatches.
+>
+> **Skill:** `game-designer` → `references/create-icon.md`.
 
 - [ ] **Power Strike** skill icon in the hotbar/cooldown UI
 - [ ] Shop/inventory item icons: Healing Potion (1060), Soulshot No-grade (1835),
@@ -267,6 +281,8 @@ Never run phases in parallel.
 > Done when: village buildings, trees, rocks, and the peace-zone marker use cohesive
 > low-poly GLB props instead of raw primitives (style consistent with characters).
 > Lowest priority — current primitives are acceptable for the slice.
+>
+> **Skill:** `game-designer` → `references/create-prop.md`.
 
 - [ ] Village building GLBs (5) replacing `addBox` in `renderer.ts`
 - [ ] Tree + rock prop GLBs replacing cone/cylinder/dodecahedron
