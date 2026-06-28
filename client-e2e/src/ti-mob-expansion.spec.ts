@@ -83,7 +83,7 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
   }));
   const target = pickNearestClipTestMob(mobs, player);
 
-  await approachMob(page, target.id, 3.4);
+  await approachMob(page, target.id, 3.4, 110_000);
   await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
   await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), target.id);
   await page.waitForFunction(

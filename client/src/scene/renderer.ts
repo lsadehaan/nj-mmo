@@ -366,11 +366,13 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     id: string,
     snapshot: ReturnType<typeof mobStateToVisual>
   ): AnimationClip => {
+    const tickClip = lastMobClips.get(id);
+    if (tickClip === 'attack' || tickClip === 'cast' || tickClip === 'die') {
+      return tickClip;
+    }
     const serverClip = clipFromServerAction(snapshot);
     if (serverClip) return serverClip;
-    const tickClip = lastMobClips.get(id);
-    if (tickClip) return tickClip;
-    return 'idle';
+    return tickClip ?? 'idle';
   };
 
   const getMobHookEntries = (): Array<{
@@ -458,9 +460,13 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
           z: snapshot.z,
           hp: snapshot.hp,
           maxHp: snapshot.maxHp,
-          action: (clipFromServerAction(snapshot) ??
-            mobClips.get(id) ??
-            'idle') as AnimationClip,
+          action: (() => {
+            const tickClip = mobClips.get(id);
+            if (tickClip === 'attack' || tickClip === 'cast' || tickClip === 'die') {
+              return tickClip as AnimationClip;
+            }
+            return (clipFromServerAction(snapshot) ?? tickClip ?? 'idle') as AnimationClip;
+          })(),
         }))
       );
     }

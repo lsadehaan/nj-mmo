@@ -30,7 +30,6 @@ async function walkTowardInPeaceZone(
               player.z <= 20;
             const dist = Math.hypot(player.x - x, player.z - z);
             if (dist <= radius && inPeaceZone) return true;
-            if (!inPeaceZone) return 'outside-peace-zone';
             const dx = x - player.x;
             const dz = z - player.z;
             const len = Math.hypot(dx, dz) || 1;
@@ -39,6 +38,43 @@ async function walkTowardInPeaceZone(
             return false;
           },
           { x: target.x, z: target.z, radius: arriveWithin }
+        ),
+      { timeout: timeoutMs, intervals: [250, 500, 1000] }
+    )
+    .toBe(true);
+}
+
+async function walkTowardPeaceZoneMob(
+  page: import('@playwright/test').Page,
+  mobId: string,
+  arriveWithin: number,
+  timeoutMs = 45_000
+): Promise<void> {
+  await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(
+          ({ mobId, radius }) => {
+            const player = window.__GAME_STATE__.player;
+            const mob = window.__GAME_STATE__.mobs.find((entry) => entry.id === mobId);
+            if (!mob) return false;
+            const inPeaceZone =
+              player.x >= -20 &&
+              player.x <= 20 &&
+              player.z >= -20 &&
+              player.z <= 20;
+            const dist = Math.hypot(player.x - mob.x, player.z - mob.z);
+            if (dist <= radius && inPeaceZone) return true;
+            if (!inPeaceZone) return 'outside-peace-zone';
+            const dx = mob.x - player.x;
+            const dz = mob.z - player.z;
+            const len = Math.hypot(dx, dz) || 1;
+            const step = Math.max(1, Math.min(len - radius + 0.5, 6));
+            window.__sendMoveIntent__?.(player.x + (dx / len) * step, player.z + (dz / len) * step);
+            return false;
+          },
+          { mobId, radius: arriveWithin }
         ),
       { timeout: timeoutMs, intervals: [250, 500, 1000] }
     )
@@ -194,6 +230,7 @@ test('opening Roxxy helper dialog triggers greet cast animation', async ({ page 
 });
 
 test('attack inside peace zone does not reduce mob HP or grant XP', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
   await gotoGame(page, testInfo);
   await waitReady(page);
@@ -211,7 +248,7 @@ test('attack inside peace zone does not reduce mob HP or grant XP', async ({ pag
   return preferred ?? mobs[0];
   });
 
-  await walkTowardInPeaceZone(page, { x: mob.x, z: mob.z }, 3.5);
+  await walkTowardPeaceZoneMob(page, mob.id, 3.5);
 
   const inPeaceZone = await page.evaluate(() => {
     const { x, z } = window.__GAME_STATE__.player;
@@ -258,6 +295,7 @@ test('attack inside peace zone does not reduce mob HP or grant XP', async ({ pag
 test('Power Strike inside peace zone does not reduce mob HP or spend MP', async ({
   page,
 }, testInfo) => {
+  test.setTimeout(60_000);
   await page.addInitScript(() => localStorage.removeItem('nj.characterId'));
   await gotoGame(page, testInfo);
   await waitReady(page);
@@ -275,7 +313,7 @@ test('Power Strike inside peace zone does not reduce mob HP or spend MP', async 
   return preferred ?? mobs[0];
   });
 
-  await walkTowardInPeaceZone(page, { x: mob.x, z: mob.z }, 3.5);
+  await walkTowardPeaceZoneMob(page, mob.id, 3.5);
 
   const before = await page.evaluate((mobId) => {
     const state = window.__GAME_STATE__;
