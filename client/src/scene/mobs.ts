@@ -4,6 +4,8 @@ import type { AnimationClip } from '@nj/game-core';
 import { getCreatureEntry } from './creature/creature-manifest';
 import { loadGltfTemplate } from './creature/mesh-character';
 import { createMobAvatar, type MobAvatar } from './mob-avatar';
+import { GOBLIN_CLUB_ATTACHMENT } from './creature/weapon-manifest';
+import { attachToBone } from './creature/attachment';
 
 export interface MobVisualState {
   id: string;
@@ -28,6 +30,7 @@ interface MobInstance {
   currentClip: string;
   lastAction?: EntityAction;
   lastActionSeq?: number;
+  clubProp: THREE.Object3D | null;
 }
 
 const MOB_BODY_COLOR = 0x884422;
@@ -136,6 +139,35 @@ function hasCapsuleBody(group: THREE.Group): boolean {
   return group.getObjectByName('capsuleBody') !== null;
 }
 
+function attachGoblinClub(
+  instances: Map<string, MobInstance>,
+  mobId: string,
+  npcId: number,
+  avatar: MobAvatar
+): void {
+  if (npcId !== 20003) return;
+
+  loadGltfTemplate(GOBLIN_CLUB_ATTACHMENT.model)
+    .then((clubTemplate) => {
+      if (!instances.has(mobId)) return;
+      const live = instances.get(mobId)!;
+      if (live.clubProp) return;
+      const club = clubTemplate.scene.clone(true);
+      club.name = 'goblin-club';
+      if (
+        attachToBone(
+          avatar.group,
+          club,
+          GOBLIN_CLUB_ATTACHMENT.bone,
+          GOBLIN_CLUB_ATTACHMENT.transform
+        )
+      ) {
+        live.clubProp = club;
+      }
+    })
+    .catch(() => undefined);
+}
+
 function ensureMobInstance(
   map: MobMeshMap,
   instances: Map<string, MobInstance>,
@@ -158,6 +190,7 @@ function ensureMobInstance(
     hpBarYOffset,
     pendingRemovalAtMs: null,
     currentClip: 'idle',
+    clubProp: null,
   };
   instances.set(state.id, instance);
 
@@ -174,6 +207,7 @@ function ensureMobInstance(
         current.group.add(avatar.group);
         current.avatar = avatar;
         current.usesCapsule = false;
+        attachGoblinClub(instances, state.id, state.npcId, avatar);
       })
       .catch(() => {
         /* keep capsule fallback */
@@ -328,6 +362,21 @@ export function mobUsesCapsule(instances: Map<string, MobInstance>, mobId: strin
 
 export function getMobHpBarYOffset(instances: Map<string, MobInstance>, mobId: string): number {
   return instances.get(mobId)?.hpBarYOffset ?? DEFAULT_HP_BAR_Y_OFFSET;
+}
+
+/** @internal test helper */
+export function attachGoblinClubForTest(
+  instances: Map<string, MobInstance>,
+  mobId: string,
+  npcId: number,
+  avatar: MobAvatar
+): void {
+  attachGoblinClub(instances, mobId, npcId, avatar);
+}
+
+/** @internal test helper */
+export function clearMobTemplateLoadsForTest(): void {
+  templateLoads.clear();
 }
 
 /** @internal test helper */

@@ -11,14 +11,19 @@ import {
   mobUsesCapsule,
   removeMob,
   syncMobVisual,
+  clearMobTemplateLoadsForTest,
+  attachGoblinClubForTest,
   type MobMeshMap,
   type MobVisualState,
 } from './mobs';
-import { clearGltfTemplateCache } from './creature/mesh-character';
+import { clearGltfTemplateCache, KAYKIT_CLIP_MAP } from './creature/mesh-character';
+import { KAYKIT_RIGHT_HAND_BONE } from './creature/weapon-manifest';
+import { createMobAvatar } from './mob-avatar';
 
 describe('mobs visual mapping', () => {
   afterEach(() => {
     clearGltfTemplateCache();
+    clearMobTemplateLoadsForTest();
   });
 
   it('maps server mob state to visual snapshot without mutating hp', () => {
@@ -143,6 +148,7 @@ describe('mobs visual mapping', () => {
       hpBarYOffset: 1.6,
       pendingRemovalAtMs: null,
       currentClip: 'die',
+      clubProp: null,
     });
 
     expect(removeMob(map, instances, 'mob-d', scene as never, 0)).toBe(false);
@@ -173,10 +179,143 @@ describe('mobs visual mapping', () => {
       hpBarYOffset: 1.6,
       pendingRemovalAtMs: null,
       currentClip: 'idle',
+      clubProp: null,
     });
 
     expect(removeMob(map, instances, 'mob-b', scene as never)).toBe(true);
     expect(map.has('mob-b')).toBe(false);
     expect(removed).toEqual([group]);
+  });
+
+  it('attaches a club prop only to Goblin npcId 20003', async () => {
+    const rootBone = new THREE.Bone();
+    const handBone = new THREE.Bone();
+    handBone.name = KAYKIT_RIGHT_HAND_BONE;
+    rootBone.add(handBone);
+    const skinned = new THREE.SkinnedMesh(
+      new THREE.BoxGeometry(0.2, 0.5, 0.2),
+      new THREE.MeshBasicMaterial()
+    );
+    skinned.bind(new THREE.Skeleton([rootBone, handBone]));
+    const mobRoot = new THREE.Group();
+    mobRoot.add(rootBone);
+    mobRoot.add(skinned);
+
+    const avatar = createMobAvatar({
+      entry: {
+        model: '/models/monsters/Goblin.glb',
+        clipMap: KAYKIT_CLIP_MAP,
+        scale: 1,
+        feetOffsetY: 0.5,
+        hpBarYOffset: 1.6,
+      },
+      template: { scene: mobRoot, animations: [] },
+    });
+
+    vi.spyOn(await import('./creature/mesh-character'), 'loadGltfTemplate').mockResolvedValue({
+      scene: new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1)),
+      animations: [],
+    });
+
+    const instances = createMobInstanceMap();
+    const group = createMobGroup('goblin-1');
+    instances.set('goblin-1', {
+      group,
+      avatar,
+      usesCapsule: false,
+      hpBarYOffset: 1.6,
+      pendingRemovalAtMs: null,
+      currentClip: 'idle',
+      clubProp: null,
+    });
+
+    attachGoblinClubForTest(instances, 'goblin-1', 20003, avatar);
+
+    instances.set('gremlin-1', {
+      group: createMobGroup('gremlin-1'),
+      avatar,
+      usesCapsule: false,
+      hpBarYOffset: 1.45,
+      pendingRemovalAtMs: null,
+      currentClip: 'idle',
+      clubProp: null,
+    });
+    attachGoblinClubForTest(instances, 'gremlin-1', 20001, avatar);
+
+    await vi.waitFor(() => {
+      expect(instances.get('goblin-1')?.clubProp).not.toBeNull();
+    });
+    expect(instances.get('gremlin-1')?.clubProp).toBeNull();
+  });
+
+  it('clones a distinct club object per Goblin instance', async () => {
+    const handBone = new THREE.Bone();
+    handBone.name = KAYKIT_RIGHT_HAND_BONE;
+    const skinned = new THREE.SkinnedMesh(
+      new THREE.BoxGeometry(0.2, 0.5, 0.2),
+      new THREE.MeshBasicMaterial()
+    );
+    skinned.bind(new THREE.Skeleton([handBone]));
+    const mobRoot = new THREE.Group();
+    mobRoot.add(handBone);
+    mobRoot.add(skinned);
+
+    const template = { scene: mobRoot, animations: [] as THREE.AnimationClip[] };
+    const avatarA = createMobAvatar({
+      entry: {
+        model: '/models/monsters/Goblin.glb',
+        clipMap: KAYKIT_CLIP_MAP,
+        scale: 1,
+        feetOffsetY: 0.5,
+        hpBarYOffset: 1.6,
+      },
+      template,
+    });
+    const avatarB = createMobAvatar({
+      entry: {
+        model: '/models/monsters/Goblin.glb',
+        clipMap: KAYKIT_CLIP_MAP,
+        scale: 1,
+        feetOffsetY: 0.5,
+        hpBarYOffset: 1.6,
+      },
+      template,
+    });
+
+    vi.spyOn(await import('./creature/mesh-character'), 'loadGltfTemplate').mockResolvedValue({
+      scene: new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1)),
+      animations: [],
+    });
+
+    const instances = createMobInstanceMap();
+    instances.set('g1', {
+      group: createMobGroup('g1'),
+      avatar: avatarA,
+      usesCapsule: false,
+      hpBarYOffset: 1.6,
+      pendingRemovalAtMs: null,
+      currentClip: 'idle',
+      clubProp: null,
+    });
+    instances.set('g2', {
+      group: createMobGroup('g2'),
+      avatar: avatarB,
+      usesCapsule: false,
+      hpBarYOffset: 1.6,
+      pendingRemovalAtMs: null,
+      currentClip: 'idle',
+      clubProp: null,
+    });
+
+    attachGoblinClubForTest(instances, 'g1', 20003, avatarA);
+    attachGoblinClubForTest(instances, 'g2', 20003, avatarB);
+
+    await vi.waitFor(() => {
+      const a = instances.get('g1')?.clubProp;
+      const b = instances.get('g2')?.clubProp;
+      expect(a).toBeTruthy();
+      expect(b).toBeTruthy();
+      expect(a).not.toBe(b);
+    });
   });
 });
