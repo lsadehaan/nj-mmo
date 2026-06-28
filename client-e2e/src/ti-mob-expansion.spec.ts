@@ -66,11 +66,8 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
   await waitReady(page);
 
   await page.waitForFunction(
-    () =>
-      window.__GAME_STATE__?.mobs?.some((m) =>
-        (CLIP_TEST_MOB_IDS as readonly number[]).includes(m.npcId)
-      ) === true,
-    undefined,
+    (ids) => window.__GAME_STATE__?.mobs?.some((m) => ids.includes(m.npcId)) === true,
+    [...CLIP_TEST_MOB_IDS],
     { timeout: 10_000 }
   );
 
