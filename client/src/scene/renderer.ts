@@ -6,13 +6,17 @@ import { type MovementIntent, TERRAIN_CONFIG } from '@nj/game-core';
 import { buildPathPreviewPoints } from './path-preview';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
-import { getGameState, setPlayer, setTarget, setMobs } from '../test-hook';
+import { getGameState, setPlayer, setTarget, setMobs, setOthers } from '../test-hook';
 import { createSkillFlash } from './skill-flash';
 import {
+  listRemotePlayers,
   removeRemotePlayer,
+  tickRemotePlayers,
   upsertRemotePlayer,
-  type RemotePlayerMeshMap,
+  type RemotePlayerMap,
+  type OtherPlayerHookEntry,
 } from './remote-players';
+import type { RemotePlayerAvatarSync } from './remote-player-avatar';
 import {
   createMobInstanceMap,
   faceHpBarsToCamera,
@@ -50,10 +54,12 @@ export interface GameRenderer {
     y: number,
     z: number,
     action?: number,
-    actionSeq?: number
+    actionSeq?: number,
+    equippedWeaponItemId?: number
   ) => void;
   getCurrentAnimationClip: () => AnimationClip;
-  syncRemotePlayer: (sessionId: string, x: number, y: number, z: number) => void;
+  syncRemotePlayer: (sessionId: string, sync: RemotePlayerAvatarSync) => void;
+  listRemotePlayers: () => OtherPlayerHookEntry[];
   removeRemotePlayer: (sessionId: string) => void;
   syncMob: (mob: {
     id: string;
@@ -187,7 +193,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   let currentAnimationClip: AnimationClip = 'idle';
   let moveIntentHandler: ((intent: MovementIntent) => void) | null = null;
   let mobTargetHandler: ((mobId: string) => void) | null = null;
-  const remoteMeshes: RemotePlayerMeshMap = new Map();
+  const remotePlayers: RemotePlayerMap = new Map();
   const mobMeshes: MobMeshMap = new Map();
   const mobInstances = createMobInstanceMap();
   const mobSnapshots = new Map<string, ReturnType<typeof mobStateToVisual>>();
@@ -226,12 +232,13 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     y: number,
     z: number,
     action = 0,
-    actionSeq = 0
+    actionSeq = 0,
+    equippedWeaponItemId = 0
   ): void => {
     localPosition.x = x;
     localPosition.y = y;
     localPosition.z = z;
-    playerAvatar.sync({ x, y, z, action, actionSeq });
+    playerAvatar.sync({ x, y, z, action, actionSeq, equippedWeaponItemId });
     currentAnimationClip = playerAvatar.update(0);
     applyTo(
       {
@@ -265,13 +272,15 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     );
   };
 
-  const syncRemotePlayer = (sessionId: string, x: number, y: number, z: number): void => {
-    upsertRemotePlayer(remoteMeshes, sessionId, x, y, z, scene);
+  const syncRemotePlayer = (sessionId: string, sync: RemotePlayerAvatarSync): void => {
+    upsertRemotePlayer(remotePlayers, sessionId, sync, scene);
   };
 
   const removeRemotePlayerById = (sessionId: string): void => {
-    removeRemotePlayer(remoteMeshes, sessionId, scene);
+    removeRemotePlayer(remotePlayers, sessionId, scene);
   };
+
+  const listRemotePlayersForHook = (): OtherPlayerHookEntry[] => listRemotePlayers(remotePlayers);
 
   const syncMob = (mob: {
     id: string;
@@ -381,6 +390,11 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     }
 
     faceHpBarsToCamera(mobMeshes, camera);
+
+    tickRemotePlayers(remotePlayers, dt, nowMs);
+    if (remotePlayers.size > 0) {
+      setOthers(listRemotePlayersForHook());
+    }
   };
 
   const getCurrentAnimationClip = (): AnimationClip => currentAnimationClip;
@@ -458,6 +472,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     syncLocalPlayer,
     getCurrentAnimationClip,
     syncRemotePlayer,
+    listRemotePlayers: listRemotePlayersForHook,
     removeRemotePlayer: removeRemotePlayerById,
     syncMob,
     removeMob: removeMobById,
