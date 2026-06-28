@@ -125,6 +125,36 @@ describe('mobs visual mapping', () => {
     expect(map.get('mob-x')?.getObjectByName('capsuleBody')).not.toBeNull();
   });
 
+  it('renders rigged mesh (not capsule) for Orc npcId 20130 after template load', async () => {
+    const skinned = new THREE.SkinnedMesh(
+      new THREE.BoxGeometry(0.4, 1.2, 0.4),
+      new THREE.MeshBasicMaterial()
+    );
+    skinned.bind(new THREE.Skeleton([new THREE.Bone()]));
+    const mobRoot = new THREE.Group();
+    mobRoot.add(skinned);
+
+    vi.spyOn(await import('./creature/mesh-character'), 'loadGltfTemplate').mockResolvedValue({
+      scene: mobRoot,
+      animations: [],
+    });
+
+    const scene = { add: () => undefined, remove: () => undefined };
+    const map: MobMeshMap = new Map();
+    const instances = createMobInstanceMap();
+    syncMobVisual(
+      map,
+      instances,
+      { id: 'orc-1', npcId: 20130, x: 0, y: 0, z: 0, hp: 98, maxHp: 98 },
+      scene as never
+    );
+
+    await vi.waitFor(() => {
+      expect(mobUsesCapsule(instances, 'orc-1')).toBe(false);
+    });
+    expect(map.get('orc-1')?.getObjectByName('capsuleBody')).toBeUndefined();
+  });
+
   it('defers scene removal while die clip is latched', () => {
     vi.useFakeTimers();
     const removed: unknown[] = [];
