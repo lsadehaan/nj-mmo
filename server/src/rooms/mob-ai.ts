@@ -2,6 +2,7 @@ import {
   DEFAULT_MOVE_SPEED,
   horizontalDistance,
   isInPeaceZone,
+  isWalkable,
   type SeededRng,
 } from '@nj/game-core';
 import type { MobRuntime } from './spawn-manager';
@@ -116,7 +117,16 @@ function moveToward(
   const dist = Math.hypot(dx, dz);
   if (dist <= 0.05) return;
 
-  const step = Math.min(speed * dt, dist);
-  mob.x += (dx / dist) * step;
-  mob.z += (dz / dist) * step;
+  const stepDist = Math.min(speed * dt, dist);
+  if (dist - stepDist <= 0.05) return;
+
+  const newX = mob.x + (dx / dist) * stepDist;
+  const newZ = mob.z + (dz / dist) * stepDist;
+
+  if (!isWalkable({ x: mob.x, z: mob.z }, { x: newX, z: newZ })) {
+    return;
+  }
+
+  mob.x = newX;
+  mob.z = newZ;
 }
