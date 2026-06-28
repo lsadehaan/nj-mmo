@@ -786,6 +786,33 @@ describe('TownRoom Power Strike', () => {
     ]);
   }
 
+  it('sets CAST action and increments actionSeq on Power Strike resolve', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+
+      expect(player.action).toBe(0);
+      expect(player.actionSeq).toBe(0);
+
+      await castPowerStrike(client, room, gremlin.id);
+
+      expect(player.action).toBe(2);
+      expect(player.actionSeq).toBe(1);
+      expect(player.mp).toBe(41);
+
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
   it('useSkill in range deals 69 damage and reduces MP from 50 to 41', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {

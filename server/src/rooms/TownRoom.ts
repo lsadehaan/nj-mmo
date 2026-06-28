@@ -504,6 +504,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       if (result.mpCost > 0) {
         player.mp -= result.mpCost;
         player.powerStrikeCooldownEndMs = result.cooldownEndMs;
+        this.emitPlayerAction(player, EntityAction.Cast);
         this.scheduleDebouncedSave(sessionId);
       }
 
