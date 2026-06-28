@@ -16,18 +16,18 @@ describe('mob spawn seeding', () => {
     cleanup = () => rmSync(dir, { recursive: true, force: true });
     return dbPath;
   }
-  it('seeds at least 8 spawn rows in local metric coords', () => {
+  it('seeds at least 20 spawn rows in local metric coords', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const rows = getDb(dbPath).select().from(mobSpawns).all();
-    expect(rows.length).toBeGreaterThanOrEqual(8);
+    expect(rows.length).toBeGreaterThanOrEqual(20);
     for (const row of rows) {
       expect(row.x).toBeTypeOf('number');
       expect(row.z).toBeTypeOf('number');
       expect(row.y).toBeCloseTo(4.26, 2);
     }
   });
-  it('includes all four TI monster npcIds', () => {
+  it('includes all nine TI monster npcIds', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const npcIds = new Set(getDb(dbPath).select().from(mobSpawns).all().map((r) => r.npcId));
