@@ -65,6 +65,22 @@ describe('test-hook multiplayer state', () => {
     expect(state.mobs[0].hp).toBe(41);
   });
 
+  it('initializes animation clip to idle and updates from setPlayer', () => {
+    expect(window.__GAME_STATE__.player.action).toBe('idle');
+    setPlayer({
+      x: 0,
+      y: 0,
+      z: 0,
+      xp: 0,
+      level: 1,
+      hp: 100,
+      mp: 50,
+      powerStrikeCooldownEndMs: 0,
+      action: 'attack',
+    });
+    expect(window.__GAME_STATE__.player.action).toBe('attack');
+  });
+
   it('stores combat target and player progression from server', () => {
     setTargetMobId('mob-1');
     setPlayer({ x: 1, y: 2, z: 3, xp: 44, level: 1, hp: 100, mp: 50, powerStrikeCooldownEndMs: 0 });

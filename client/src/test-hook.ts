@@ -1,5 +1,6 @@
 import { updatePowerStrikeCooldown } from './hud/power-strike-cooldown';
 import { updatePlayerVitalsHud } from './hud/player-vitals';
+import type { AnimationClip } from '@nj/game-core';
 
 export interface GameStatePlayer {
   x: number;
@@ -11,10 +12,16 @@ export interface GameStatePlayer {
   mp: number;
   powerStrikeCooldownEndMs: number;
   powerStrikeCooldownRemainingMs: number;
+  action: AnimationClip;
 }
 
 /** Server snapshot input — remaining cooldown is derived client-side. */
-export type GameStatePlayerInput = Omit<GameStatePlayer, 'powerStrikeCooldownRemainingMs'>;
+export type GameStatePlayerInput = Omit<
+  GameStatePlayer,
+  'powerStrikeCooldownRemainingMs' | 'action'
+> & {
+  action?: AnimationClip;
+};
 
 export interface GameStateMob {
   id: string;
@@ -85,7 +92,7 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0 },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, action: 'idle' },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -168,6 +175,9 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
     player.powerStrikeCooldownEndMs,
     nowMs
   );
+  if (player.action !== undefined) {
+    state.player.action = player.action;
+  }
   if (typeof document !== 'undefined') {
     updatePowerStrikeCooldown(player.powerStrikeCooldownEndMs, nowMs);
     updatePlayerVitalsHud({
