@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   KATERINA_NPC_ID,
   KATERINA_SHOP_ITEMS,
+  createShopRowIcon,
   mountShopWindow,
   renderShopWindow,
 } from './shop-window';
+import { FALLBACK_ICON } from './icon-manifest';
 
 describe('shop-window DOM', () => {
   beforeEach(() => {
@@ -40,6 +42,51 @@ describe('shop-window DOM', () => {
       { itemId: 1835, buyPrice: 8 },
       { itemId: 17, buyPrice: 2 },
     ]);
+  });
+
+  it('renders item icons for catalog rows 1060, 1835, and 17', () => {
+    mountShopWindow();
+    renderShopWindow({
+      adena: 1000,
+      itemCounts: {},
+      visible: true,
+      handlers: { sendBuy: vi.fn(), sendSell: vi.fn() },
+    });
+
+    for (const item of KATERINA_SHOP_ITEMS) {
+      const row = document.querySelector(`[data-shop-item-id="${item.itemId}"]`);
+      const img = row?.querySelector(`img[data-icon-item-id="${item.itemId}"]`) as
+        | HTMLImageElement
+        | null;
+      expect(img).not.toBeNull();
+      expect(img?.dataset['iconFallback']).toBeUndefined();
+      expect(img?.src).not.toContain(FALLBACK_ICON);
+      expect(img?.alt).toBe(item.name);
+    }
+  });
+
+  it('renders Adena icon beside adena amount', () => {
+    mountShopWindow();
+    renderShopWindow({
+      adena: 500,
+      itemCounts: {},
+      visible: true,
+      handlers: { sendBuy: vi.fn(), sendSell: vi.fn() },
+    });
+
+    const adenaIcon = document.querySelector(
+      '#shop-window img[data-icon-item-id="57"]'
+    ) as HTMLImageElement | null;
+    expect(adenaIcon).not.toBeNull();
+    expect(adenaIcon?.alt).toBe('Adena');
+    expect(adenaIcon?.src).toContain('adena.png');
+  });
+
+  it('uses FALLBACK_ICON for unmapped catalog item ids', () => {
+    const img = createShopRowIcon(99999, 'Unknown Item');
+    expect(img.src).toContain(FALLBACK_ICON);
+    expect(img.dataset['iconFallback']).toBe('true');
+    expect(img.alt).toBe('Unknown Item');
   });
 
   it('displays adena from server-synced game state', () => {

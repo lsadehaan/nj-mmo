@@ -1,3 +1,5 @@
+import { createIconImg } from './icon-img';
+
 export const KATERINA_NPC_ID = 30004;
 
 /** Display catalog — prices validated server-side on buy/sell (AD-001). */
@@ -20,6 +22,12 @@ export interface ShopRenderOptions {
 }
 
 const ELEMENT_ID = 'shop-window';
+const SHOP_ROW_ICON_PX = 32;
+
+/** Builds a catalog row icon — exported for fallback regression tests. */
+export function createShopRowIcon(itemId: number, name: string): HTMLImageElement {
+  return createIconImg({ kind: 'item', id: itemId, alt: name, sizePx: SHOP_ROW_ICON_PX });
+}
 
 export function mountShopWindow(): HTMLElement {
   const existing = document.getElementById(ELEMENT_ID);
@@ -72,6 +80,22 @@ export function renderShopWindow(options: ShopRenderOptions): void {
   const panel = mountShopWindow();
   panel.hidden = !options.visible;
 
+  const adenaRow = panel.querySelector('[data-role="adena-row"]');
+  if (adenaRow) {
+    adenaRow.innerHTML = '';
+    adenaRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;';
+    const adenaIcon = createIconImg({
+      kind: 'item',
+      id: 57,
+      alt: 'Adena',
+      sizePx: 24,
+    });
+    adenaRow.appendChild(adenaIcon);
+    const adenaText = document.createElement('span');
+    adenaText.innerHTML = 'Adena: <span data-adena>0</span>';
+    adenaRow.appendChild(adenaText);
+  }
+
   const adenaEl = panel.querySelector('[data-adena]');
   if (adenaEl) adenaEl.textContent = String(options.adena);
 
@@ -84,6 +108,8 @@ export function renderShopWindow(options: ShopRenderOptions): void {
     const row = document.createElement('div');
     row.dataset['shopItemId'] = String(item.itemId);
     row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:6px 0;';
+
+    row.appendChild(createShopRowIcon(item.itemId, item.name));
 
     const label = document.createElement('span');
     label.style.flex = '1';
