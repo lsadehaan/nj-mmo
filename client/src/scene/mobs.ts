@@ -1,36 +1,60 @@
 import * as THREE from 'three';
+import { EntityAction } from '@nj/game-core';
+import { getCreatureEntry } from './creature/creature-manifest';
+import { loadGltfTemplate } from './creature/mesh-character';
+import { createMobAvatar, type MobAvatar } from './mob-avatar';
 
 export interface MobVisualState {
   id: string;
+  npcId: number;
   x: number;
   y: number;
   z: number;
   hp: number;
   maxHp: number;
+  action?: EntityAction;
+  actionSeq?: number;
 }
 
 export type MobMeshMap = Map<string, THREE.Group>;
 
+interface MobInstance {
+  group: THREE.Group;
+  avatar: MobAvatar | null;
+  usesCapsule: boolean;
+  hpBarYOffset: number;
+  pendingRemovalAtMs: number | null;
+  currentClip: string;
+}
+
 const MOB_BODY_COLOR = 0x884422;
 const HP_BAR_WIDTH = 1.2;
 const HP_BAR_HEIGHT = 0.12;
-const HP_BAR_Y_OFFSET = 1.6;
+const DEFAULT_HP_BAR_Y_OFFSET = 1.6;
+
+const templateLoads = new Map<string, ReturnType<typeof loadGltfTemplate>>();
 
 export function mobStateToVisual(state: {
   id: string;
+  npcId: number;
   x: number;
   y: number;
   z: number;
   hp: number;
   maxHp: number;
+  action?: EntityAction;
+  actionSeq?: number;
 }): MobVisualState {
   return {
     id: state.id,
+    npcId: state.npcId,
     x: state.x,
     y: state.y,
     z: state.z,
     hp: state.hp,
     maxHp: state.maxHp,
+    action: state.action,
+    actionSeq: state.actionSeq,
   };
 }
 
@@ -39,9 +63,9 @@ export function hpBarFillRatio(hp: number, maxHp: number): number {
   return Math.max(0, Math.min(1, hp / maxHp));
 }
 
-function createHpBar(): { group: THREE.Group; fill: THREE.Mesh } {
+function createHpBar(yOffset: number): { group: THREE.Group; fill: THREE.Mesh } {
   const group = new THREE.Group();
-  group.position.y = HP_BAR_Y_OFFSET;
+  group.position.y = yOffset;
 
   const bg = new THREE.Mesh(
     new THREE.PlaneGeometry(HP_BAR_WIDTH, HP_BAR_HEIGHT),
@@ -60,23 +84,22 @@ function createHpBar(): { group: THREE.Group; fill: THREE.Mesh } {
   return { group, fill };
 }
 
-export function updateHpBarFill(fill: THREE.Mesh, hp: number, maxHp: number): void {
-  const ratio = hpBarFillRatio(hp, maxHp);
-  fill.scale.x = ratio;
-  fill.visible = ratio > 0;
-}
-
-export function createMobGroup(mobId: string): THREE.Group {
-  const group = new THREE.Group();
-  group.userData.mobId = mobId;
-
-  const body = new THREE.Mesh(
+function createCapsuleBody(): THREE.Mesh {
+  return new THREE.Mesh(
     new THREE.CapsuleGeometry(0.4, 1, 4, 8),
     new THREE.MeshLambertMaterial({ color: MOB_BODY_COLOR, flatShading: true })
   );
+}
+
+export function createMobGroup(mobId: string, hpBarYOffset = DEFAULT_HP_BAR_Y_OFFSET): THREE.Group {
+  const group = new THREE.Group();
+  group.userData.mobId = mobId;
+
+  const body = createCapsuleBody();
+  body.name = 'capsuleBody';
   group.add(body);
 
-  const { group: hpBar, fill } = createHpBar();
+  const { group: hpBar, fill } = createHpBar(hpBarYOffset);
   hpBar.name = 'hpBar';
   fill.name = 'hpFill';
   group.add(hpBar);
@@ -84,9 +107,93 @@ export function createMobGroup(mobId: string): THREE.Group {
   return group;
 }
 
-export function applyMobVisual(group: THREE.Group, state: MobVisualState): void {
-  group.position.set(state.x, state.y, state.z);
-  const fill = group.getObjectByName('hpFill') as THREE.Mesh | null;
+function getOrLoadTemplate(model: string) {
+  let pending = templateLoads.get(model);
+  if (!pending) {
+    pending = loadGltfTemplate(model);
+    templateLoads.set(model, pending);
+  }
+  return pending;
+}
+
+function hasCapsuleBody(group: THREE.Group): boolean {
+  return group.getObjectByName('capsuleBody') !== null;
+}
+
+function ensureMobInstance(
+  map: MobMeshMap,
+  instances: Map<string, MobInstance>,
+  state: MobVisualState,
+  scene: THREE.Scene
+): MobInstance {
+  let instance = instances.get(state.id);
+  if (instance) return instance;
+
+  const entry = getCreatureEntry(state.npcId);
+  const hpBarYOffset = entry?.hpBarYOffset ?? DEFAULT_HP_BAR_Y_OFFSET;
+  const group = createMobGroup(state.id, hpBarYOffset);
+  scene.add(group);
+  map.set(state.id, group);
+
+  instance = {
+    group,
+    avatar: null,
+    usesCapsule: true,
+    hpBarYOffset,
+    pendingRemovalAtMs: null,
+    currentClip: 'idle',
+  };
+  instances.set(state.id, instance);
+
+  if (entry) {
+    getOrLoadTemplate(entry.model)
+      .then((template) => {
+        if (!instances.has(state.id)) return;
+        const current = instances.get(state.id)!;
+        if (!hasCapsuleBody(current.group)) return;
+
+        const avatar = createMobAvatar({ entry, template });
+        const capsule = current.group.getObjectByName('capsuleBody');
+        if (capsule) current.group.remove(capsule);
+        current.group.add(avatar.group);
+        current.avatar = avatar;
+        current.usesCapsule = false;
+      })
+      .catch(() => {
+        /* keep capsule fallback */
+      });
+  }
+
+  return instance;
+}
+
+export function updateHpBarFill(fill: THREE.Mesh, hp: number, maxHp: number): void {
+  const ratio = hpBarFillRatio(hp, maxHp);
+  fill.scale.x = ratio;
+  fill.visible = ratio > 0;
+}
+
+export function applyMobVisual(
+  instance: MobInstance,
+  state: MobVisualState,
+  nowMs = performance.now()
+): void {
+  const syncPayload = {
+    x: state.x,
+    y: state.y,
+    z: state.z,
+    action: state.action,
+    actionSeq: state.actionSeq,
+  };
+
+  if (instance.avatar) {
+    instance.group.position.set(state.x, state.y, state.z);
+    instance.avatar.sync(syncPayload, nowMs);
+  } else {
+    instance.group.position.set(state.x, state.y, state.z);
+  }
+
+  const fill = instance.group.getObjectByName('hpFill') as THREE.Mesh | null;
   if (fill) {
     updateHpBarFill(fill, state.hp, state.maxHp);
   }
@@ -94,24 +201,82 @@ export function applyMobVisual(group: THREE.Group, state: MobVisualState): void 
 
 export function syncMobVisual(
   map: MobMeshMap,
+  instances: Map<string, MobInstance>,
   state: MobVisualState,
-  scene: THREE.Scene
+  scene: THREE.Scene,
+  nowMs = performance.now()
 ): THREE.Group {
-  let group = map.get(state.id);
-  if (!group) {
-    group = createMobGroup(state.id);
-    scene.add(group);
-    map.set(state.id, group);
-  }
-  applyMobVisual(group, state);
-  return group;
+  const instance = ensureMobInstance(map, instances, state, scene);
+  applyMobVisual(instance, state, nowMs);
+  return instance.group;
 }
 
-export function removeMob(map: MobMeshMap, mobId: string, scene: THREE.Scene): void {
+export function tickMobVisuals(
+  instances: Map<string, MobInstance>,
+  dt: number,
+  nowMs = performance.now()
+): Map<string, string> {
+  const clips = new Map<string, string>();
+  for (const [mobId, instance] of instances.entries()) {
+    if (instance.avatar) {
+      instance.currentClip = instance.avatar.update(dt, nowMs);
+      clips.set(mobId, instance.currentClip);
+    } else {
+      clips.set(mobId, instance.currentClip);
+    }
+  }
+  return clips;
+}
+
+export function removeMob(
+  map: MobMeshMap,
+  instances: Map<string, MobInstance>,
+  mobId: string,
+  scene: THREE.Scene,
+  nowMs = performance.now()
+): boolean {
+  const instance = instances.get(mobId);
+  if (!instance) return true;
+
+  if (instance.avatar && !instance.avatar.isDiePlaying(nowMs)) {
+    instance.avatar.latchDie(nowMs);
+  }
+
+  if (instance.avatar?.isDiePlaying(nowMs)) {
+    instance.pendingRemovalAtMs = nowMs + 1200;
+    return false;
+  }
+
   const group = map.get(mobId);
-  if (!group) return;
-  scene.remove(group);
-  map.delete(mobId);
+  if (group) {
+    scene.remove(group);
+    map.delete(mobId);
+  }
+  instances.delete(mobId);
+  return true;
+}
+
+export function flushPendingMobRemovals(
+  map: MobMeshMap,
+  instances: Map<string, MobInstance>,
+  scene: THREE.Scene,
+  nowMs = performance.now()
+): string[] {
+  const removed: string[] = [];
+  for (const [mobId, instance] of [...instances.entries()]) {
+    if (instance.pendingRemovalAtMs === null) continue;
+    if (nowMs < instance.pendingRemovalAtMs) continue;
+    if (instance.avatar?.isDiePlaying(nowMs)) continue;
+
+    const group = map.get(mobId);
+    if (group) {
+      scene.remove(group);
+      map.delete(mobId);
+    }
+    instances.delete(mobId);
+    removed.push(mobId);
+  }
+  return removed;
 }
 
 export function listMobMeshes(map: MobMeshMap): THREE.Group[] {
@@ -125,4 +290,23 @@ export function faceHpBarsToCamera(map: MobMeshMap, camera: THREE.Camera): void 
       hpBar.quaternion.copy(camera.quaternion);
     }
   }
+}
+
+export function createMobInstanceMap(): Map<string, MobInstance> {
+  return new Map();
+}
+
+export function mobUsesCapsule(instances: Map<string, MobInstance>, mobId: string): boolean {
+  return instances.get(mobId)?.usesCapsule ?? true;
+}
+
+export function getMobHpBarYOffset(instances: Map<string, MobInstance>, mobId: string): number {
+  return instances.get(mobId)?.hpBarYOffset ?? DEFAULT_HP_BAR_Y_OFFSET;
+}
+
+/** @internal test helper */
+export function _getMobInstancesForTest(
+  instances: Map<string, MobInstance>
+): Map<string, MobInstance> {
+  return instances;
 }

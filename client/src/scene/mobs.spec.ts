@@ -1,26 +1,50 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import * as THREE from 'three';
+import { EntityAction, ACTION_DURATION_MS } from '@nj/game-core';
 import {
   createMobGroup,
+  createMobInstanceMap,
+  flushPendingMobRemovals,
+  getMobHpBarYOffset,
   hpBarFillRatio,
   mobStateToVisual,
+  mobUsesCapsule,
   removeMob,
   syncMobVisual,
   type MobMeshMap,
   type MobVisualState,
 } from './mobs';
+import { clearGltfTemplateCache } from './creature/mesh-character';
 
 describe('mobs visual mapping', () => {
-  it('maps server mob state to visual snapshot without mutating hp', () => {
-    const server = { id: 'mob-1', x: 12, y: 4.26, z: -18, hp: 30, maxHp: 41 };
-    const visual = mobStateToVisual(server);
+  afterEach(() => {
+    clearGltfTemplateCache();
+  });
 
-    expect(visual).toEqual({
+  it('maps server mob state to visual snapshot without mutating hp', () => {
+    const server = {
       id: 'mob-1',
+      npcId: 20001,
       x: 12,
       y: 4.26,
       z: -18,
       hp: 30,
       maxHp: 41,
+      action: EntityAction.Attack,
+      actionSeq: 2,
+    };
+    const visual = mobStateToVisual(server);
+
+    expect(visual).toEqual({
+      id: 'mob-1',
+      npcId: 20001,
+      x: 12,
+      y: 4.26,
+      z: -18,
+      hp: 30,
+      maxHp: 41,
+      action: EntityAction.Attack,
+      actionSeq: 2,
     });
     expect(visual).not.toBe(server);
     server.hp = 0;
@@ -37,16 +61,18 @@ describe('mobs visual mapping', () => {
   it('creates and updates mob mesh position and hp bar from server snapshot', () => {
     const scene = { add: () => undefined, remove: () => undefined };
     const map: MobMeshMap = new Map();
+    const instances = createMobInstanceMap();
 
     const first: MobVisualState = {
       id: 'mob-a',
+      npcId: 20001,
       x: 1,
       y: 2,
       z: 3,
       hp: 40,
       maxHp: 80,
     };
-    syncMobVisual(map, first, scene as never);
+    syncMobVisual(map, instances, first, scene as never);
     expect(map.size).toBe(1);
     const group = map.get('mob-a')!;
     expect(group.position.x).toBe(1);
@@ -56,6 +82,7 @@ describe('mobs visual mapping', () => {
 
     syncMobVisual(
       map,
+      instances,
       { ...first, x: 4, y: 5, z: 6, hp: 20, maxHp: 80 },
       scene as never
     );
@@ -65,18 +92,90 @@ describe('mobs visual mapping', () => {
     expect(group.position.z).toBe(6);
   });
 
-  it('removes mob group from map and scene', () => {
+  it('uses manifest hpBarYOffset for mapped npcIds', () => {
+    const scene = { add: () => undefined, remove: () => undefined };
+    const map: MobMeshMap = new Map();
+    const instances = createMobInstanceMap();
+    syncMobVisual(
+      map,
+      instances,
+      { id: 'mob-g', npcId: 20001, x: 0, y: 0, z: 0, hp: 10, maxHp: 10 },
+      scene as never
+    );
+    expect(getMobHpBarYOffset(instances, 'mob-g')).toBe(1.45);
+  });
+
+  it('keeps capsule fallback for unknown npcId', () => {
+    const scene = { add: () => undefined, remove: () => undefined };
+    const map: MobMeshMap = new Map();
+    const instances = createMobInstanceMap();
+    syncMobVisual(
+      map,
+      instances,
+      { id: 'mob-x', npcId: 99999, x: 0, y: 0, z: 0, hp: 10, maxHp: 10 },
+      scene as never
+    );
+    expect(mobUsesCapsule(instances, 'mob-x')).toBe(true);
+    expect(map.get('mob-x')?.getObjectByName('capsuleBody')).not.toBeNull();
+  });
+
+  it('defers scene removal while die clip is latched', () => {
+    vi.useFakeTimers();
     const removed: unknown[] = [];
     const scene = {
       add: () => undefined,
       remove: (obj: unknown) => removed.push(obj),
     };
     const map: MobMeshMap = new Map();
+    const instances = createMobInstanceMap();
+    const group = createMobGroup('mob-d');
+    map.set('mob-d', group);
+    const latchDie = vi.fn();
+    const isDiePlaying = vi
+      .fn()
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(true)
+      .mockReturnValue(false);
+    instances.set('mob-d', {
+      group,
+      avatar: { latchDie, isDiePlaying } as never,
+      usesCapsule: false,
+      hpBarYOffset: 1.6,
+      pendingRemovalAtMs: null,
+      currentClip: 'die',
+    });
+
+    expect(removeMob(map, instances, 'mob-d', scene as never, 0)).toBe(false);
+    expect(removed).toHaveLength(0);
+
+    const instance = instances.get('mob-d')!;
+    instance.pendingRemovalAtMs = ACTION_DURATION_MS[EntityAction.Die];
+    flushPendingMobRemovals(map, instances, scene as never, ACTION_DURATION_MS[EntityAction.Die] + 1);
+    expect(map.has('mob-d')).toBe(false);
+    expect(removed).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
+  it('removes mob group from map and scene immediately without avatar', () => {
+    const removed: unknown[] = [];
+    const scene = {
+      add: () => undefined,
+      remove: (obj: unknown) => removed.push(obj),
+    };
+    const map: MobMeshMap = new Map();
+    const instances = createMobInstanceMap();
     const group = createMobGroup('mob-b');
     map.set('mob-b', group);
+    instances.set('mob-b', {
+      group,
+      avatar: null,
+      usesCapsule: true,
+      hpBarYOffset: 1.6,
+      pendingRemovalAtMs: null,
+      currentClip: 'idle',
+    });
 
-    removeMob(map, 'mob-b', scene as never);
-
+    expect(removeMob(map, instances, 'mob-b', scene as never)).toBe(true);
     expect(map.has('mob-b')).toBe(false);
     expect(removed).toEqual([group]);
   });
