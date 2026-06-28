@@ -264,16 +264,17 @@ Never run phases in parallel.
 - [x] (Optional) **Ground loot drop** marker rendered before pickup
 - [x] Visual gate: each effect captured and reviewed
 
-## Phase 14 — UI / 2D iconography `[ ]`
+## Phase 14 — UI / 2D iconography `[x]`
 
 > Done when: the hotbar, shop, and inventory show real icons instead of text/colour
 > swatches.
 >
 > **Skill:** `game-designer` → `references/create-icon.md`.
 
-- [ ] **Power Strike** skill icon in the hotbar/cooldown UI
-- [ ] Shop/inventory item icons: Healing Potion (1060), Soulshot No-grade (1835),
+- [x] **Power Strike** skill icon in the hotbar/cooldown UI
+- [x] Shop/inventory item icons: Healing Potion (1060), Soulshot No-grade (1835),
       Wooden Arrow (17), Squire's Sword (2369), Adena (57)
+- [x] (Lower priority) icons for loot-table items (rings, recipes, materials)
 - [ ] (Lower priority) icons for loot-table items (rings, recipes, materials)
 
 ## Phase 15 — Environment art upgrade (optional) `[ ]`

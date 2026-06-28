@@ -151,6 +151,22 @@
 
 ## Handoff
 
+**Phase 14 — UI / 2D iconography: COMPLETE (Verifier PASS, first try).**
+`.specs/features/phase-14-ui-icons/validation.md` records PASS: discrimination sensor
+4/4 mutations killed, gate green (194 client unit + 20/20 e2e), 31/32 ACs traced
+(ICON-32 shop re-render non-blocking). Power Strike icon in hotbar/cooldown, item icons
+(57/17/1060/1835/2369) in shop + inventory, P3 loot-table icons all included. Geometric
+owned placeholders documented in ATTRIBUTION.md for pre-launch CC0 swap (AD-004).
+ROADMAP Phase 14 flipped to `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 15.**
+
+**Next step:** **Phase 15 — Environment art upgrade (optional)** (`.specs/ROADMAP.md`).
+Lowest priority — replace village buildings, trees, rocks, and peace-zone marker with
+cohesive low-poly GLB props instead of raw primitives. Visual gate mandatory per AD-017.
+
+---
+
 **Phase 13 — Combat & world VFX: COMPLETE (Verifier PASS, fix iteration 1).**
 `.specs/features/phase-13-combat-vfx/validation.md` records PASS over diff
 `e58607f..6d64e4f`: discrimination sensor 3/3 mutations killed, gate green (175 client
