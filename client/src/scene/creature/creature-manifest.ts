@@ -44,6 +44,15 @@ export const QUATERNIUS_DEER_CLIP_MAP: Record<AnimationClip, string> = {
   die: 'Death',
 };
 
+/** Quaternius Ultimate Monsters Big rig (Elpy, Elder Keltir, Elder Wolf, Toad, Orc). */
+export const ULTIMATE_BIG_MONSTER_CLIP_MAP: Record<AnimationClip, string> = {
+  idle: 'Idle',
+  move: 'Walk',
+  attack: 'Punch',
+  cast: 'Punch',
+  die: 'Death',
+};
+
 /**
  * Visual config keyed by seeded npcId.
  * Gremlin and Goblin use Quaternius Ultimate Monsters GLBs (import-pack-assets.mjs).
@@ -77,6 +86,41 @@ const CREATURE_MANIFEST: Record<number, CreatureEntry> = {
     scale: 0.66,
     feetOffsetY: 0,
     hpBarYOffset: 1.05,
+  },
+  20432: {
+    model: '/models/monsters/Elpy.glb',
+    clipMap: ULTIMATE_BIG_MONSTER_CLIP_MAP,
+    scale: 0.35,
+    feetOffsetY: 0,
+    hpBarYOffset: 0.55,
+  },
+  20544: {
+    model: '/models/monsters/ElderKeltir.glb',
+    clipMap: ULTIMATE_BIG_MONSTER_CLIP_MAP,
+    scale: 0.7,
+    feetOffsetY: 0,
+    hpBarYOffset: 1.1,
+  },
+  20442: {
+    model: '/models/monsters/ElderWolf.glb',
+    clipMap: ULTIMATE_BIG_MONSTER_CLIP_MAP,
+    scale: 1.2,
+    feetOffsetY: 0,
+    hpBarYOffset: 1.0,
+  },
+  20121: {
+    model: '/models/monsters/GiantToad.glb',
+    clipMap: ULTIMATE_BIG_MONSTER_CLIP_MAP,
+    scale: 0.75,
+    feetOffsetY: 0,
+    hpBarYOffset: 1.1,
+  },
+  20130: {
+    model: '/models/monsters/Orc.glb',
+    clipMap: ULTIMATE_BIG_MONSTER_CLIP_MAP,
+    scale: 0.95,
+    feetOffsetY: 0.5,
+    hpBarYOffset: 2.2,
   },
 };
 

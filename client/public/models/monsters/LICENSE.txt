@@ -1,10 +1,22 @@
-Monster models imported from Quaternius "Ultimate Monsters" (CC0).
+Monster models imported from Quaternius packs (CC0).
 
-Gremlin.glb — GreenSpikyBlob.gltf (Blob)
-Goblin.glb — Orc.gltf (Blob)
-Wolf.glb, BeardedKeltir.glb — unchanged (Quaternius Ultimate Animated Animals)
+Gremlin.glb — Ultimate Monsters Blob/GreenSpikyBlob.gltf
+Goblin.glb — Ultimate Monsters Blob/Orc.gltf
+Wolf.glb — Quaternius Ultimate Animated Animals (CC0)
+BeardedKeltir.glb — Quaternius Ultimate Animated Animals deer (CC0)
 
-Clip map: ULTIMATE_MONSTER_CLIP_MAP in creature-manifest.ts
-  Idle, Walk, Bite_Front (attack/cast), Death
+Phase 16 — Talking Island mob expansion:
+Elpy.glb — Ultimate Monsters Big/Bunny.gltf
+ElderKeltir.glb — Ultimate Monsters Big/Monkroose.gltf
+ElderWolf.glb — Ultimate Monsters Big/Dino.gltf (distinct quadruped from Wolf.glb)
+GiantToad.glb — Ultimate Monsters Big/Frog.gltf
+Orc.glb — Ultimate Monsters Big/Orc.gltf (humanoid biped; NOT Blob Orc used by Goblin)
+
+Clip maps: creature-manifest.ts
+  Blob mobs: ULTIMATE_MONSTER_CLIP_MAP (Idle, Walk, Bite_Front, Death)
+  Animals: QUATERNIUS_WOLF_CLIP_MAP / QUATERNIUS_DEER_CLIP_MAP
+  Big monsters: ULTIMATE_BIG_MONSTER_CLIP_MAP (Idle, Walk, Punch, Death)
+
+Pre-launch: swap CC0 stand-ins for licensed L2-authentic assets where required (AD-004).
 
 Imported by: node scripts/import-pack-assets.mjs
