@@ -12,7 +12,7 @@ describe('createAnimator', () => {
   it('returns attack over move then reverts after duration', () => {
     const rig = buildHumanoid();
     const animator = createAnimator(rig);
-    let now = 1000;
+    const now = 1000;
 
     const moving = animator.update(
       { action: EntityAction.None, actionSeq: 0, locomotion: 'move' },

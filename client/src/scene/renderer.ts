@@ -26,6 +26,8 @@ import {
   syncNpcVisual,
   type NpcMeshMap,
 } from './npc-renderer';
+import { createPlayerAvatar } from './player-avatar';
+import type { AnimationClip } from '@nj/game-core';
 
 const WORLD_SEED = 42;
 const TERRAIN_OPTS = { size: 200, segments: 64, heightScale: 10, seed: WORLD_SEED };
@@ -39,6 +41,7 @@ export interface GameRenderer {
   render: () => void;
   handleClick: (ev: RaycastInput) => void;
   syncLocalPlayer: (x: number, y: number, z: number) => void;
+  getCurrentAnimationClip: () => AnimationClip;
   syncRemotePlayer: (sessionId: string, x: number, y: number, z: number) => void;
   removeRemotePlayer: (sessionId: string) => void;
   syncMob: (mob: {
@@ -153,13 +156,11 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     );
   }
 
-  const playerMesh = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.4, 1, 4, 8),
-    new THREE.MeshLambertMaterial({ color: 0x3366cc, flatShading: true })
-  );
-  scene.add(playerMesh);
+  const playerAvatar = createPlayerAvatar();
+  scene.add(playerAvatar.group);
 
   const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
+  let currentAnimationClip: AnimationClip = 'idle';
   let moveIntentHandler: ((intent: MovementIntent) => void) | null = null;
   let mobTargetHandler: ((mobId: string) => void) | null = null;
   const remoteMeshes: RemotePlayerMeshMap = new Map();
@@ -172,7 +173,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     localPosition.x = x;
     localPosition.y = y;
     localPosition.z = z;
-    playerMesh.position.set(x, y, z);
+    playerAvatar.sync({ x, y, z });
     applyTo(
       {
         position: camera.position,
@@ -243,10 +244,12 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     removeNpc(npcMeshes, npcKey, scene);
   };
 
-  const tick = (_dt: number): void => {
-    void _dt;
+  const tick = (dt: number): void => {
+    currentAnimationClip = playerAvatar.update(dt);
     faceHpBarsToCamera(mobMeshes, camera);
   };
+
+  const getCurrentAnimationClip = (): AnimationClip => currentAnimationClip;
 
   const render = (): void => {
     renderer.render(scene, camera);
@@ -315,6 +318,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     render,
     handleClick,
     syncLocalPlayer,
+    getCurrentAnimationClip,
     syncRemotePlayer,
     removeRemotePlayer: removeRemotePlayerById,
     syncMob,
