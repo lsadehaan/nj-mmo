@@ -259,6 +259,10 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const tick = (dt: number): void => {
     currentAnimationClip = playerAvatar.update(dt);
+    const player = getGameState().player;
+    if (player.action !== currentAnimationClip) {
+      setPlayer({ ...player, action: currentAnimationClip });
+    }
     faceHpBarsToCamera(mobMeshes, camera);
   };
 

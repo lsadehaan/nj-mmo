@@ -70,8 +70,30 @@ export function createPlayerAvatar(options?: { hasWeapon?: boolean }): PlayerAva
     prevZ = p.z;
   };
 
+  let frameX = 0;
+  let frameZ = 0;
+  let frameInitialized = false;
+
   const update = (dt: number, nowMs = performance.now()): AnimationClip => {
     void dt;
+    if (!frameInitialized) {
+      frameX = group.position.x;
+      frameZ = group.position.z;
+      frameInitialized = true;
+    }
+
+    const frameDx = group.position.x - frameX;
+    const frameDz = group.position.z - frameZ;
+    const frameDelta = Math.hypot(frameDx, frameDz);
+    frameX = group.position.x;
+    frameZ = group.position.z;
+
+    if (locomotion === 'move') {
+      locomotion = frameDelta > IDLE_THRESHOLD ? 'move' : 'idle';
+    } else {
+      locomotion = frameDelta > MOVE_THRESHOLD ? 'move' : 'idle';
+    }
+
     const clip = animator.update(
       { action, actionSeq, locomotion },
       nowMs
