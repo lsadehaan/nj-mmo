@@ -91,7 +91,7 @@ Never run phases in parallel.
 > params; recipes commit to a manifest; validation is layered (deterministic unit +
 > `__GAME_STATE__` e2e in CI; vision/turntable offline-only).
 
-## Phase 8 — Player character: procedural humanoid rig + action animation `[ ]`
+## Phase 8 — Player character: procedural humanoid rig + action animation `[x]`
 
 > Done when: the local player renders as an articulated low-poly humanoid (no
 > capsule) that idles, walks/faces travel direction, attacks, casts, and dies —
@@ -99,11 +99,11 @@ Never run phases in parallel.
 > reusable rig contract + pure animation state machine (AD-015, AD-016).
 > Spec: `.specs/features/phase-8-character-rig-animation/`.
 
-- [ ] Shared `EntityAction` enum + pure animation state machine (`game-core`)
-- [ ] Render-only `action`/`actionSeq` on `PlayerState`; server sets on attack/skill/death
-- [ ] Procedural segmented humanoid builder + named-socket rig contract (client)
-- [ ] Procedural clips (idle/move/attack/cast/die) + animator; capsule replaced
-- [ ] `__GAME_STATE__.player.action` + Playwright transitions (idle→move→attack→cast)
+- [x] Shared `EntityAction` enum + pure animation state machine (`game-core`)
+- [x] Render-only `action`/`actionSeq` on `PlayerState`; server sets on attack/skill/death
+- [x] Procedural segmented humanoid builder + named-socket rig contract (client)
+- [x] Procedural clips (idle/move/attack/cast/die) + animator; capsule replaced
+- [x] `__GAME_STATE__.player.action` + Playwright transitions (idle→move→attack→cast)
 
 ---
 

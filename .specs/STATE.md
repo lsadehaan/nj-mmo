@@ -133,6 +133,31 @@
 
 ## Handoff
 
+**Phase 8 — Player character rig & animation: COMPLETE (Verifier PASS, fix iteration 1).**
+`.specs/features/phase-8-character-rig-animation/validation.md` records PASS over diff
+`c35cea9..HEAD`: discrimination sensor 7/7 mutants killed (M1 a behaviorally-equivalent
+no-op reorder), gate green (game-core 66, server 172, client 93, e2e 14), all 12 P1 ACs
+traced. Fix iteration 1 (`035aff5`) closed CHAR-08 ordering gap (DIE-before-respawn spy)
+and CHAR-04.5 idle determinism gap (spine position bob). Local player now renders as a
+segmented articulated humanoid (no capsule); idle/move/attack/cast/die animations driven
+by server-replicated render-only `action`/`actionSeq` signal (AD-015/AD-016).
+ROADMAP Phase 8 flipped to `[x]`.
+
+**Loop status: STOPPED — no further unchecked in-scope phases remain.**
+The autonomous `/loop` heartbeat is NOT re-armed.
+
+**Next step:** Post-MVP phases (asset pipeline, deployment) are out of current scope.
+To continue, scope a new phase (remote player avatars, NPC/mob animation using the
+established rig contract, or production deployment when credentials are available).
+
+### Phase 8 deviations (Implementer)
+
+| Task | Deviation | Reason |
+| ---- | --------- | ------ |
+| T14 | Added frame-delta locomotion in `player-avatar.update()` and per-tick `setPlayer(action)` in `renderer.tick()` | Server sync alone did not transition `move → idle` or publish clip changes between patches; required for e2e observability (AD-009). Verifier confirmed this does not weaken server authority. |
+
+---
+
 **Phase 7 — Progression loop: COMPLETE (Verifier PASS). 🎉 MVP COMPLETE.**
 `.specs/features/phase-7-progression-golive/validation.md` records PASS over diff
 `bfbead0..HEAD`: discrimination sensor 7/7 mutants killed, gate green (game-core
