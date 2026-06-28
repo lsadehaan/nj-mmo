@@ -23,7 +23,7 @@ Map the effect to the exact server-owned signal it visualizes. Never fire from a
 
 ## Step 2 — Build the effect (low-poly / stylized to match)
 
-Prefer cheap, procedural visuals over heavy assets: `THREE.Points` particle bursts, additive sprite quads, a scaling/fading mesh, or a small shader. If you use a texture/sprite sheet, vendor it with a license like any asset (`client/public/vfx/` + `LICENSE.txt`); pure procedural VFX need no asset file. Keep the silhouette readable and consistent with the flat-shaded world.
+Prefer cheap, procedural visuals over heavy assets: `THREE.Points` particle bursts, additive sprite quads, a scaling/fading mesh, or a small shader. If you use a texture/sprite sheet, vendor it under `client/public/vfx/` (with `LICENSE.txt` if it has one — any placeholder is fine pre-live per golden rule 2, tracked for replacement); pure procedural VFX need no asset file at all. Keep the silhouette readable and consistent with the flat-shaded world.
 
 Put VFX in `client/src/scene/vfx/` (one file per effect, or extend `skill-flash.ts`).
 
@@ -63,7 +63,7 @@ Capture a frame **mid-effect** (in-game screenshot, or trigger it in the lab) an
 ## Checklist
 
 - [ ] Authoritative trigger identified (server signal/state change; not a client guess)
-- [ ] Effect built (procedural preferred; any texture vendored + licensed)
+- [ ] Effect built (procedural preferred; any texture vendored, license if it has one / placeholder tracked)
 - [ ] Fixed-duration lifecycle with geometry/material disposal; pooled if frequent
 - [ ] Hooked at the state/event site; fires once per event at the right position
 - [ ] Mid-effect frame reviewed (human approval if new)

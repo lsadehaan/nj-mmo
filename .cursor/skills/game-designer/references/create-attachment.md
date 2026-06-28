@@ -6,11 +6,11 @@ The single idea: **find the hand bone, add the weapon as its child, seat the gri
 
 ---
 
-## Step 1 — Source a license-clean prop GLB
+## Step 1 — Source a prop GLB (license preferred, not required pre-live)
 
-Find a CC0 / owned / licensed weapon or item mesh (KayKit weapon packs match the KayKit characters; Quaternius has weapon packs too). It is almost always a **static mesh with no animations** — that's expected. Vendor it under `client/public/models/props/` (or `weapons/`) with its `LICENSE.txt`.
+Find a weapon or item mesh (KayKit weapon packs match the KayKit characters; Quaternius has weapon packs too). It is almost always a **static mesh with no animations** — that's expected. Vendor it under `client/public/models/props/` (or `weapons/`) with its `LICENSE.txt` if it ships one. **Pre-live, any placeholder is fine** (golden rule 2) — unlicensed or even proprietary — as long as it's tracked for pre-launch replacement.
 
-**Done when:** the `.glb` is vendored with a license proving CC0/owned/licensed.
+**Done when:** the `.glb` is vendored (license beside it if it has one; otherwise the placeholder is noted for later replacement).
 
 ## Step 2 — Inspect the prop and the grip
 
@@ -80,7 +80,7 @@ Render `idle` and `attack` with the weapon attached (`scripts/shoot-character.mj
 
 ## Checklist
 
-- [ ] Prop GLB + LICENSE.txt vendored (static mesh expected)
+- [ ] Prop GLB vendored (static mesh expected; license if it ships one, else placeholder tracked)
 - [ ] Grip location understood
 - [ ] Real hand-bone name found by traversing the skeleton (not guessed)
 - [ ] `attachToBone` parents prop to the bone; no own mixer/update

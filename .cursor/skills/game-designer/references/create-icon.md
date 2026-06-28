@@ -6,11 +6,11 @@ The targets are the existing UI components: `client/src/hud/power-strike-cooldow
 
 ---
 
-## Step 1 — Source license-clean icons
+## Step 1 — Source icons (license preferred, not required pre-live)
 
-Use a CC0 / properly-licensed icon set (e.g. game-icons.net, CC-BY with attribution; or owned art). Vendor them under `client/public/icons/` (`skills/`, `items/`) with a `LICENSE.txt`/attribution file. Keep a consistent square size and visual style across the set.
+Use an icon set (e.g. game-icons.net, CC-BY with attribution; or owned art). Vendor them under `client/public/icons/` (`skills/`, `items/`), with a `LICENSE.txt`/attribution file if the set ships one. **Pre-live, any placeholder icons are acceptable** (golden rule 2) — unlicensed or even proprietary — tracked for pre-launch replacement. Keep a consistent square size and visual style across the set.
 
-**Done when:** icon files are under `client/public/icons/...` with a license/attribution file beside them.
+**Done when:** icon files are under `client/public/icons/...` (license/attribution beside them if any; otherwise placeholders noted for later replacement).
 
 ## Step 2 — Manifest: id → icon path
 
@@ -49,7 +49,7 @@ Because this is DOM, assert structure directly (the AGENTS.md rule: HUD is DOM-t
 
 ## Checklist
 
-- [ ] Icons sourced + licensed under `client/public/icons/...`
+- [ ] Icons sourced under `client/public/icons/...` (license/attribution if any; else placeholder tracked)
 - [ ] `id → path` manifest for skills and items, plus a fallback
 - [ ] Hotbar/shop/inventory render `<img>` from the manifest with alt text
 - [ ] Unmapped id → placeholder (no broken image)
@@ -60,5 +60,5 @@ Because this is DOM, assert structure directly (the AGENTS.md rule: HUD is DOM-t
 - ❌ Baking icons into the 3D scene instead of the DOM HUD.
 - ❌ Hardcoding filenames in components instead of a manifest.
 - ❌ No fallback → broken-image icons for any unmapped id.
-- ❌ Shipping unlicensed icons or skipping attribution for CC-BY sets.
+- ❌ Letting an unlicensed/proprietary placeholder icon reach **production** untracked (fine pre-live if tracked), or skipping attribution for CC-BY sets you do keep.
 - ❌ Asserting icons via pixel screenshot instead of the DOM `<img>`.

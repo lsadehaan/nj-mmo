@@ -6,9 +6,9 @@ For a quick swap among assets that already share the rig (KayKit Knight/Mage/Rog
 
 ---
 
-## Step 1 — Source a license-clean rigged GLB
+## Step 1 — Source a rigged GLB (license preferred, not required pre-live)
 
-Find a CC0 / owned / commercially-licensed rigged character with at least idle, walk, an attack, and a death animation (cast optional — fall back to attack). Curated-first: KayKit, Quaternius, Mixamo.
+Find a rigged character with at least idle, walk, an attack, and a death animation (cast optional — fall back to attack). Curated-first: KayKit, Quaternius, Mixamo. **Pre-live, any model is an acceptable placeholder** (golden rule 2) — unlicensed, unknown-license, or even proprietary — as long as you track it for pre-launch replacement.
 
 ```bash
 mkdir -p client/public/models/characters && cd client/public/models/characters
@@ -18,7 +18,7 @@ curl -sSL -o Rogue.glb "$BASE/Rogue.glb"
 curl -sSL -o LICENSE.txt "https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/main/LICENSE.txt"
 ```
 
-**Done when:** the `.glb` is under `client/public/models/characters/` and a `LICENSE.txt` proving CC0/owned/licensed sits beside it.
+**Done when:** the `.glb` is under `client/public/models/characters/`; if it ships a license, `LICENSE.txt` sits beside it, otherwise the unlicensed placeholder is noted for pre-launch replacement.
 
 ## Step 2 — Inspect the GLB (the model names the tracks, not you)
 
@@ -117,7 +117,7 @@ If you changed anything architectural (a new asset family, a new clip map conven
 
 ## Checklist (paste into your working notes)
 
-- [ ] 1. GLB + LICENSE.txt vendored
+- [ ] 1. GLB vendored (LICENSE.txt if licensed; else placeholder tracked for pre-launch replacement)
 - [ ] 2. Track names + size inspected
 - [ ] 3. Clip map covers idle/move/attack/cast/die (real names)
 - [ ] 4. Renders through existing `createMeshCharacter`

@@ -1,6 +1,6 @@
 ---
 name: game-designer
-description: Build production-quality visual game assets for this Three.js + Colyseus MMO: rigged characters, monsters/mobs and NPCs (license-clean GLTF + skeletal animation via the game-core animation state machine), equipped-weapon/bone attachments, combat and world VFX, UI/item icons, and environment props. Use when asked to create or add a character, monster, mob, creature or NPC; skin the player or remote players; replace a capsule; attach or show an equipped weapon; add a skill, hit, death, level-up, target-ring or other VFX; add skill or item icons for the hotbar/shop/inventory; replace primitive buildings/trees/rocks with props; import a model; or advance any visual-asset roadmap item (Phases 8+). After this file, read the matching recipe in references/: create-character, create-monster, create-attachment, create-vfx, create-icon, create-prop. Do NOT use for combat balance, server rules, XP/drop formulas, or non-visual gameplay logic (use spec-driven-execution / tlc-spec-driven instead).
+description: Build production-quality visual game assets for this Three.js + Colyseus MMO: rigged characters, monsters/mobs and NPCs (rigged GLTF + skeletal animation via the game-core animation state machine), equipped-weapon/bone attachments, combat and world VFX, UI/item icons, and environment props. Use when asked to create or add a character, monster, mob, creature or NPC; skin the player or remote players; replace a capsule; attach or show an equipped weapon; add a skill, hit, death, level-up, target-ring or other VFX; add skill or item icons for the hotbar/shop/inventory; replace primitive buildings/trees/rocks with props; import a model; or advance any visual-asset roadmap item (Phases 8+). After this file, read the matching recipe in references/: create-character, create-monster, create-attachment, create-vfx, create-icon, create-prop. Do NOT use for combat balance, server rules, XP/drop formulas, or non-visual gameplay logic (use spec-driven-execution / tlc-spec-driven instead).
 license: CC-BY-4.0
 metadata:
   author: wneto
@@ -51,7 +51,7 @@ If you find yourself baking "which clip" decisions into the body, or trusting th
 ## Golden rules (non-negotiable)
 
 1. **Server authority.** The client never decides game outcomes. Animation `action` is a render-only mirror of server state (AD-015); deriving it client-side from guessed events is forbidden. Locomotion may be derived client-side from server position deltas (it is purely cosmetic).
-2. **License hygiene (AD-004 stays in force).** Every mesh must be CC0 / owned / properly commercially-licensed. Never ship proprietary Lineage 2 assets. Vendor the asset's `LICENSE.txt` next to the `.glb`. Curated CC0 first (KayKit, Quaternius, Mixamo); AI-generated meshes are allowed (AD-017) but still need a clean license and the visual gate.
+2. **License hygiene — suspended pre-live (current stage, explicit decision).** The game is **not live yet**, so use **whatever asset is available** — unlicensed, unknown-license, or even proprietary — as a placeholder to move fast and prove the look. The one hard requirement is **traceability**: track every non-clean asset (a note in the asset folder and/or the roadmap) so it can be swapped for CC0 / owned / licensed art **before go-live**. This does not change the launch bar — shipping unlicensed/proprietary assets to production is still a legal blocker — it only defers cleanup to before launch. When an asset *does* ship a license, still vendor its `LICENSE.txt`. Curated CC0 (KayKit, Quaternius, Mixamo) and AI-generated meshes remain *preferred* when equally easy. This suspends AD-004 for prototyping; full hygiene must be restored before launch.
 3. **Reuse the brain.** New entities reuse `stepAnimation` and the `idle/move/attack/cast/die` vocabulary. Per-asset differences live only in the clip-name map and the GLB.
 4. **Visual gate (strongly recommended default).** Before calling a character/monster "done", render each clip to an image and *look* at it — and prefer a human approval for the first version of any new entity. This is what was missing the first time and produced a green-but-wrong result. You MAY proceed on logic-only tests if truly blocked from rendering, but say so explicitly and flag it as unverified visually.
 5. **Determinism in tests.** Logic is unit-tested with explicit timestamps; the brain has no wall-clock or RNG of its own.
@@ -60,7 +60,7 @@ If you find yourself baking "which clip" decisions into the body, or trusting th
 
 This is the high-level shape; the recipe files give exact commands and done-criteria per step.
 
-1. **Source** a license-clean rigged GLB with the needed clips → `client/public/models/characters/` (+ `LICENSE.txt`).
+1. **Source** a rigged GLB with the needed clips → `client/public/models/characters/` (+ `LICENSE.txt` if it has one; unlicensed placeholders OK pre-live per golden rule 2).
 2. **Inspect** it to read its real animation track names and size (the model names the tracks, not you).
 3. **Map** the asset's tracks to our `idle/move/attack/cast/die` vocabulary (the clip map).
 4. **Body**: load via `createMeshCharacter` (`GLTFLoader` + `AnimationMixer`).
@@ -90,13 +90,13 @@ This is the high-level shape; the recipe files give exact commands and done-crit
 - ❌ Declaring done from green unit/e2e tests without rendering and looking. (This is the original failure.)
 - ❌ Hardcoding clip choice in the body, or driving attack animation from a client guess instead of the server signal.
 - ❌ Adding the same loaded skinned mesh to the scene twice (breaks skinning) — clone per instance (see monster recipe).
-- ❌ Committing a `.glb` without its license, or using assets of unclear provenance.
+- ❌ Letting an unlicensed/proprietary placeholder reach **production** untracked. Pre-live they're allowed — the failure mode is an *untracked* placeholder that silently survives to launch; always leave a replace-before-launch breadcrumb.
 - ❌ Inventing animation track names — always inspect the GLB and map its real names.
 - ❌ Tuning scale/feet/facing by guessing instead of rendering a frame.
 
 ## Definition of done (per entity)
 
-- [ ] Asset + `LICENSE.txt` vendored; provenance is CC0/owned/licensed.
+- [ ] Asset vendored; `LICENSE.txt` included if one exists; any unlicensed/proprietary placeholder flagged for pre-launch replacement.
 - [ ] Clip map covers `idle/move/attack/cast/die` against the GLB's real track names.
 - [ ] Body wired through the brain + server signal (no client authority over outcomes).
 - [ ] Scale/feet/facing tuned against a rendered frame.

@@ -6,11 +6,11 @@ The key constraint: **keep the existing layout data, swap only the geometry.** B
 
 ---
 
-## Step 1 — Source license-clean prop GLBs
+## Step 1 — Source prop GLBs (license preferred, not required pre-live)
 
-Find CC0 / owned / licensed low-poly props that match the flat-shaded art style (KayKit Medieval Builder / Dungeon, Quaternius nature packs). Vendor under `client/public/models/props/` with `LICENSE.txt`. You want a small kit: a few building variants, 1–2 tree types, 1–2 rock types, a marker.
+Find low-poly props that match the flat-shaded art style (KayKit Medieval Builder / Dungeon, Quaternius nature packs). Vendor under `client/public/models/props/` with `LICENSE.txt` if they ship one. **Pre-live, any placeholders are acceptable** (golden rule 2) — unlicensed or even proprietary — tracked for pre-launch replacement. You want a small kit: a few building variants, 1–2 tree types, 1–2 rock types, a marker.
 
-**Done when:** prop GLBs + a license are vendored under `client/public/models/props/`.
+**Done when:** prop GLBs are vendored under `client/public/models/props/` (license beside them if any; otherwise placeholders noted for replacement).
 
 ## Step 2 — Loader + cache; clone or instance per placement
 
@@ -52,7 +52,7 @@ Props are **visual only.** Walkability/blockers are separate authoritative data 
 
 ## Checklist
 
-- [ ] Prop GLBs + LICENSE.txt vendored under `client/public/models/props/`
+- [ ] Prop GLBs vendored under `client/public/models/props/` (license if any; else placeholder tracked)
 - [ ] Load-once + clone/`InstancedMesh` reuse (no per-placement reload)
 - [ ] `addBox/addTree/addRock` swapped to GLBs; layout/scatter data unchanged
 - [ ] Scale/orientation tuned against a rendered frame; style cohesive
