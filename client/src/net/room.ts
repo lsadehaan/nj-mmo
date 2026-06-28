@@ -19,6 +19,8 @@ import {
   mountInteractPrompt,
   openNpcUiForInteract,
   setInteractPromptVisible,
+  KATERINA_NPC_ID,
+  ROXXY_NPC_ID,
   type NpcPresence,
 } from '../npc-interaction';
 import { getGameState } from '../test-hook';
@@ -156,6 +158,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   let prevPowerStrikeCooldownEndMs = 0;
   let localItemCounts: Record<number, number> = {};
   const npcPresences: NpcPresence[] = [];
+  let greetUiEpoch = 0;
+
+  const fireNpcGreet = (npcId: number): void => {
+    greetUiEpoch += 1;
+    const player = getGameState().player;
+    game.triggerNpcGreet(npcId, { x: player.x, z: player.z }, greetUiEpoch);
+  };
 
   const updateInteractPrompt = (): void => {
     const player = getGameState().player;
@@ -165,15 +174,23 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   const publishNpcsToHook = (): void => {
+    const hookByNpcId = new Map(
+      game.getNpcHookEntries().map((entry) => [entry.npcId, entry])
+    );
     setNpcs(
-      npcPresences.map((npc) => ({
-        npcId: npc.npcId,
-        name: npc.name,
-        type: npc.type,
-        x: npc.x,
-        y: npc.y,
-        z: npc.z,
-      }))
+      npcPresences.map((npc) => {
+        const hook = hookByNpcId.get(npc.npcId);
+        return {
+          npcId: npc.npcId,
+          name: npc.name,
+          type: npc.type,
+          x: npc.x,
+          y: npc.y,
+          z: npc.z,
+          renderKind: hook?.renderKind,
+          action: hook?.action ?? 'idle',
+        };
+      })
     );
   };
 
@@ -369,6 +386,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         }
         setShopOpen(true);
         setNpcDialogVisible(false);
+        fireNpcGreet(KATERINA_NPC_ID);
       },
       openDialog: (npcId, name) => {
         setShopVisible(false);
@@ -381,6 +399,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
             sendNpcAction: (payload) => room.send('npcAction', payload),
           },
         });
+        fireNpcGreet(npcId);
       },
     });
   });
@@ -503,4 +522,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       callbacks.onChange(npc, () => syncNpcFromState(id, npc));
     }
   }
+
+  game.setAfterTick(() => {
+    publishNpcsToHook();
+  });
 }

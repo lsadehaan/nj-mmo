@@ -51,6 +51,8 @@ export interface GameStateNpc {
   x: number;
   y: number;
   z: number;
+  renderKind?: 'mesh' | 'capsule';
+  action?: AnimationClip;
 }
 
 export interface GameState {

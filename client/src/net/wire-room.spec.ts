@@ -27,6 +27,11 @@ const mockGame = {
   removeRemotePlayer: vi.fn(),
   syncMob: vi.fn(),
   removeMob: vi.fn(),
+  syncNpc: vi.fn(),
+  removeNpc: vi.fn(),
+  triggerNpcGreet: vi.fn(),
+  getNpcHookEntries: vi.fn(() => []),
+  setAfterTick: vi.fn(),
   triggerSkillFlash: mockTriggerSkillFlash,
   getCurrentAnimationClip: () => 'idle' as const,
 };

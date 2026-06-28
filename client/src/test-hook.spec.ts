@@ -185,13 +185,24 @@ describe('test-hook town economy and NPC state', () => {
 
   it('tracks npc list, proximity, and shop-open flags for e2e observers', () => {
     setNpcs([
-      { npcId: 30004, name: 'Katerina', type: 'Merchant', x: -6, y: 4.26, z: -8 },
+      {
+        npcId: 30004,
+        name: 'Katerina',
+        type: 'Merchant',
+        x: -6,
+        y: 4.26,
+        z: -8,
+        renderKind: 'mesh',
+        action: 'idle',
+      },
     ]);
     setNearbyNpc(30004, true);
     setShopOpen(true);
 
     const state = window.__GAME_STATE__;
     expect(state.npcs).toHaveLength(1);
+    expect(state.npcs[0].renderKind).toBe('mesh');
+    expect(state.npcs[0].action).toBe('idle');
     expect(state.nearbyNpcId).toBe(30004);
     expect(state.canInteract).toBe(true);
     expect(state.shopOpen).toBe(true);
