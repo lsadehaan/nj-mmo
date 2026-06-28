@@ -5,6 +5,7 @@ const BASE = process.env.LAB_BASE ?? 'http://localhost:4201';
 const char = process.env.LAB_CHAR;
 const model = process.env.LAB_MODEL;
 const mob = process.env.LAB_MOB;
+const npc = process.env.LAB_NPC;
 const weapon = process.env.LAB_WEAPON;
 const dual = process.env.LAB_DUAL === '1';
 const outDir = process.env.LAB_OUT ?? '/tmp/char-shots';
@@ -29,7 +30,13 @@ const mobShots = [
   { clip: 'die', t: 1.1, angle: 0.6 },
 ];
 
+const npcShots = [
+  { clip: 'idle', t: 0.5, angle: 0.5 },
+  { clip: 'cast', t: 0.5, angle: 0.6 },
+];
+
 const mobTargets = [];
+if (npc) mobTargets.push({ kind: 'npc', id: npc, label: `npc-${npc}` });
 if (mob) mobTargets.push({ kind: 'mob', id: mob, label: `mob-${mob}` });
 if (weapon) {
   mobTargets.push({
@@ -55,14 +62,18 @@ page.on('console', (m) => console.log(`[page] ${m.text()}`));
 
 for (const target of mobTargets) {
   const clipShots =
-    target.kind === 'weapon' || target.kind === 'dual'
-      ? weaponShots
-      : target.kind === 'char'
-        ? shots
-        : mobShots;
+    target.kind === 'npc'
+      ? npcShots
+      : target.kind === 'weapon' || target.kind === 'dual'
+        ? weaponShots
+        : target.kind === 'char'
+          ? shots
+          : mobShots;
   for (const { clip, t, angle } of clipShots) {
     const parts = [
-      target.kind === 'mob'
+      target.kind === 'npc'
+        ? `npc=${target.id}`
+        : target.kind === 'mob'
         ? `mob=${target.id}`
         : target.kind === 'model'
           ? `model=${target.id}`

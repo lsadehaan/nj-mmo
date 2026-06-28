@@ -6,6 +6,7 @@ import {
   type MeshCharacter,
 } from './scene/creature/mesh-character';
 import { getCreatureEntry } from './scene/creature/creature-manifest';
+import { getNpcEntry } from './scene/creature/npc-manifest';
 import type { AnimationClip } from '@nj/game-core';
 import {
   createWeaponVisualState,
@@ -26,6 +27,7 @@ import { attachToBone } from './scene/creature/attachment';
  */
 const params = new URLSearchParams(location.search);
 const mobNpcId = params.get('mob');
+const townNpcId = params.get('npc');
 const modelPath = params.get('model');
 const char = params.get('char') ?? 'Rogue';
 const weaponId = Number(params.get('weapon') ?? '0');
@@ -70,7 +72,9 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-const label = mobNpcId
+const label = townNpcId
+  ? `npc=${townNpcId}`
+  : mobNpcId
   ? `mob=${mobNpcId}`
   : modelPath
     ? `model=${modelPath}`
@@ -89,6 +93,11 @@ declare global {
 }
 
 function resolveModel(): { url: string; scale: number; clipMap?: Record<AnimationClip, string> } {
+  if (townNpcId) {
+    const entry = getNpcEntry(Number(townNpcId));
+    if (!entry) throw new Error(`Unknown town npcId ${townNpcId}`);
+    return { url: entry.model, scale: entry.scale, clipMap: entry.clipMap };
+  }
   if (mobNpcId) {
     const entry = getCreatureEntry(Number(mobNpcId));
     if (!entry) throw new Error(`Unknown mob npcId ${mobNpcId}`);
@@ -118,6 +127,17 @@ function loadCharacterActor(offsetX = 0): Promise<MeshCharacter> {
   return mesh.ready.then(() => maybeAttachWeapon(mesh, weaponId).then(() => mesh));
 }
 
+async function loadTownNpcActor(): Promise<MeshCharacter> {
+  const resolved = resolveModel();
+  const mesh = createMeshCharacter(resolved.url, {
+    scale: resolved.scale,
+    clipMap: resolved.clipMap,
+  });
+  scene.add(mesh.object);
+  await mesh.ready;
+  return mesh;
+}
+
 async function loadMobActor(): Promise<MeshCharacter> {
   const resolved = resolveModel();
   const template = await loadGltfTemplate(resolved.url);
@@ -140,6 +160,9 @@ async function loadMobActor(): Promise<MeshCharacter> {
 }
 
 function loadActors(): Promise<MeshCharacter[]> {
+  if (townNpcId) {
+    return loadTownNpcActor().then((actor) => [actor]);
+  }
   if (mobNpcId || modelPath) {
     return loadMobActor().then((actor) => [actor]);
   }
