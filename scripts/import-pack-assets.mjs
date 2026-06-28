@@ -91,6 +91,13 @@ async function main() {
   copyGltf(join(MONSTERS, 'Blob/glTF/GreenSpikyBlob.gltf'), join(OUT.monsters, 'Gremlin.glb'));
   copyGltf(join(MONSTERS, 'Blob/glTF/Orc.gltf'), join(OUT.monsters, 'Goblin.glb'));
 
+  // ── Phase 16 TI mobs ──────────────────────────────────────────────────────
+  copyGltf(join(MONSTERS, 'Big/glTF/Bunny.gltf'), join(OUT.monsters, 'Elpy.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Monkroose.gltf'), join(OUT.monsters, 'ElderKeltir.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Dino.gltf'), join(OUT.monsters, 'ElderWolf.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Frog.gltf'), join(OUT.monsters, 'GiantToad.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Orc.gltf'), join(OUT.monsters, 'Orc.glb'));
+
   writeFileSync(
     join(OUT.env, 'LICENSE.txt'),
     `Environment assets imported from ~/Downloads/packs (pre-live prototyping).
@@ -128,10 +135,21 @@ Imported by: node scripts/import-pack-assets.mjs
 
 Gremlin.glb — GreenSpikyBlob.gltf (Blob)
 Goblin.glb — Orc.gltf (Blob)
-Wolf.glb, BeardedKeltir.glb — unchanged (Quaternius Ultimate Animated Animals)
+Wolf.glb, BeardedKeltir.glb — Quaternius Ultimate Animated Animals (CC0)
 
-Clip map: ULTIMATE_MONSTER_CLIP_MAP in creature-manifest.ts
-  Idle, Walk, Bite_Front (attack/cast), Death
+Phase 16 — Talking Island mob expansion:
+Elpy.glb — Big/Bunny.gltf
+ElderKeltir.glb — Big/Monkroose.gltf
+ElderWolf.glb — Big/Dino.gltf (distinct quadruped from Wolf.glb)
+GiantToad.glb — Big/Frog.gltf
+Orc.glb — Big/Orc.gltf (humanoid biped; NOT Blob Orc used by Goblin)
+
+Clip maps: creature-manifest.ts
+  Blob: ULTIMATE_MONSTER_CLIP_MAP (Idle, Walk, Bite_Front, Death)
+  Animals: QUATERNIUS_WOLF_CLIP_MAP / QUATERNIUS_DEER_CLIP_MAP
+  Big: ULTIMATE_BIG_MONSTER_CLIP_MAP (Idle, Walk, Punch, Death)
+
+Pre-launch: swap CC0 stand-ins for licensed L2-authentic assets where required (AD-004).
 
 Imported by: node scripts/import-pack-assets.mjs
 `,
