@@ -4,7 +4,7 @@ import { type MovementIntent, TERRAIN_CONFIG } from '@nj/game-core';
 import { buildPathPreviewPoints } from './path-preview';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
-import { getGameState, setPlayer, setTarget, setMobs, setOthers } from '../test-hook';
+import { getGameState, setPlayer, setTarget, setMobs, setOthers, setEnvironment } from '../test-hook';
 import { createVfxManager, type VfxManager } from './vfx/vfx-manager';
 import {
   listRemotePlayers,
@@ -162,7 +162,9 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
   const terrainMesh = createTerrainMesh(THREE, terrainData);
   scene.add(terrainMesh);
 
-  await buildEnvironmentScene({ scene, terrainData });
+  await buildEnvironmentScene({ scene, terrainData }).then((envResult) => {
+    setEnvironment({ ...envResult, loaded: true });
+  });
 
   const playerAvatar = createPlayerAvatar();
   scene.add(playerAvatar.group);

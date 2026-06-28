@@ -10,6 +10,18 @@ export interface GameStateVfx {
   activeEffectCount: number;
 }
 
+export interface EnvironmentCategoryState {
+  count: number;
+  renderKind: 'mesh' | 'primitive';
+}
+
+export interface GameStateEnvironment {
+  buildings: EnvironmentCategoryState;
+  scatter: EnvironmentCategoryState;
+  peaceZone: EnvironmentCategoryState;
+  loaded: boolean;
+}
+
 export interface GameStatePlayer {
   x: number;
   y: number;
@@ -84,6 +96,7 @@ export interface GameState {
   /** Stays 0 while movement is server-authoritative (no client step()). */
   localMovementTicks: number;
   vfx: GameStateVfx;
+  environment: GameStateEnvironment;
 }
 
 declare global {
@@ -130,6 +143,12 @@ const initialState: GameState = {
     targetRingVisible: false,
     activeEffectCount: 0,
   },
+  environment: {
+    buildings: { count: 0, renderKind: 'primitive' },
+    scatter: { count: 0, renderKind: 'primitive' },
+    peaceZone: { count: 0, renderKind: 'primitive' },
+    loaded: false,
+  },
 };
 
 export function initGameState(): GameState {
@@ -157,6 +176,12 @@ export function initGameState(): GameState {
       levelUpCount: 0,
       targetRingVisible: false,
       activeEffectCount: 0,
+    },
+    environment: {
+      buildings: { count: 0, renderKind: 'primitive' },
+      scatter: { count: 0, renderKind: 'primitive' },
+      peaceZone: { count: 0, renderKind: 'primitive' },
+      loaded: false,
     },
   };
   return window.__GAME_STATE__;
@@ -291,4 +316,13 @@ export function setMaxMp(maxMp: number): void {
       maxMp,
     });
   }
+}
+
+export function setEnvironment(environment: GameStateEnvironment): void {
+  getGameState().environment = {
+    buildings: { ...environment.buildings },
+    scatter: { ...environment.scatter },
+    peaceZone: { ...environment.peaceZone },
+    loaded: environment.loaded,
+  };
 }

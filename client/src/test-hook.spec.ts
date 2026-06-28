@@ -14,6 +14,7 @@ import {
   setEquippedWeaponId,
   setMaxHp,
   setMaxMp,
+  setEnvironment,
 } from './test-hook';
 
 describe('test-hook multiplayer state', () => {
@@ -271,5 +272,36 @@ describe('test-hook progression fields', () => {
     expect(levelText).toBe('Lv.2');
     const hpText = document.querySelector('#player-vitals-hud [data-role="hp"]')?.textContent;
     expect(hpText).toBe('HP 112/112');
+  });
+});
+
+describe('test-hook environment state', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('starts with environment unloaded and zero counts', () => {
+    expect(window.__GAME_STATE__.environment).toEqual({
+      buildings: { count: 0, renderKind: 'primitive' },
+      scatter: { count: 0, renderKind: 'primitive' },
+      peaceZone: { count: 0, renderKind: 'primitive' },
+      loaded: false,
+    });
+  });
+
+  it('setEnvironment publishes counts and renderKind per category', () => {
+    setEnvironment({
+      buildings: { count: 5, renderKind: 'mesh' },
+      scatter: { count: 80, renderKind: 'mesh' },
+      peaceZone: { count: 1, renderKind: 'mesh' },
+      loaded: true,
+    });
+
+    expect(window.__GAME_STATE__.environment).toEqual({
+      buildings: { count: 5, renderKind: 'mesh' },
+      scatter: { count: 80, renderKind: 'mesh' },
+      peaceZone: { count: 1, renderKind: 'mesh' },
+      loaded: true,
+    });
   });
 });
