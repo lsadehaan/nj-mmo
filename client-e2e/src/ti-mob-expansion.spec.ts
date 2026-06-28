@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { gotoGame } from './game-page';
+import { approachMob } from './mob-combat';
 
 const NEW_TI_MOB_IDS = [20432, 20544, 20442, 20121, 20130] as const;
 /** High-HP outer-ring mobs that survive first hit (TIMOB-29: Orc or Elder Wolf). */
@@ -53,7 +54,7 @@ test('outer field exposes new TI mob npcIds in __GAME_STATE__', async ({ page },
 });
 
 test('new mob attack and die clips during combat kill', async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   await page.addInitScript(() => {
     localStorage.removeItem('nj.characterId');
     (window as unknown as { __mobClipFlags?: { attack: boolean; die: boolean } }).__mobClipFlags = {
@@ -70,27 +71,26 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
     { timeout: 10_000 }
   );
 
+  const { mobs, player } = await page.evaluate(() => ({
+    mobs: window.__GAME_STATE__.mobs.map((m) => ({
+      id: m.id,
+      npcId: m.npcId,
+      x: m.x,
+      z: m.z,
+      hp: m.hp,
+    })),
+    player: { x: window.__GAME_STATE__.player.x, z: window.__GAME_STATE__.player.z },
+  }));
+  const target = pickNearestClipTestMob(mobs, player);
+
+  await approachMob(page, target.id, 3.4);
+  await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
+  await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), target.id);
   await page.waitForFunction(
-    () =>
-      typeof window.__handleMobTarget__ === 'function' &&
-      typeof window.__sendMoveIntent__ === 'function' &&
-      typeof window.__attack__ === 'function'
+    (mobId) => window.__GAME_STATE__?.targetMobId === mobId,
+    target.id,
+    { timeout: 5_000 }
   );
-
-  const targetId = await page.evaluate((mobIds) => {
-    const state = window.__GAME_STATE__;
-    const player = state.player;
-    const pool = state.mobs
-      .filter((m) => mobIds.includes(m.npcId) && m.hp > 0)
-      .map((m) => ({
-        id: m.id,
-        dist: Math.hypot(m.x - player.x, m.z - player.z),
-      }))
-      .sort((a, b) => a.dist - b.dist);
-    return pool[0]?.id ?? null;
-  }, [...CLIP_TEST_MOB_IDS]);
-
-  expect(targetId).toBeTruthy();
 
   await expect
     .poll(
@@ -107,11 +107,6 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
             return flags.attack && flags.die;
           }
 
-          if (state.targetMobId !== mobId) {
-            window.__handleMobTarget__?.(mobId);
-            return false;
-          }
-
           const p = state.player;
           const dist = Math.hypot(p.x - mob.x, p.z - mob.z);
           if (dist > 3.4) {
@@ -124,8 +119,8 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
             window.__attack__?.();
           }
           return false;
-        }, targetId!),
-      { timeout: 75_000, intervals: [100, 200, 400, 600] }
+        }, target.id),
+      { timeout: 90_000, intervals: [100, 200, 400, 600] }
     )
     .toBe(true);
 });

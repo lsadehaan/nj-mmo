@@ -204,8 +204,11 @@ test('attack inside peace zone does not reduce mob HP or grant XP', async ({ pag
 
   const mob = await page.evaluate(() => {
     const mobs = window.__GAME_STATE__.mobs;
-    const preferred = mobs.find((entry) => entry.x === 12 && entry.z === -18);
-    return preferred ?? mobs[0];
+  const preferred =
+    mobs.find((entry) => entry.x === 22 && entry.z === -14) ??
+    mobs.find((entry) => entry.x === 22 && entry.z === -16) ??
+    mobs.find((entry) => entry.x > 20 && entry.z < 0);
+  return preferred ?? mobs[0];
   });
 
   await walkTowardInPeaceZone(page, { x: mob.x, z: mob.z }, 3.5);
@@ -265,8 +268,11 @@ test('Power Strike inside peace zone does not reduce mob HP or spend MP', async 
 
   const mob = await page.evaluate(() => {
     const mobs = window.__GAME_STATE__.mobs;
-    const preferred = mobs.find((entry) => entry.x === 12 && entry.z === -18);
-    return preferred ?? mobs[0];
+  const preferred =
+    mobs.find((entry) => entry.x === 22 && entry.z === -14) ??
+    mobs.find((entry) => entry.x === 22 && entry.z === -16) ??
+    mobs.find((entry) => entry.x > 20 && entry.z < 0);
+  return preferred ?? mobs[0];
   });
 
   await walkTowardInPeaceZone(page, { x: mob.x, z: mob.z }, 3.5);
