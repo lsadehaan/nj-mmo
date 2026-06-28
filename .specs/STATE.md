@@ -141,6 +141,14 @@
 - **Date**: 2026-06-28
 - **Status**: active
 
+### AD-018
+- **Decision**: MVP heightmap terrain gets **semantic walkability** — shared `sampleHeight`/`snapEntityY` in `game-core`, server `isWalkable` (bounds + slope + step-height + hand-authored building/prop blockers), 1 m grid A* pathfinding, and authoritative waypoint following. This **partially supersedes AD-006**'s "no collision terrain" trade-off for the hand-authored TI slice; **L2J geodata file parsing (Tier 4) remains deferred**.
+- **Reason**: Phase 9 ROADMAP promise; characters must follow terrain height, reject illegal steps, and path around village buildings without L2J geodata weight.
+- **Trade-off**: Grid pathing is coarse (1 m cells); client path preview is non-authoritative UX only.
+- **Scope**: `game-core` terrain/walkability/pathfinding; server `TownRoom` + mob AI; client shared imports + preview line.
+- **Date**: 2026-06-28
+- **Status**: active
+
 ## Handoff
 
 **Phase 8 — Player character rig & animation: COMPLETE (Verifier PASS, fix iteration 1).**
