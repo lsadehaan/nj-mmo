@@ -1,0 +1,14 @@
+Monster models (Phase 10)
+
+Gremlin.glb, Goblin.glb — KayKit Adventurers rig (CC0). Placeholder silhouettes
+until dedicated mob meshes ship; see ../characters/LICENSE.txt.
+
+Wolf.glb, BeardedKeltir.glb — Quaternius "Ultimate Animated Animals" (CC0).
+https://quaternius.com/packs/ultimateanimatedanimals.html
+
+Town NPC models (Phase 12)
+
+Roxxy.glb — Quaternius "Animated Woman" (CC0), via poly.pizza static mirror.
+https://quaternius.com/packs/animatedwoman.html
+
+Katerina reuses ../characters/Mage.glb (KayKit Adventurers, CC0).
