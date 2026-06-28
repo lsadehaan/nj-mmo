@@ -8,6 +8,34 @@ import {
   detectHpHit,
   detectLevelUp,
 } from './vfx-triggers';
+import {
+  incrementPowerStrikeHook,
+  POWER_STRIKE_DURATION_MS,
+  spawnPowerStrikeVfx,
+  tickPowerStrikeVfx,
+} from './power-strike-vfx';
+import {
+  createMeleeHitPool,
+  incrementMeleeHitHook,
+  MELEE_HIT_DURATION_MS,
+  retireMeleeHitSlot,
+  spawnMeleeHitVfx,
+  tickMeleeHitSlot,
+  type MeleeHitSlot,
+} from './melee-hit-vfx';
+import {
+  attachDeathDissolve,
+  restoreOpacity,
+  tickDissolve,
+  type DissolveHandle,
+} from './death-dissolve-vfx';
+import {
+  incrementLevelUpHook,
+  LEVEL_UP_DURATION_MS,
+  spawnLevelUpVfx,
+  tickLevelUpVfx,
+} from './level-up-vfx';
+import { createTargetRing, type TargetRing } from './target-ring-vfx';
 
 export interface VfxMobSnapshot {
   id: string;
@@ -51,28 +79,66 @@ function emptyHook(): GameStateVfx {
   };
 }
 
+function isFinitePos(pos: { x: number; y: number; z: number }): boolean {
+  return Number.isFinite(pos.x) && Number.isFinite(pos.y) && Number.isFinite(pos.z);
+}
+
 export function createVfxManager(scene: THREE.Scene): VfxManager {
   let playerPrev: VfxPlayerSnapshot | null = null;
   const mobPrev = new Map<string, VfxMobSnapshot>();
   let hook = emptyHook();
   let targetMobId: string | null = null;
   const timedEntries: TimedVfxEntry[] = [];
+  const meleePool = createMeleeHitPool(scene);
+  const activeMelee = new Map<MeleeHitSlot, number>();
+  const dissolves = new Map<string, DissolveHandle>();
+  const targetRing: TargetRing = createTargetRing(scene);
 
   const refreshActiveCount = (): void => {
     hook.activeEffectCount =
       countTaggedVfx(scene, 'powerStrike') +
-      countTaggedVfx(scene, 'meleeHit') +
+      activeMelee.size +
       countTaggedVfx(scene, 'levelUp');
+  };
+
+  const spawnMeleeAt = (pos: { x: number; y: number; z: number }, nowMs: number): void => {
+    if (!isFinitePos(pos)) return;
+    const slot = spawnMeleeHitVfx(meleePool, scene, pos, nowMs);
+    activeMelee.set(slot, nowMs);
+    incrementMeleeHitHook(hook);
+    refreshActiveCount();
+  };
+
+  const addTimed = (
+    root: THREE.Object3D,
+    tag: string,
+    spawnedAtMs: number,
+    durationMs: number,
+    tick?: TimedVfxEntry['tick']
+  ): void => {
+    timedEntries.push({
+      root,
+      spawnedAtMs,
+      expiresAtMs: spawnedAtMs + durationMs,
+      tag,
+      tick,
+    });
   };
 
   return {
     syncPlayer(snapshot) {
+      const nowMs = performance.now();
       if (playerPrev) {
-        if (detectHpHit(playerPrev.hp, snapshot.hp) && snapshot.hp > 0) {
-          hook.meleeHitCount += 1;
+        if (detectHpHit(playerPrev.hp, snapshot.hp)) {
+          spawnMeleeAt(snapshot, nowMs);
         }
-        if (detectLevelUp(playerPrev.level, snapshot.level)) {
-          hook.levelUpCount += countLevelUps(playerPrev.level, snapshot.level);
+        const levelSteps = countLevelUps(playerPrev.level, snapshot.level);
+        for (let i = 0; i < levelSteps; i++) {
+          const group = spawnLevelUpVfx(scene, snapshot, nowMs + i);
+          incrementLevelUpHook(hook);
+          addTimed(group, 'levelUp', nowMs + i, LEVEL_UP_DURATION_MS, (elapsed) =>
+            tickLevelUpVfx(group, elapsed)
+          );
         }
         if (
           detectActionEdge(
@@ -83,7 +149,25 @@ export function createVfxManager(scene: THREE.Scene): VfxManager {
             'cast'
           )
         ) {
-          hook.powerStrikeCount += 1;
+          const mob = targetMobId ? mobPrev.get(targetMobId) : undefined;
+          if (mob && isFinitePos(mob) && isFinitePos(snapshot)) {
+            const group = spawnPowerStrikeVfx(scene, snapshot, mob, nowMs);
+            incrementPowerStrikeHook(hook);
+            addTimed(group, 'powerStrike', nowMs, POWER_STRIKE_DURATION_MS, (elapsed) =>
+              tickPowerStrikeVfx(group, elapsed)
+            );
+          }
+        }
+        if (
+          detectActionEdge(
+            playerPrev.action,
+            playerPrev.actionSeq,
+            snapshot.action,
+            snapshot.actionSeq,
+            'die'
+          )
+        ) {
+          /* dissolve attached via renderer player avatar root */
         }
       }
       playerPrev = { ...snapshot };
@@ -91,33 +175,77 @@ export function createVfxManager(scene: THREE.Scene): VfxManager {
     },
 
     syncMob(snapshot) {
+      const nowMs = performance.now();
       const prev = mobPrev.get(snapshot.id);
-      if (prev && detectHpHit(prev.hp, snapshot.hp) && snapshot.hp > 0) {
-        hook.meleeHitCount += 1;
+      if (prev && detectHpHit(prev.hp, snapshot.hp)) {
+        spawnMeleeAt(snapshot, nowMs);
       }
       mobPrev.set(snapshot.id, { ...snapshot });
+
+      if (targetMobId === snapshot.id) {
+        if (snapshot.hp <= 0) {
+          targetRing.hide();
+          hook.targetRingVisible = false;
+        } else {
+          targetRing.follow(snapshot);
+        }
+      }
       refreshActiveCount();
     },
 
-    setTargetMobId(id) {
+    setTargetMobId(id, mobSnapshots) {
       targetMobId = id;
-      hook.targetRingVisible = id !== null;
+      if (!id) {
+        targetRing.hide();
+        hook.targetRingVisible = false;
+        return;
+      }
+      const mob = mobSnapshots?.get(id) ?? mobPrev.get(id);
+      if (!mob || mob.hp <= 0) {
+        targetRing.hide();
+        hook.targetRingVisible = false;
+        return;
+      }
+      targetRing.showAt(mob);
+      hook.targetRingVisible = true;
     },
 
-    attachMobDissolve() {
-      /* wired in T9/T10 */
+    attachMobDissolve(mobId, root, nowMs) {
+      if (dissolves.has(mobId)) return;
+      dissolves.set(mobId, attachDeathDissolve(root, nowMs));
     },
 
-    attachPlayerDissolve() {
-      /* wired in T9/T10 */
+    attachPlayerDissolve(root, nowMs) {
+      if (dissolves.has('player')) return;
+      dissolves.set('player', attachDeathDissolve(root, nowMs));
     },
 
     tick(nowMs) {
+      for (const [slot, spawnedAt] of [...activeMelee.entries()]) {
+        const elapsed = nowMs - spawnedAt;
+        if (tickMeleeHitSlot(slot, elapsed)) {
+          retireMeleeHitSlot(meleePool, slot);
+          activeMelee.delete(slot);
+        }
+      }
+
       const remaining = tickActiveVfx(scene, timedEntries, nowMs);
       timedEntries.length = 0;
       timedEntries.push(...remaining);
+
+      for (const [key, handle] of [...dissolves.entries()]) {
+        if (tickDissolve(handle, nowMs)) {
+          if (key === 'player') restoreOpacity(handle);
+          dissolves.delete(key);
+        }
+      }
+
+      if (targetMobId) {
+        const mob = mobPrev.get(targetMobId);
+        if (mob && mob.hp > 0) targetRing.follow(mob);
+      }
+
       refreshActiveCount();
-      void targetMobId;
     },
 
     dispose() {
@@ -126,6 +254,9 @@ export function createVfxManager(scene: THREE.Scene): VfxManager {
         disposeObject3D(entry.root);
       }
       timedEntries.length = 0;
+      for (const [, handle] of dissolves) restoreOpacity(handle);
+      dissolves.clear();
+      targetRing.hide();
       mobPrev.clear();
       playerPrev = null;
       hook = emptyHook();
