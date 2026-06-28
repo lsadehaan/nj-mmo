@@ -85,19 +85,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   const localId = room.sessionId;
 
   const publishOthers = (): void => {
-    setOthers(
-      [...room.state.players.entries()]
-        .filter(
-          ([sessionId, player]) =>
-            sessionId !== localId && (player as { connected?: boolean }).connected !== false
-        )
-        .map(([sessionId, player]) => ({
-          id: sessionId,
-          x: (player as { x: number }).x,
-          y: (player as { y: number }).y,
-          z: (player as { z: number }).z,
-        }))
-    );
+    setOthers(game.listRemotePlayers());
   };
 
   type PlayerSchema = {
@@ -265,7 +253,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       player.y,
       player.z,
       player.action ?? 0,
-      player.actionSeq ?? 0
+      player.actionSeq ?? 0,
+      player.equippedWeaponItemId ?? 0
     );
     setPlayer({
       x: player.x,
@@ -406,10 +395,24 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       return;
     }
 
-    game.syncRemotePlayer(id, state.x, state.y, state.z);
+    game.syncRemotePlayer(id, {
+      x: state.x,
+      y: state.y,
+      z: state.z,
+      action: state.action,
+      actionSeq: state.actionSeq,
+      equippedWeaponItemId: state.equippedWeaponItemId ?? 0,
+    });
     publishOthers();
     callbacks.onChange(state, () => {
-      game.syncRemotePlayer(id, state.x, state.y, state.z);
+      game.syncRemotePlayer(id, {
+        x: state.x,
+        y: state.y,
+        z: state.z,
+        action: state.action,
+        actionSeq: state.actionSeq,
+        equippedWeaponItemId: state.equippedWeaponItemId ?? 0,
+      });
       publishOthers();
     });
   });
