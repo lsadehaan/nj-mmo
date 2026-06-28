@@ -213,7 +213,7 @@ Never run phases in parallel.
 - [x] Room-integration test: mob attack/death sets `action`; e2e exposes mob
       `action` via `__GAME_STATE__`
 
-## Phase 11 — Remote players & equipped weapons `[x]`
+## Phase 11 — Remote players & equipped weapons `[ ]`
 
 > Done when: other players render as the rigged human avatar (no capsule) with the
 > same idle/move/attack/cast/die set, and an equipped weapon (Squire's Sword) shows
