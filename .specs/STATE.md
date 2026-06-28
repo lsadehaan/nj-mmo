@@ -151,6 +151,20 @@
 
 ## Handoff
 
+**Phase 10 + Phase 15 — Asset fidelity fixes applied (2026-06-28).**
+`scripts/visual-gate.mjs` had reported 17 FAILs: all environment props were byte-identical
+copies of character/NPC GLBs (Mage→Building, Wolf→Tree, Keltir→Rock, Roxxy→Building,
+GoblinClub→PeaceMarker), and Gremlin/Goblin were copies of Mage/Barbarian.
+Fix: procedurally generated all affected GLBs using `scripts/gen-glb-assets.py` (pygltflib):
+- **Env props** (Building_0–4, Tree, Rock, PeaceMarker): pure static meshes with no skeleton,
+  no animations, and no creature-bone node names.  Box+wedge buildings (5 variants with varied
+  proportions), two-tier cone tree, three-box rock cluster, golden pillar marker.
+- **Monster bipeds** (Gremlin, Goblin): 7-joint biped skeleton, 4 animation clips (Idle, Walk,
+  Attack, Death), distinct colors (lime-green Gremlin, dark-olive Goblin).
+  `creature-manifest.ts` updated to use `PROCEDURAL_BIPED_CLIP_MAP` (Idle/Walk/Attack/Death).
+`visual-gate.mjs` now reports **20/20 PASS — 0 FAIL**.
+LICENSE.txt files updated with REPLACE-BEFORE-LAUNCH notes (AD-004).
+
 **Phase 15 — Environment art upgrade: COMPLETE (Verifier PASS, fix iteration 1).**
 `.specs/features/phase-15-environment-art/validation.md` records PASS over diff
 `2a76eb3..b8aaa0a`: discrimination sensor 4/4 mutations killed, gate green (212 client

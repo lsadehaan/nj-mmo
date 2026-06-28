@@ -11,6 +11,19 @@ export interface CreatureEntry {
   hpBarYOffset: number;
 }
 
+/**
+ * Clip map for procedurally-generated biped GLBs (Gremlin, Goblin).
+ * Animation names match the clips baked by scripts/gen-glb-assets.py:
+ *   Idle (2 s loop), Walk (1 s loop), Attack (0.8 s), Death (1.5 s).
+ */
+export const PROCEDURAL_BIPED_CLIP_MAP: Record<AnimationClip, string> = {
+  idle: 'Idle',
+  move: 'Walk',
+  attack: 'Attack',
+  cast: 'Attack',  // no separate cast clip; fall back to attack
+  die: 'Death',
+};
+
 /** Quaternius Ultimate Animated Animals — Wolf (CC0). */
 export const QUATERNIUS_WOLF_CLIP_MAP: Record<AnimationClip, string> = {
   idle: 'Idle',
@@ -30,20 +43,21 @@ export const QUATERNIUS_DEER_CLIP_MAP: Record<AnimationClip, string> = {
 };
 
 /**
- * Visual config keyed by seeded npcId. Bipeds reuse KayKit Adventurers rig
- * (placeholder silhouettes pre-live — see models/monsters/LICENSE.txt).
+ * Visual config keyed by seeded npcId.
+ * Gremlin and Goblin use procedurally-generated GLBs (scripts/gen-glb-assets.py).
+ * Wolf and BeardedKeltir use Quaternius CC0 animal packs.
  */
 const CREATURE_MANIFEST: Record<number, CreatureEntry> = {
   20001: {
     model: '/models/monsters/Gremlin.glb',
-    clipMap: KAYKIT_CLIP_MAP,
+    clipMap: PROCEDURAL_BIPED_CLIP_MAP,
     scale: 0.52,
     feetOffsetY: 0.47,
     hpBarYOffset: 1.45,
   },
   20003: {
     model: '/models/monsters/Goblin.glb',
-    clipMap: KAYKIT_CLIP_MAP,
+    clipMap: PROCEDURAL_BIPED_CLIP_MAP,
     scale: 0.61,
     feetOffsetY: 0.55,
     hpBarYOffset: 1.65,

@@ -3,8 +3,8 @@ import {
   getCreatureEntry,
   QUATERNIUS_DEER_CLIP_MAP,
   QUATERNIUS_WOLF_CLIP_MAP,
+  PROCEDURAL_BIPED_CLIP_MAP,
 } from './creature-manifest';
-import { KAYKIT_CLIP_MAP } from './mesh-character';
 import type { AnimationClip } from '@nj/game-core';
 
 const CLIP_KEYS: AnimationClip[] = ['idle', 'move', 'attack', 'cast', 'die'];
@@ -30,9 +30,11 @@ describe('creature-manifest', () => {
     expect(getCreatureEntry(99999)).toBeNull();
   });
 
-  it('maps bipeds to KayKit clip names and quadrupeds to Quaternius families', () => {
-    expect(getCreatureEntry(20001)?.clipMap).toEqual(KAYKIT_CLIP_MAP);
-    expect(getCreatureEntry(20003)?.clipMap).toEqual(KAYKIT_CLIP_MAP);
+  it('maps procedural bipeds to procedural clip map and quadrupeds to Quaternius families', () => {
+    // Gremlin + Goblin now use procedurally-generated GLBs with Idle/Walk/Attack/Death clips
+    expect(getCreatureEntry(20001)?.clipMap).toEqual(PROCEDURAL_BIPED_CLIP_MAP);
+    expect(getCreatureEntry(20003)?.clipMap).toEqual(PROCEDURAL_BIPED_CLIP_MAP);
+    // Wolf + BeardedKeltir remain Quaternius CC0 quadrupeds
     expect(getCreatureEntry(20120)?.clipMap).toEqual(QUATERNIUS_WOLF_CLIP_MAP);
     expect(getCreatureEntry(20481)?.clipMap).toEqual(QUATERNIUS_DEER_CLIP_MAP);
   });
