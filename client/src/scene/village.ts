@@ -1,3 +1,5 @@
+import { BUILDING_LAYOUT_EXPORT, sampleHeight, TERRAIN_CONFIG, type TerrainConfig } from '@nj/game-core';
+
 export interface SceneObjectSpec {
   kind: 'ground' | 'building' | 'peace-zone';
   x: number;
@@ -14,22 +16,24 @@ export interface VillageOptions {
   sampleHeight: (x: number, z: number) => number;
 }
 
-const BUILDING_LAYOUT = [
-  { x: -12, z: -8, w: 6, d: 5, h: 4, color: 0x8b4513 },
-  { x: 12, z: -8, w: 5, d: 6, h: 5, color: 0xa0522d },
-  { x: -10, z: 10, w: 7, d: 4, h: 3.5, color: 0xcd853f },
-  { x: 8, z: 12, w: 5, d: 5, h: 4.5, color: 0x8b7355 },
-  { x: 0, z: -14, w: 8, d: 6, h: 6, color: 0x6b4423 },
-] as const;
+const BUILDING_COLORS = [0x8b4513, 0xa0522d, 0xcd853f, 0x8b7355, 0x6b4423] as const;
+
+const BUILDING_LAYOUT = BUILDING_LAYOUT_EXPORT.map((b, i) => ({
+  ...b,
+  h: [4, 5, 3.5, 4.5, 6][i],
+  color: BUILDING_COLORS[i],
+}));
+
+export { BUILDING_LAYOUT };
 
 export function buildVillage(opts: VillageOptions): SceneObjectSpec[] {
-  const { sampleHeight } = opts;
+  const { sampleHeight: heightAt } = opts;
   const specs: SceneObjectSpec[] = [];
 
   specs.push({
     kind: 'ground',
     x: 0,
-    y: sampleHeight(0, 0),
+    y: heightAt(0, 0),
     z: 0,
     width: 40,
     depth: 40,
@@ -41,7 +45,7 @@ export function buildVillage(opts: VillageOptions): SceneObjectSpec[] {
     specs.push({
       kind: 'building',
       x: b.x,
-      y: sampleHeight(b.x, b.z) + b.h / 2,
+      y: heightAt(b.x, b.z) + b.h / 2,
       z: b.z,
       width: b.w,
       depth: b.d,
@@ -53,7 +57,7 @@ export function buildVillage(opts: VillageOptions): SceneObjectSpec[] {
   specs.push({
     kind: 'peace-zone',
     x: 0,
-    y: sampleHeight(0, 0) + 3,
+    y: heightAt(0, 0) + 3,
     z: 0,
     width: 2,
     depth: 2,
@@ -62,4 +66,8 @@ export function buildVillage(opts: VillageOptions): SceneObjectSpec[] {
   });
 
   return specs;
+}
+
+export function defaultTerrainConfig(seed: number): TerrainConfig {
+  return { ...TERRAIN_CONFIG, seed };
 }
