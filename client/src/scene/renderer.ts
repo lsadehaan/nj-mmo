@@ -6,7 +6,7 @@ import { type MovementIntent, TERRAIN_CONFIG } from '@nj/game-core';
 import { buildPathPreviewPoints } from './path-preview';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
-import { getGameState, setPlayer, setTarget } from '../test-hook';
+import { getGameState, setPlayer, setTarget, setMobs } from '../test-hook';
 import { createSkillFlash } from './skill-flash';
 import {
   removeRemotePlayer,
@@ -14,11 +14,14 @@ import {
   type RemotePlayerMeshMap,
 } from './remote-players';
 import {
+  createMobInstanceMap,
   faceHpBarsToCamera,
+  flushPendingMobRemovals,
   listMobMeshes,
   mobStateToVisual,
   removeMob,
   syncMobVisual,
+  tickMobVisuals,
   type MobMeshMap,
 } from './mobs';
 import {
@@ -53,11 +56,14 @@ export interface GameRenderer {
   removeRemotePlayer: (sessionId: string) => void;
   syncMob: (mob: {
     id: string;
+    npcId: number;
     x: number;
     y: number;
     z: number;
     hp: number;
     maxHp: number;
+    action?: number;
+    actionSeq?: number;
   }) => void;
   removeMob: (mobId: string) => void;
   syncNpc: (npc: {
@@ -172,6 +178,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   let mobTargetHandler: ((mobId: string) => void) | null = null;
   const remoteMeshes: RemotePlayerMeshMap = new Map();
   const mobMeshes: MobMeshMap = new Map();
+  const mobInstances = createMobInstanceMap();
+  const mobSnapshots = new Map<string, ReturnType<typeof mobStateToVisual>>();
   const npcMeshes: NpcMeshMap = new Map();
   let pathPreviewLine: THREE.Line | null = null;
 
@@ -255,17 +263,25 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const syncMob = (mob: {
     id: string;
+    npcId: number;
     x: number;
     y: number;
     z: number;
     hp: number;
     maxHp: number;
+    action?: number;
+    actionSeq?: number;
   }): void => {
-    syncMobVisual(mobMeshes, mobStateToVisual(mob), scene);
+    const visual = mobStateToVisual(mob);
+    mobSnapshots.set(mob.id, visual);
+    syncMobVisual(mobMeshes, mobInstances, visual, scene);
   };
 
   const removeMobById = (mobId: string): void => {
-    removeMob(mobMeshes, mobId, scene);
+    const removed = removeMob(mobMeshes, mobInstances, mobId, scene);
+    if (removed) {
+      mobSnapshots.delete(mobId);
+    }
   };
 
   const syncNpc = (npc: {
@@ -284,11 +300,33 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   };
 
   const tick = (dt: number): void => {
+    const nowMs = performance.now();
     currentAnimationClip = playerAvatar.update(dt);
     const player = getGameState().player;
     if (player.action !== currentAnimationClip) {
       setPlayer({ ...player, action: currentAnimationClip });
     }
+
+    const mobClips = tickMobVisuals(mobInstances, dt, nowMs);
+    for (const mobId of flushPendingMobRemovals(mobMeshes, mobInstances, scene, nowMs)) {
+      mobSnapshots.delete(mobId);
+    }
+
+    if (mobSnapshots.size > 0) {
+      setMobs(
+        [...mobSnapshots.entries()].map(([id, snapshot]) => ({
+          id,
+          npcId: snapshot.npcId,
+          x: snapshot.x,
+          y: snapshot.y,
+          z: snapshot.z,
+          hp: snapshot.hp,
+          maxHp: snapshot.maxHp,
+          action: (mobClips.get(id) ?? 'idle') as AnimationClip,
+        }))
+      );
+    }
+
     faceHpBarsToCamera(mobMeshes, camera);
   };
 

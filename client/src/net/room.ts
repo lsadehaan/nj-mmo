@@ -125,6 +125,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     z: number;
     hp: number;
     maxHp: number;
+    action?: number;
+    actionSeq?: number;
   };
 
   type NpcSchema = {
@@ -145,6 +147,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     setMobs(
       [...mobsMap.entries()].map(([id, mob]) => {
         const state = mob as MobSchema;
+        const existing = getGameState().mobs.find((entry) => entry.id === id);
         return {
           id,
           npcId: state.npcId,
@@ -153,6 +156,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
           z: state.z,
           hp: state.hp,
           maxHp: state.maxHp,
+          action: existing?.action ?? 'idle',
         };
       })
     );
@@ -418,11 +422,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   const syncMobFromState = (mobId: string, mob: MobSchema): void => {
     game.syncMob({
       id: mobId,
+      npcId: mob.npcId,
       x: mob.x,
       y: mob.y,
       z: mob.z,
       hp: mob.hp,
       maxHp: mob.maxHp,
+      action: mob.action,
+      actionSeq: mob.actionSeq,
     });
     publishMobs();
   };
