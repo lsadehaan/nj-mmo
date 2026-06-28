@@ -203,8 +203,40 @@ describe('TownRoom', () => {
     expect(player!.xp).toBe(0);
     expect(player!.level).toBe(1);
     expect(player!.connected).toBe(true);
+    expect(player!.action).toBe(0);
+    expect(player!.actionSeq).toBe(0);
 
     await client.leave();
+  });
+
+  it('does not persist render-only action/actionSeq across save/load', async () => {
+    const { dbPath, cleanup } = tempDbPath();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const sessionId = client.sessionId;
+      const characterId = room['characterIds'].get(sessionId)!;
+
+      const player = room.state.players.get(sessionId)!;
+      player.action = 1;
+      player.actionSeq = 42;
+
+      room['persistCharacter'](sessionId);
+
+      await client.leave(true);
+      await room.disconnect();
+
+      const room2 = await colyseus.createRoom('town', { dbPath });
+      const client2 = await colyseus.connectTo(room2, { characterId });
+      const reloaded = room2.state.players.get(client2.sessionId)!;
+      expect(reloaded.action).toBe(0);
+      expect(reloaded.actionSeq).toBe(0);
+
+      await client2.leave();
+      await room2.disconnect();
+    } finally {
+      cleanup();
+    }
   });
 
   it('removes a player from state on leave', async () => {
