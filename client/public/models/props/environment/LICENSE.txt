@@ -1,0 +1,3 @@
+Pre-live placeholder environment meshes — vendored copies of existing CC0 KayKit /
+Quaternius character and prop GLBs, scaled via environment-manifest.ts until
+dedicated KayKit Medieval Builder / Village and nature packs replace them.
