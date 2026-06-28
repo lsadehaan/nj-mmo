@@ -772,6 +772,27 @@ describe('TownRoom combat', () => {
       cleanup();
     }
   });
+  it('sets DIE action before respawn restores HP and position', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+
+      player.hp = 0;
+      tick(room);
+
+      expect(player.action).toBe(3);
+      expect(player.actionSeq).toBe(1);
+      expect(player.hp).toBe(100);
+      expect(player.x).toBe(SPAWN_X);
+      expect(player.z).toBe(SPAWN_Z);
+
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
 });
 
 describe('TownRoom Power Strike', () => {

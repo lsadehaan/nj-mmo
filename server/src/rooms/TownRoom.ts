@@ -584,6 +584,8 @@ export class TownRoom extends Room<{ state: TownState }> {
     const stored = this.characters.get(sessionId);
     if (!player || !stored) return;
 
+    this.emitPlayerAction(player, EntityAction.Die);
+
     const death = resolvePlayerDeath({
       level: player.level,
       xp: player.xp,
