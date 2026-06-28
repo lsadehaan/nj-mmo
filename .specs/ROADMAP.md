@@ -170,6 +170,111 @@ Never run phases in parallel.
 
 ---
 
+## Asset & animation backlog (AD-017, built with the `game-designer` skill)
+
+> Every phase below produces **license-clean rigged GLTF** visuals (AD-017) driven
+> by the `game-core` animation state machine, and is built with the
+> `.cursor/skills/game-designer` skill (read `references/create-character.md` for
+> characters/NPCs, `references/create-monster.md` for mobs). **No phase here flips
+> to `[x]` without the mandatory rendered visual gate** (`client/character-lab.html`
+> + `scripts/shoot-character.mjs`) reviewed alongside the green logic tests — a
+> pixel-blind pass is never enough (the Phase 8 lesson).
+>
+> **Shared clip vocabulary:** `idle | move | attack | cast | die` (`AnimationClip`);
+> server signals are `EntityAction { None, Attack, Cast, Die }`, locomotion is
+> derived client-side. Each entity maps a subset of these to its GLB tracks.
+
+## Phase 10 — Monsters: rigged GLB mobs + clone-per-instance `[ ]`
+
+> Done when: the 4 seeded mobs render as distinct rigged creatures (no capsules)
+> that idle, move, attack, and die from the server's `action`/`actionSeq` signal,
+> with many instances spawned cheaply (load-once, clone-per-spawn).
+>
+> **Depends on:** Phase 4 (mob AI/spawning), Phase 8 (mesh-character backend).
+
+- [ ] Clone-per-instance creature backend (`SkeletonUtils.clone`, load each GLB
+      once, independent `AnimationMixer` per spawn) — extends `mesh-character.ts`
+- [ ] `npcId`-keyed creature manifest (`model` GLB + `clipMap`) replacing the
+      capsule in `mobs.ts`
+- [ ] **Gremlin** (20001, fairy biped) GLB — idle/move/attack/die
+- [ ] **Goblin** (20003, humanoid biped, club) GLB — idle/move/attack/die
+- [ ] **Wolf** (20120, animal quadruped) GLB — idle/move/attack/die
+- [ ] **Bearded Keltir** (20481, animal quadruped) GLB — idle/move/attack/die
+- [ ] Mob `action`/`actionSeq` replicated like `PlayerState` (server sets on
+      attack/death); client drives clips via the animation state machine
+- [ ] Keep floating HP bars; per-mob scale/facing tuned
+- [ ] Visual gate: each mob rendered (idle + attack + die) and reviewed
+- [ ] Room-integration test: mob attack/death sets `action`; e2e exposes mob
+      `action` via `__GAME_STATE__`
+
+## Phase 11 — Remote players & equipped weapons `[ ]`
+
+> Done when: other players render as the rigged human avatar (no capsule) with the
+> same idle/move/attack/cast/die set, and an equipped weapon (Squire's Sword) shows
+> in the character's hand.
+>
+> **Depends on:** Phase 8 (player avatar), Phase 3 (remote player state).
+
+- [ ] Remote players reuse the `mesh-character` backend (replace `remote-players.ts`
+      capsule); locomotion derived from replicated position, action from state
+- [ ] Hand socket on the humanoid rig + weapon-attach helper
+- [ ] **Squire's Sword** (2369) prop GLB attached to the player's right hand
+- [ ] **Goblin Club** (item 4) attached to the Goblin mob (carries Phase 10)
+- [ ] Visual gate: two-avatar scene (idle + attack) reviewed
+- [ ] E2E: second session renders a non-capsule avatar with the correct action
+
+## Phase 12 — NPCs: rigged human GLBs `[ ]`
+
+> Done when: the 2 town NPCs render as rigged humans (no capsule/box-head) that
+> idle, with an optional greet/talk gesture on interaction.
+>
+> **Depends on:** Phase 6 (NPC placement + interaction), Phase 8 (mesh backend).
+
+- [ ] NPC creature manifest (human female GLBs) replacing `npc-renderer.ts` capsule
+- [ ] **Katerina** (30004, Merchant/Grocer) — idle (+ optional talk)
+- [ ] **Roxxy** (30006, Teleporter/Gatekeeper) — idle (+ optional talk)
+- [ ] Optional greet gesture fired on proximity/interaction
+- [ ] Visual gate: both NPCs rendered and reviewed
+
+## Phase 13 — Combat & world VFX `[ ]`
+
+> Done when: combat reads clearly — melee impacts, deaths, level-ups, target
+> selection, and a real Power Strike effect — replacing the placeholder primitives.
+>
+> **Depends on:** Phases 4–5 (combat + skill), Phase 10 (mobs).
+
+- [ ] Replace primitive `skill-flash.ts` with a proper **Power Strike** VFX
+- [ ] **Melee hit/impact** effect on damage application
+- [ ] **Death** effect (dissolve/fade) layered on the `die` clip
+- [ ] **Level-up** burst on reward
+- [ ] **Target selection** ring/indicator under the focused mob
+- [ ] (Optional) **Soulshot** charged-attack glint
+- [ ] (Optional) **Ground loot drop** marker rendered before pickup
+- [ ] Visual gate: each effect captured and reviewed
+
+## Phase 14 — UI / 2D iconography `[ ]`
+
+> Done when: the hotbar, shop, and inventory show real icons instead of text/colour
+> swatches.
+
+- [ ] **Power Strike** skill icon in the hotbar/cooldown UI
+- [ ] Shop/inventory item icons: Healing Potion (1060), Soulshot No-grade (1835),
+      Wooden Arrow (17), Squire's Sword (2369), Adena (57)
+- [ ] (Lower priority) icons for loot-table items (rings, recipes, materials)
+
+## Phase 15 — Environment art upgrade (optional) `[ ]`
+
+> Done when: village buildings, trees, rocks, and the peace-zone marker use cohesive
+> low-poly GLB props instead of raw primitives (style consistent with characters).
+> Lowest priority — current primitives are acceptable for the slice.
+
+- [ ] Village building GLBs (5) replacing `addBox` in `renderer.ts`
+- [ ] Tree + rock prop GLBs replacing cone/cylinder/dodecahedron
+- [ ] Peace-zone marker prop
+- [ ] Visual gate: town overview reviewed
+
+---
+
 ## Per-phase execution (how each `[ ]` gets to `[x]`)
 
 1. **Plan** — Planner writes `spec.md` (+ `design.md`/`tasks.md`) under `.specs/features/<phase>/`, deciding autonomously and logging assumptions (no approval gate).

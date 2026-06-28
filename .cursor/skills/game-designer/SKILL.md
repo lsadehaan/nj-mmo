@@ -1,6 +1,6 @@
 ---
 name: game-designer
-description: Build production-quality visual game assets (player characters, monsters/mobs, NPCs) for this Three.js + Colyseus MMO using license-clean rigged GLTF meshes and skeletal animation driven by the game-core animation state machine. Use when the user asks to create or add a character, add a monster or mob, build an NPC, make a new creature, give something animations, skin the player, replace a capsule, import a model, or advance any visual-asset roadmap item. After reading this file, read references/create-character.md for characters and NPCs, and references/create-monster.md for monsters/mobs. Do NOT use for combat balance, server rules, XP/drop formulas, or non-visual gameplay logic (use spec-driven-execution / tlc-spec-driven instead).
+description: Build production-quality visual game assets for this Three.js + Colyseus MMO: rigged characters, monsters/mobs and NPCs (license-clean GLTF + skeletal animation via the game-core animation state machine), equipped-weapon/bone attachments, combat and world VFX, UI/item icons, and environment props. Use when asked to create or add a character, monster, mob, creature or NPC; skin the player or remote players; replace a capsule; attach or show an equipped weapon; add a skill, hit, death, level-up, target-ring or other VFX; add skill or item icons for the hotbar/shop/inventory; replace primitive buildings/trees/rocks with props; import a model; or advance any visual-asset roadmap item (Phases 8+). After this file, read the matching recipe in references/: create-character, create-monster, create-attachment, create-vfx, create-icon, create-prop. Do NOT use for combat balance, server rules, XP/drop formulas, or non-visual gameplay logic (use spec-driven-execution / tlc-spec-driven instead).
 license: CC-BY-4.0
 metadata:
   author: wneto
@@ -14,11 +14,31 @@ This skill is how visual entities (player characters, monsters, NPCs) get built 
 ## Read order
 
 1. Read this whole file first — it is the mental model and the non-negotiable rules.
-2. Then read the recipe for the task:
-   - Creating/skinning a **player character or NPC** → `references/create-character.md`.
-   - Creating a **monster/mob** (many instances, server-driven) → `references/create-monster.md`. It builds on the character recipe; read the character one first.
+2. Then read the **one** recipe that matches your task:
 
-## The three-layer model (internalize this)
+| Your task | Recipe | Asset family |
+| --------- | ------ | ------------ |
+| Player character; skin/swap the hero; **remote players** | `references/create-character.md` | rigged (Brain·Signal·Body) |
+| **NPC** (merchant, gatekeeper) | `references/create-character.md` (NPC note) | rigged, idle-mostly |
+| **Monster / mob** (many instances, server-driven) | `references/create-monster.md` (read character first) | rigged + clone-per-instance |
+| **Equipped weapon** / hand-held item / anything that rides a bone | `references/create-attachment.md` | attachment on a rigged body |
+| **VFX**: skill, hit/impact, death, level-up, target ring, loot marker | `references/create-vfx.md` | transient, signal-triggered |
+| **UI icon**: skill or item icon (hotbar, shop, inventory) | `references/create-icon.md` | 2D / DOM |
+| **Environment prop**: building, tree, rock, marker | `references/create-prop.md` | static mesh |
+
+## Asset taxonomy (which mental model applies)
+
+Not every asset is animated — pick the right model before you start:
+
+- **Rigged entities** (characters, NPCs, monsters) → the **three-layer model** below. Skeleton + `AnimationMixer`, driven by the brain + server signal.
+- **Attachments** (weapons, shields, held items) → **no brain, no mixer**. They parent to a *bone* of a rigged body and inherit its motion. Which item is equipped is server truth.
+- **VFX** (skill flash, hit, death, level-up, target ring) → **transient**. No skeleton. Spawned by an authoritative signal/event, animated over a fixed lifetime, then disposed. The *decision to fire* is server truth, never a client guess.
+- **Icons** (skill/item 2D art) → **DOM**, keyed by id. Licensed like meshes; DOM-testable (unlike WebGL).
+- **Props** (buildings, trees, rocks) → **static meshes**. No skeleton, no signal. Load, clone/instance, place.
+
+The golden rules (server authority, license hygiene, visual gate) apply to **all** families. The three-layer model below is specifically the rigged-entity contract.
+
+## The three-layer model (internalize this — rigged entities)
 
 Every animated entity is three independent layers. Only the bottom one is asset-specific. **Never collapse them.**
 
@@ -56,8 +76,11 @@ This is the high-level shape; the recipe files give exact commands and done-crit
 - Signal: `server/src/rooms/schema/TownState.ts` (`PlayerState.action/actionSeq`), set in `server/src/rooms/TownRoom.ts` / `combat-resolver.ts`
 - Body backend + clip map: `client/src/scene/creature/mesh-character.ts`
 - Player wiring: `client/src/scene/player-avatar.ts`, `client/src/scene/renderer.ts`, `client/src/net/room.ts`, `client/src/test-hook.ts`
-- Mobs (still capsules — upgrade target): `client/src/scene/mobs.ts`
-- Assets + licenses: `client/public/models/characters/*.glb`, `.../LICENSE.txt`
+- Mobs (still capsules — upgrade target): `client/src/scene/mobs.ts`; NPCs: `client/src/scene/npc-renderer.ts`; remote players: `client/src/scene/remote-players.ts`
+- VFX (placeholder primitive — upgrade target): `client/src/scene/skill-flash.ts`
+- Environment (primitives — upgrade target): `client/src/scene/{village.ts,scatter.ts}` (layout data) + `addBox/addTree/addRock` in `renderer.ts`
+- HUD/UI for icons: `client/src/hud/*.ts`, `client/src/ui/{shop-window.ts,inventory-window.ts}`
+- Assets + licenses: `client/public/models/characters/*.glb`, `.../LICENSE.txt` (props → `client/public/models/props/`, icons → `client/public/icons/`)
 - Visual gate: `client/character-lab.html`, `client/src/character-lab.ts`, `scripts/shoot-character.mjs`
 - E2E proof: `client-e2e/src/character-animation.spec.ts`
 - Decisions/roadmap: `.specs/STATE.md` (AD-004, AD-015, AD-016, AD-017), `.specs/ROADMAP.md`

@@ -130,3 +130,13 @@ If you changed anything architectural (a new asset family, a new clip map conven
 ## NPC note
 
 NPCs follow the same recipe but are simpler: no player input and usually no combat signal. They typically only need `idle` (and `move` if they wander). Render them through `createMeshCharacter` from the NPC renderer (`client/src/scene/npc-renderer.ts`), keep them server-positioned, and you can omit attack/cast/die from the clip map (fall back to `idle`). Still run the visual gate.
+
+## Remote-player note
+
+Other players are the **same human avatar** as the hero, just wired differently. Reuse `createMeshCharacter` (one instance per remote session — this is the *single-load* path, not the monster clone path; each remote player is unique). Wire it in `client/src/scene/remote-players.ts` (replacing the capsule), and differ from the local player in three ways:
+
+1. **No local input.** Locomotion is derived from the *replicated* server position deltas (same `MOVE_COAST_MS` coast timer as the hero), not from clicks.
+2. **Action from replicated state.** Read each remote player's `action`/`actionSeq` from room state (the same fields `PlayerState` already carries), run `stepAnimation`, `play`/`update`.
+3. **No follow camera.** You only place + animate the mesh.
+
+Equipped-weapon meshes (e.g. Squire's Sword) attach to the avatar's hand — see `create-attachment.md`. **Done when:** a second session renders a non-capsule avatar that walks, stops, and plays attack/cast/die from replicated state.
