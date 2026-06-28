@@ -12,3 +12,4 @@ export * from './level-up-reward';
 export * from './player-death';
 export * from './drop-roll';
 export * from './peace-zone';
+export * from './animation/entity-action';
