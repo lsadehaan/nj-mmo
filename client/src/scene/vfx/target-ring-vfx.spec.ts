@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
+import { EntityAction } from '@nj/game-core';
 import { createTargetRing } from './target-ring-vfx';
+import { createVfxManager } from './vfx-manager';
 
 describe('target-ring-vfx', () => {
   let scene: THREE.Scene;
@@ -26,5 +28,31 @@ describe('target-ring-vfx', () => {
     ring.hide();
     expect(ring.isVisible()).toBe(false);
     expect(ring.group.parent).toBe(scene);
+  });
+
+  it('hides the ring when targeted mob hp reaches zero', () => {
+    const mgr = createVfxManager(scene);
+    mgr.syncMob({
+      id: 'mob-1',
+      hp: 50,
+      x: 1,
+      y: 0,
+      z: 2,
+      action: EntityAction.None,
+      actionSeq: 0,
+    });
+    mgr.setTargetMobId('mob-1');
+    expect(mgr.getHookSnapshot().targetRingVisible).toBe(true);
+
+    mgr.syncMob({
+      id: 'mob-1',
+      hp: 0,
+      x: 1,
+      y: 0,
+      z: 2,
+      action: EntityAction.Die,
+      actionSeq: 1,
+    });
+    expect(mgr.getHookSnapshot().targetRingVisible).toBe(false);
   });
 });

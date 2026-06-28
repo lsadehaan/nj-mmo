@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as THREE from 'three';
 import { EntityAction } from '@nj/game-core';
+import { countPowerStrikeVfx } from './power-strike-vfx';
 import { createVfxManager } from './vfx-manager';
 
 const basePlayer = {
@@ -18,6 +19,12 @@ describe('vfx-manager', () => {
 
   beforeEach(() => {
     scene = new THREE.Scene();
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('returns zeroed hook snapshot initially', () => {
@@ -51,6 +58,13 @@ describe('vfx-manager', () => {
       action: EntityAction.None,
       actionSeq: 0,
     });
+    expect(mgr.getHookSnapshot().meleeHitCount).toBe(1);
+  });
+
+  it('increments meleeHitCount when player hp decreases', () => {
+    const mgr = createVfxManager(scene);
+    mgr.syncPlayer({ ...basePlayer, hp: 100 });
+    mgr.syncPlayer({ ...basePlayer, hp: 80 });
     expect(mgr.getHookSnapshot().meleeHitCount).toBe(1);
   });
 
@@ -101,8 +115,38 @@ describe('vfx-manager', () => {
       actionSeq: 1,
     });
     expect(mgr.getHookSnapshot().activeEffectCount).toBeGreaterThan(0);
-    mgr.tick(performance.now() + 900);
+    expect(countPowerStrikeVfx(scene)).toBeGreaterThan(0);
+    mgr.tick(900);
     expect(mgr.getHookSnapshot().activeEffectCount).toBe(0);
+    expect(countPowerStrikeVfx(scene)).toBe(0);
+  });
+
+  it('attachMobDissolve starts fading the mob render root', () => {
+    const mgr = createVfxManager(scene);
+    const mobGroup = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+    mobGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat));
+    scene.add(mobGroup);
+
+    mgr.attachMobDissolve('mob-1', mobGroup, 0);
+    mgr.tick(600);
+
+    expect(mat.opacity).toBeGreaterThanOrEqual(0.4);
+    expect(mat.opacity).toBeLessThanOrEqual(0.6);
+  });
+
+  it('attachPlayerDissolve starts fading the player render root', () => {
+    const mgr = createVfxManager(scene);
+    const playerGroup = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
+    playerGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat));
+    scene.add(playerGroup);
+
+    mgr.attachPlayerDissolve(playerGroup, 0);
+    mgr.tick(600);
+
+    expect(mat.opacity).toBeGreaterThanOrEqual(0.4);
+    expect(mat.opacity).toBeLessThanOrEqual(0.6);
   });
 
   it('sets targetRingVisible when target mob is valid', () => {
