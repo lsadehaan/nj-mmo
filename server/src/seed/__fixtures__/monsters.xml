@@ -174,4 +174,153 @@
 			</spoil>
 		</dropLists>
 	</npc>
+	<npc id="20432" level="1" type="Monster" name="Elpy">
+		<race>ANIMAL</race>
+		<sex>MALE</sex>
+		<acquire exp="44" sp="1" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="41.145" hpRegen="2" mp="44.247" mpRegen="0.9" />
+			<attack physical="8.47458" magical="5.78704" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="44.44444" magical="32.52252" />
+			<speed>
+				<walk ground="50" />
+				<run ground="80" />
+			</speed>
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="4" />
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai aggroRange="500" clanHelpRange="300" isAggressive="false" />
+		<collision>
+			<radius normal="5" />
+			<height normal="4.5" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="57" min="4" max="8" chance="70" />
+			</drop>
+		</dropLists>
+	</npc>
+	<npc id="20544" level="3" type="Monster" name="Elder Keltir">
+		<race>ANIMAL</race>
+		<sex>MALE</sex>
+		<acquire exp="132" sp="3" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="60.135" hpRegen="2" mp="60.501" mpRegen="0.9" />
+			<attack physical="10.24492" magical="6.99595" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="47.91652" magical="35.06323" />
+			<speed>
+				<walk ground="23" />
+				<run ground="110" />
+			</speed>
+			<hitTime>370</hitTime>
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="4" />
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai aggroRange="500" clanHelpRange="300" isAggressive="false" />
+		<collision>
+			<radius normal="9.5" />
+			<height normal="10" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="21" min="1" max="1" chance="9.292" />
+			</drop>
+		</dropLists>
+	</npc>
+	<npc id="20442" level="5" type="Monster" name="Elder Wolf">
+		<race>ANIMAL</race>
+		<sex>MALE</sex>
+		<acquire exp="220" sp="6" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="84.189" hpRegen="2" mp="76.755" mpRegen="0.9" />
+			<attack physical="12.34006" magical="8.42666" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="51.60553" magical="37.76269" />
+			<speed>
+				<walk ground="24" />
+				<run ground="110" />
+			</speed>
+			<hitTime>390</hitTime>
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="4" />
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai aggroRange="500" clanHelpRange="300" isAggressive="false" />
+		<collision>
+			<radius normal="13" />
+			<height normal="9" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="4" min="1" max="1" chance="3.667" />
+			</drop>
+		</dropLists>
+	</npc>
+	<npc id="20121" level="5" type="Monster" name="Giant Toad">
+		<race>ANIMAL</race>
+		<sex>MALE</sex>
+		<acquire exp="220" sp="6" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="84.189" hpRegen="2" mp="76.755" mpRegen="0.9" />
+			<attack physical="12.34006" magical="8.42666" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="51.60553" magical="37.76269" />
+			<speed>
+				<walk ground="50" />
+				<run ground="100" />
+			</speed>
+			<hitTime>350</hitTime>
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="4" />
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai aggroRange="500" clanHelpRange="300" isAggressive="false" />
+		<collision>
+			<radius normal="20" />
+			<height normal="10" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="4" min="1" max="1" chance="3.702" />
+			</drop>
+		</dropLists>
+	</npc>
+	<npc id="20130" level="6" type="Monster" name="Orc">
+		<race>HUMANOID</race>
+		<sex>MALE</sex>
+		<acquire exp="264" sp="7" />
+		<stats str="40" int="21" dex="30" wit="20" con="43" men="20">
+			<vitals hp="98.115" hpRegen="2" mp="85.785" mpRegen="0.9" />
+			<attack physical="13.52471" magical="9.23562" random="30" critical="4.75" accuracy="4.75" attackSpeed="253" type="SWORD" range="40" distance="80" width="120" />
+			<defence physical="53.53373" magical="39.17366" />
+			<speed>
+				<walk ground="45" />
+				<run ground="110" />
+			</speed>
+			<hitTime>480</hitTime>
+		</stats>
+		<status undying="false" canBeSown="true" />
+		<skillList>
+			<skill id="4416" level="6" />
+		</skillList>
+		<exCrtEffect>false</exCrtEffect>
+		<ai clanHelpRange="300" aggroRange="450" />
+		<collision>
+			<radius normal="10" />
+			<height normal="21" />
+		</collision>
+		<dropLists>
+			<drop>
+				<item id="1122" min="1" max="1" chance="3.845" />
+			</drop>
+		</dropLists>
+	</npc>
 </list>
