@@ -2,6 +2,14 @@ import { updatePowerStrikeCooldown } from './hud/power-strike-cooldown';
 import { updatePlayerVitalsHud } from './hud/player-vitals';
 import type { AnimationClip } from '@nj/game-core';
 
+export interface GameStateVfx {
+  powerStrikeCount: number;
+  meleeHitCount: number;
+  levelUpCount: number;
+  targetRingVisible: boolean;
+  activeEffectCount: number;
+}
+
 export interface GameStatePlayer {
   x: number;
   y: number;
@@ -75,6 +83,7 @@ export interface GameState {
   maxMp: number;
   /** Stays 0 while movement is server-authoritative (no client step()). */
   localMovementTicks: number;
+  vfx: GameStateVfx;
 }
 
 declare global {
@@ -114,6 +123,13 @@ const initialState: GameState = {
   maxHp: 0,
   maxMp: 0,
   localMovementTicks: 0,
+  vfx: {
+    powerStrikeCount: 0,
+    meleeHitCount: 0,
+    levelUpCount: 0,
+    targetRingVisible: false,
+    activeEffectCount: 0,
+  },
 };
 
 export function initGameState(): GameState {
@@ -135,6 +151,13 @@ export function initGameState(): GameState {
     maxHp: 0,
     maxMp: 0,
     localMovementTicks: 0,
+    vfx: {
+      powerStrikeCount: 0,
+      meleeHitCount: 0,
+      levelUpCount: 0,
+      targetRingVisible: false,
+      activeEffectCount: 0,
+    },
   };
   return window.__GAME_STATE__;
 }

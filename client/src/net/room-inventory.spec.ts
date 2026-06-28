@@ -30,7 +30,9 @@ describe('room inventory equip wiring', () => {
     triggerNpcGreet: vi.fn(),
     getNpcHookEntries: vi.fn(() => []),
     setAfterTick: vi.fn(),
-    triggerSkillFlash: vi.fn(),
+    syncPlayerVfx: vi.fn(),
+    syncMobVfx: vi.fn(),
+    setVfxTargetMobId: vi.fn(),
     getCurrentAnimationClip: () => 'idle' as const,
   } as unknown as GameRenderer;
 

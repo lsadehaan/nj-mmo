@@ -155,7 +155,6 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     setMobs(merged);
   };
 
-  let prevPowerStrikeCooldownEndMs = 0;
   let localItemCounts: Record<number, number> = {};
   const npcPresences: NpcPresence[] = [];
   let greetUiEpoch = 0;
@@ -260,11 +259,6 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   const syncLocal = (player: PlayerSchema): void => {
-    if (prevPowerStrikeCooldownEndMs === 0 && player.powerStrikeCooldownEndMs > 0) {
-      game.triggerSkillFlash();
-    }
-    prevPowerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
-
     game.syncLocalPlayer(
       player.x,
       player.y,
@@ -273,6 +267,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       player.actionSeq ?? 0,
       player.equippedWeaponItemId ?? 0
     );
+    game.syncPlayerVfx({
+      hp: player.hp,
+      level: player.level,
+      action: player.action ?? 0,
+      actionSeq: player.actionSeq ?? 0,
+      x: player.x,
+      y: player.y,
+      z: player.z,
+    });
     setPlayer({
       x: player.x,
       y: player.y,
@@ -455,6 +458,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       maxHp: mob.maxHp,
       action: mob.action,
       actionSeq: mob.actionSeq,
+    });
+    game.syncMobVfx({
+      id: mobId,
+      hp: mob.hp,
+      x: mob.x,
+      y: mob.y,
+      z: mob.z,
+      action: mob.action ?? 0,
+      actionSeq: mob.actionSeq ?? 0,
     });
     publishMobs();
   };

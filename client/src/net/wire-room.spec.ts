@@ -20,7 +20,8 @@ vi.mock('@colyseus/sdk', () => ({
 }));
 
 const mockSyncLocalPlayer = vi.fn();
-const mockTriggerSkillFlash = vi.fn();
+const mockSyncPlayerVfx = vi.fn();
+const mockSyncMobVfx = vi.fn();
 const mockGame = {
   syncLocalPlayer: mockSyncLocalPlayer,
   syncRemotePlayer: vi.fn(),
@@ -32,7 +33,9 @@ const mockGame = {
   triggerNpcGreet: vi.fn(),
   getNpcHookEntries: vi.fn(() => []),
   setAfterTick: vi.fn(),
-  triggerSkillFlash: mockTriggerSkillFlash,
+  syncPlayerVfx: mockSyncPlayerVfx,
+  syncMobVfx: mockSyncMobVfx,
+  setVfxTargetMobId: vi.fn(),
   getCurrentAnimationClip: () => 'idle' as const,
 };
 
@@ -44,7 +47,8 @@ describe('wireRoom player combat sync', () => {
     mockOnRemove.mockReset();
     mockListen.mockReset();
     mockSyncLocalPlayer.mockReset();
-    mockTriggerSkillFlash.mockReset();
+    mockSyncPlayerVfx.mockReset();
+    mockSyncMobVfx.mockReset();
     vi.resetModules();
   });
 
@@ -88,6 +92,8 @@ describe('wireRoom player combat sync', () => {
             adena: 1000,
             equippedWeaponItemId: 0,
             powerStrikeCooldownEndMs: cooldownEndMs,
+            action: 0,
+            actionSeq: 0,
             items: { entries: () => [] as const },
           };
           localPlayer = player;
@@ -133,7 +139,80 @@ describe('wireRoom player combat sync', () => {
     expect(window.__GAME_STATE__.player.powerStrikeCooldownRemainingMs).toBe(0);
   });
 
-  it('triggers skill flash when powerStrikeCooldownEndMs transitions from 0 to active', async () => {
+  it('forwards mob hp deltas to syncMobVfx on change', async () => {
+    let mobOnChange: (() => void) | null = null;
+    let mobState: Record<string, unknown> | null = null;
+
+    mockOnChange.mockImplementation((target: unknown, handler: () => void) => {
+      if (target === mobState) mobOnChange = handler;
+    });
+
+    mockOnAdd.mockImplementation(
+      (collection: string, handler: (item: unknown, id: string) => void) => {
+        if (collection === 'mobs') {
+          mobState = {
+            npcId: 20001,
+            x: 1,
+            y: 0,
+            z: 2,
+            hp: 41,
+            maxHp: 41,
+            action: 0,
+            actionSeq: 0,
+          };
+          handler(mobState, 'mob-a');
+        }
+        if (collection === 'players') {
+          handler(
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+              xp: 0,
+              level: 1,
+              hp: 100,
+              maxHp: 100,
+              maxMp: 50,
+              mp: 50,
+              adena: 0,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 0,
+              action: 0,
+              actionSeq: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send: vi.fn(),
+      } as never,
+      mockGame as never
+    );
+
+    expect(mockSyncMobVfx).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'mob-a', hp: 41 })
+    );
+    mockSyncMobVfx.mockClear();
+
+    if (!mobState || !mobOnChange) throw new Error('expected mob handler');
+    (mobState as { hp: number }).hp = 24;
+    (mobOnChange as () => void)();
+
+    expect(mockSyncMobVfx).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'mob-a', hp: 24 })
+    );
+  });
+
+  it('does not trigger Power Strike VFX solely from cooldown 0→active', async () => {
     let localPlayer: Record<string, unknown> | null = null;
     let localOnChange: (() => void) | null = null;
 
@@ -172,6 +251,8 @@ describe('wireRoom player combat sync', () => {
             adena: 1000,
             equippedWeaponItemId: 0,
             powerStrikeCooldownEndMs: 0,
+            action: 0,
+            actionSeq: 0,
             items: { entries: () => [] as const },
           };
           localPlayer = player;
@@ -191,16 +272,27 @@ describe('wireRoom player combat sync', () => {
     );
 
     const { wireRoom } = await import('./room');
-    wireRoom({ sessionId: 'local-session', state: { mobs: new Map(), players: new Map(), npcs: new Map() }, onMessage: vi.fn(), send: vi.fn() } as never, mockGame as never);
-
-    expect(mockTriggerSkillFlash).not.toHaveBeenCalled();
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send: vi.fn(),
+      } as never,
+      mockGame as never
+    );
 
     if (!localPlayer) throw new Error('expected local player');
     const onChange = localOnChange;
     if (!onChange) throw new Error('expected onChange handler');
-    (localPlayer as { powerStrikeCooldownEndMs: number }).powerStrikeCooldownEndMs = Date.now() + 3_000;
+    (localPlayer as { powerStrikeCooldownEndMs: number }).powerStrikeCooldownEndMs =
+      Date.now() + 3_000;
     (onChange as () => void)();
 
-    expect(mockTriggerSkillFlash).toHaveBeenCalledTimes(1);
+    expect(mockSyncPlayerVfx).toHaveBeenCalled();
+    const calls = mockSyncPlayerVfx.mock.calls;
+    const last = calls[calls.length - 1][0] as { action: number; actionSeq: number };
+    expect(last.action).toBe(0);
+    expect(last.actionSeq).toBe(0);
   });
 });
