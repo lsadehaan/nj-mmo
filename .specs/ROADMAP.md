@@ -231,7 +231,7 @@ Never run phases in parallel.
 - [x] Visual gate: two-avatar scene (idle + attack) reviewed
 - [x] E2E: second session renders a non-capsule avatar with the correct action
 
-## Phase 12 — NPCs: rigged human GLBs `[ ]`
+## Phase 12 — NPCs: rigged human GLBs `[x]`
 
 > Done when: the 2 town NPCs render as rigged humans (no capsule/box-head) that
 > idle, with an optional greet/talk gesture on interaction.
@@ -240,11 +240,11 @@ Never run phases in parallel.
 >
 > **Skill:** `game-designer` → `references/create-character.md` (NPC note).
 
-- [ ] NPC creature manifest (human female GLBs) replacing `npc-renderer.ts` capsule
-- [ ] **Katerina** (30004, Merchant/Grocer) — idle (+ optional talk)
-- [ ] **Roxxy** (30006, Teleporter/Gatekeeper) — idle (+ optional talk)
-- [ ] Optional greet gesture fired on proximity/interaction
-- [ ] Visual gate: both NPCs rendered and reviewed
+- [x] NPC creature manifest (human female GLBs) replacing `npc-renderer.ts` capsule
+- [x] **Katerina** (30004, Merchant/Grocer) — idle (+ optional talk)
+- [x] **Roxxy** (30006, Teleporter/Gatekeeper) — idle (+ optional talk)
+- [x] Optional greet gesture fired on proximity/interaction
+- [x] Visual gate: both NPCs rendered and reviewed
 
 ## Phase 13 — Combat & world VFX `[ ]`
 

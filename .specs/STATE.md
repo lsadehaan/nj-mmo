@@ -151,6 +151,24 @@
 
 ## Handoff
 
+**Phase 12 — NPCs: rigged human GLBs: COMPLETE (Verifier PASS, fix iteration 1).**
+`.specs/features/phase-12-npcs-glb/validation.md` records PASS over diff
+`117e265..ecf0327`: discrimination sensor 5/7 mutations killed (2 non-blocking
+survived), gate green (143 client unit + 19/19 e2e), all 23 ACs (NPCG-01–23) traced.
+Fix iteration 1 (`ecf0327`) closed NPCG-08 fallback test, NPCG-09 update-spy, NPCG-20
+debounce-strength gaps. Katerina (KayKit Mage) and Roxxy (Quaternius CC0 woman) render
+as rigged mesh NPCs with idle loops and greet gesture on interaction. Visual gate PNGs
+confirm distinct silhouettes. ROADMAP Phase 12 flipped to `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 13.**
+
+**Next step:** **Phase 13 — Combat & world VFX** (`.specs/ROADMAP.md`).
+Depends on Phases 4–5 (combat + skill) and Phase 10 (mobs). Replace placeholder
+primitives with Power Strike VFX, melee hit/impact, death dissolve, level-up burst,
+target selection ring, and optional soulshot/loot-drop markers. Visual gate mandatory.
+
+---
+
 **Phase 11 — Remote players & equipped weapons: COMPLETE (Verifier PASS, fix iteration 2).**
 `.specs/features/phase-11-remote-players-weapons/validation.md` records PASS over diff
 `9b4e7f7..9c166c4`: discrimination sensor 4/4 mutations killed, gate green (128 client
