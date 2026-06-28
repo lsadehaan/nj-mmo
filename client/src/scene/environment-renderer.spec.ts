@@ -141,6 +141,23 @@ describe('placeScatterEnvironment', () => {
 
     expect(result.count).toBe(80);
     expect(expected).toHaveLength(80);
+
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const instancedMeshes = scene.children.filter(
+      (c): c is THREE.InstancedMesh => c instanceof THREE.InstancedMesh
+    );
+
+    for (let i = 0; i < 3; i++) {
+      const spec = expected[i];
+      const kindIndex = expected.slice(0, i).filter((p) => p.kind === spec.kind).length;
+      const mesh = instancedMeshes.find((m) => m.userData.scatterKind === spec.kind);
+      expect(mesh).toBeDefined();
+      mesh!.getMatrixAt(kindIndex, matrix);
+      position.setFromMatrixPosition(matrix);
+      expect(Math.abs(position.x - spec.x)).toBeLessThan(0.01);
+      expect(Math.abs(position.z - spec.z)).toBeLessThan(0.01);
+    }
   });
 
   it('loads tree and rock templates at most once each', async () => {
