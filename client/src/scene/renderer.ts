@@ -32,6 +32,10 @@ import {
   npcStateToVisual,
   removeNpc,
   syncNpcVisual,
+  tickNpcVisuals,
+  triggerNpcGreet,
+  createNpcInstanceMap,
+  getNpcHookEntries,
   type NpcMeshMap,
 } from './npc-renderer';
 import { createPlayerAvatar } from './player-avatar';
@@ -92,9 +96,17 @@ export interface GameRenderer {
     z: number;
   }) => void;
   removeNpc: (npcKey: string) => void;
+  triggerNpcGreet: (npcId: number, playerPos: { x: number; z: number }, uiEpoch: number) => void;
+  getNpcHookEntries: () => Array<{
+    npcKey: string;
+    npcId: number;
+    renderKind: 'mesh' | 'capsule';
+    action: AnimationClip;
+  }>;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   setMobTargetHandler: (handler: (mobId: string) => void) => void;
   triggerSkillFlash: () => void;
+  setAfterTick: (handler: (() => void) | null) => void;
   dispose: () => void;
 }
 
@@ -193,12 +205,15 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   let currentAnimationClip: AnimationClip = 'idle';
   let moveIntentHandler: ((intent: MovementIntent) => void) | null = null;
   let mobTargetHandler: ((mobId: string) => void) | null = null;
+  let afterTickHandler: (() => void) | null = null;
   const remotePlayers: RemotePlayerMap = new Map();
   const mobMeshes: MobMeshMap = new Map();
   const mobInstances = createMobInstanceMap();
   const mobSnapshots = new Map<string, ReturnType<typeof mobStateToVisual>>();
   let lastMobClips = new Map<string, AnimationClip>();
   const npcMeshes: NpcMeshMap = new Map();
+  const npcInstances = createNpcInstanceMap();
+  const npcSnapshots = new Map<string, ReturnType<typeof npcStateToVisual>>();
   let pathPreviewLine: THREE.Line | null = null;
 
   const raycaster = new THREE.Raycaster();
@@ -258,6 +273,10 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   const setMobTargetHandler = (handler: (mobId: string) => void): void => {
     mobTargetHandler = handler;
+  };
+
+  const setAfterTick = (handler: (() => void) | null): void => {
+    afterTickHandler = handler;
   };
 
   const triggerSkillFlash = (): void => {
@@ -353,12 +372,25 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     y: number;
     z: number;
   }): void => {
-    syncNpcVisual(npcMeshes, npcStateToVisual(npc), scene);
+    const visual = npcStateToVisual(npc);
+    npcSnapshots.set(npc.id, visual);
+    syncNpcVisual(npcMeshes, npcInstances, visual, scene);
   };
 
   const removeNpcById = (npcKey: string): void => {
-    removeNpc(npcMeshes, npcKey, scene);
+    removeNpc(npcMeshes, npcInstances, npcKey, scene);
+    npcSnapshots.delete(npcKey);
   };
+
+  const triggerNpcGreetById = (
+    npcId: number,
+    playerPos: { x: number; z: number },
+    uiEpoch: number
+  ): void => {
+    triggerNpcGreet(npcInstances, npcId, playerPos, uiEpoch, performance.now());
+  };
+
+  const getNpcHookEntriesForRoom = () => getNpcHookEntries(npcInstances, npcSnapshots);
 
   const tick = (dt: number): void => {
     const nowMs = performance.now();
@@ -395,6 +427,9 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     if (remotePlayers.size > 0) {
       setOthers(listRemotePlayersForHook());
     }
+
+    tickNpcVisuals(npcInstances, dt, nowMs);
+    afterTickHandler?.();
   };
 
   const getCurrentAnimationClip = (): AnimationClip => currentAnimationClip;
@@ -479,9 +514,12 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     getMobHookEntries,
     syncNpc,
     removeNpc: removeNpcById,
+    triggerNpcGreet: triggerNpcGreetById,
+    getNpcHookEntries: getNpcHookEntriesForRoom,
     setMoveIntentHandler,
     setMobTargetHandler,
     triggerSkillFlash,
+    setAfterTick,
     dispose,
   };
 }
