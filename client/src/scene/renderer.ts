@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { generateTerrain, createTerrainMesh } from './terrain';
 import { buildVillage, type SceneObjectSpec } from './village';
 import { scatterProps } from './scatter';
-import { type MovementIntent } from '@nj/game-core';
+import { type MovementIntent, TERRAIN_CONFIG } from '@nj/game-core';
+import { buildPathPreviewPoints } from './path-preview';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
 import { getGameState, setPlayer, setTarget } from '../test-hook';
@@ -29,8 +30,8 @@ import {
 import { createPlayerAvatar } from './player-avatar';
 import type { AnimationClip } from '@nj/game-core';
 
-const WORLD_SEED = 42;
-const TERRAIN_OPTS = { size: 200, segments: 64, heightScale: 10, seed: WORLD_SEED };
+const WORLD_SEED = TERRAIN_CONFIG.seed;
+const TERRAIN_OPTS = TERRAIN_CONFIG;
 
 export interface GameRenderer {
   scene: THREE.Scene;
@@ -172,8 +173,33 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const remoteMeshes: RemotePlayerMeshMap = new Map();
   const mobMeshes: MobMeshMap = new Map();
   const npcMeshes: NpcMeshMap = new Map();
+  let pathPreviewLine: THREE.Line | null = null;
 
   const raycaster = new THREE.Raycaster();
+
+  const clearPathPreview = (): void => {
+    if (pathPreviewLine) {
+      scene.remove(pathPreviewLine);
+      pathPreviewLine.geometry.dispose();
+      (pathPreviewLine.material as THREE.Material).dispose();
+      pathPreviewLine = null;
+    }
+  };
+
+  const showPathPreview = (fromX: number, fromZ: number, toX: number, toZ: number): void => {
+    clearPathPreview();
+    const points = buildPathPreviewPoints(fromX, fromZ, toX, toZ);
+    if (points.length < 2) return;
+    const vectors = points.map(
+      (p) => new THREE.Vector3(p.x, terrainData.sampleHeight(p.x, p.z) + 0.15, p.z)
+    );
+    const geometry = new THREE.BufferGeometry().setFromPoints(vectors);
+    pathPreviewLine = new THREE.Line(
+      geometry,
+      new THREE.LineBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.7 })
+    );
+    scene.add(pathPreviewLine);
+  };
 
   const syncLocalPlayer = (
     x: number,
@@ -313,14 +339,18 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       hits.length > 0 ? { x: hits[0].point.x, z: hits[0].point.z } : null
     );
     if (intent) {
+      clearPathPreview();
+      showPathPreview(localPosition.x, localPosition.z, intent.targetX, intent.targetZ);
       setTarget(intent.targetX, intent.targetZ);
       moveIntentHandler?.(intent);
     } else {
+      clearPathPreview();
       setTarget(null, null);
     }
   };
 
   const dispose = (): void => {
+    clearPathPreview();
     renderer.dispose();
   };
 
