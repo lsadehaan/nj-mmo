@@ -347,12 +347,9 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     syncMobVisual(mobMeshes, mobInstances, visual, scene);
   };
 
-  const hookClipForSnapshot = (
-    id: string,
+  const clipFromServerAction = (
     snapshot: ReturnType<typeof mobStateToVisual>
-  ): AnimationClip => {
-    const tickClip = lastMobClips.get(id);
-    if (tickClip) return tickClip;
+  ): AnimationClip | null => {
     switch (snapshot.action) {
       case EntityAction.Attack:
         return 'attack';
@@ -361,8 +358,19 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
       case EntityAction.Die:
         return 'die';
       default:
-        return 'idle';
+        return null;
     }
+  };
+
+  const hookClipForSnapshot = (
+    id: string,
+    snapshot: ReturnType<typeof mobStateToVisual>
+  ): AnimationClip => {
+    const serverClip = clipFromServerAction(snapshot);
+    if (serverClip) return serverClip;
+    const tickClip = lastMobClips.get(id);
+    if (tickClip) return tickClip;
+    return 'idle';
   };
 
   const getMobHookEntries = (): Array<{
@@ -450,7 +458,9 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
           z: snapshot.z,
           hp: snapshot.hp,
           maxHp: snapshot.maxHp,
-          action: (mobClips.get(id) ?? 'idle') as AnimationClip,
+          action: (clipFromServerAction(snapshot) ??
+            mobClips.get(id) ??
+            'idle') as AnimationClip,
         }))
       );
     }
