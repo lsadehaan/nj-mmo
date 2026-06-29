@@ -11,7 +11,9 @@ export const TI_MOB_IDS = [
   20001, 20481, 20120, 20003,
   20432, 20544, 20442, 20121, 20130,
 ] as const;
-export const TI_NPC_IDS = [30004, 30006] as const;
+export const TI_NPC_IDS = [
+  30001, 30002, 30003, 30004, 30005, 30006, 30026,
+] as const;
 
 export function resolveDataDir(dataDir?: string): string {
   const dir = dataDir ?? DEFAULT_L2J_DATA_DIR;

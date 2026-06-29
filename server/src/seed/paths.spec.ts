@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { TI_MOB_IDS } from './paths';
+import { TI_NPC_IDS } from './paths';
 
-describe('TI_MOB_IDS', () => {
-  it('contains exactly nine Talking Island mob npcIds in roster order', () => {
-    expect([...TI_MOB_IDS]).toEqual([
-      20001, 20481, 20120, 20003,
-      20432, 20544, 20442, 20121, 20130,
+describe('TI_NPC_IDS', () => {
+  it('exports seven sorted Talking Island NPC ids (TINPC-01)', () => {
+    expect([...TI_NPC_IDS]).toEqual([
+      30001, 30002, 30003, 30004, 30005, 30006, 30026,
     ]);
   });
 });
