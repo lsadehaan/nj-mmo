@@ -22,9 +22,7 @@ function pickClipTestMob(
   if (pool.length === 0) {
     throw new Error('No Orc (20130) or Elder Wolf (20442) in __GAME_STATE__ for combat e2e');
   }
-  // Prefer aggressive Orc — enters aggro at 45 m and closes distance while the player approaches.
-  const orc = pool.find((m) => m.npcId === 20130);
-  return orc ?? pool[0];
+  return pool[0];
 }
 
 async function waitReady(page: import('@playwright/test').Page) {
