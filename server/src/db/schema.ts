@@ -58,7 +58,42 @@ export const skills = sqliteTable('skills', {
   reuseDelay: integer('reuse_delay').notNull(),
   mpConsumeL1: integer('mp_consume_l1').notNull(),
   powerL1: integer('power_l1').notNull(),
+  hitTime: integer('hit_time').notNull().default(0),
+  isMagic: integer('is_magic', { mode: 'boolean' }).notNull().default(false),
+  effectKind: text('effect_kind').notNull().default('physical_damage'),
+  abnormalTime: integer('abnormal_time').notNull().default(0),
+  buffMultiplier: real('buff_multiplier'),
+  debuffMultiplier: real('debuff_multiplier'),
 });
+
+export const classSkillTree = sqliteTable(
+  'class_skill_tree',
+  {
+    classId: integer('class_id').notNull(),
+    skillId: integer('skill_id').notNull(),
+    skillLevel: integer('skill_level').notNull(),
+    getLevel: integer('get_level').notNull(),
+    levelUpSp: integer('level_up_sp').notNull(),
+    autoGet: integer('auto_get', { mode: 'boolean' }).notNull().default(false),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.classId, table.skillId, table.skillLevel],
+    }),
+  })
+);
+
+export const characterSkills = sqliteTable(
+  'character_skills',
+  {
+    characterId: text('character_id').notNull(),
+    skillId: integer('skill_id').notNull(),
+    skillLevel: integer('skill_level').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.characterId, table.skillId] }),
+  })
+);
 
 export const experience = sqliteTable('experience', {
   level: integer('level').primaryKey(),
@@ -119,6 +154,7 @@ export const classTemplates = sqliteTable('class_templates', {
   baseRandomDamage: integer('base_random_damage').notNull(),
   basePAtkSpd: integer('base_p_atk_spd').notNull(),
   baseCritRate: real('base_crit_rate').notNull(),
+  baseMAtk: real('base_m_atk').notNull().default(6),
 });
 
 export const classLevelVitals = sqliteTable(
@@ -166,6 +202,10 @@ export type Npc = typeof npcs.$inferSelect;
 export type NewNpc = typeof npcs.$inferInsert;
 export type Skill = typeof skills.$inferSelect;
 export type NewSkill = typeof skills.$inferInsert;
+export type ClassSkillTreeRow = typeof classSkillTree.$inferSelect;
+export type NewClassSkillTreeRow = typeof classSkillTree.$inferInsert;
+export type CharacterSkill = typeof characterSkills.$inferSelect;
+export type NewCharacterSkill = typeof characterSkills.$inferInsert;
 export type ExperienceRow = typeof experience.$inferSelect;
 export type NewExperienceRow = typeof experience.$inferInsert;
 export type Item = typeof items.$inferSelect;
@@ -191,6 +231,8 @@ export const schema = {
   mobSpawns,
   npcs,
   skills,
+  classSkillTree,
+  characterSkills,
   experience,
   items,
   merchantItems,

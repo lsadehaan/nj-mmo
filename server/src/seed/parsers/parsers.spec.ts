@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { parseMonsters } from './monsters.parser';
 import { parseNpcs } from './npcs.parser';
-import { parsePowerStrike } from './skills.parser';
+import { parsePowerStrike, parseSkillsXml } from './skills.parser';
 import { parseExperience } from './experience.parser';
 
 const fixtures = join(__dirname, '../__fixtures__');
@@ -95,7 +95,7 @@ describe('parsePowerStrike', () => {
   const xml = readFileSync(join(fixtures, 'skills.xml'), 'utf-8');
 
   it('parses Power Strike with authentic Classic values', () => {
-    expect(parsePowerStrike(xml)).toEqual({
+    expect(parsePowerStrike(xml)).toMatchObject({
       skillId: 3,
       name: 'Power Strike',
       maxLevel: 9,
@@ -105,6 +105,9 @@ describe('parsePowerStrike', () => {
       reuseDelay: 3000,
       mpConsumeL1: 9,
       powerL1: 30,
+      hitTime: 1080,
+      isMagic: false,
+      effectKind: 'physical_damage',
     });
   });
 
@@ -113,6 +116,30 @@ describe('parsePowerStrike', () => {
     expect(() => parsePowerStrike(bad)).toThrow(
       'Missing required field "reuseDelay" for entity id 3'
     );
+  });
+});
+
+describe('parseSkillsXml TI subset', () => {
+  const xml = readFileSync(join(fixtures, 'skills/ti-skills.xml'), 'utf-8');
+
+  it('parses Wind Strike magic damage skill', () => {
+    const rows = parseSkillsXml(xml, [1177]);
+    expect(rows[0]).toMatchObject({
+      skillId: 1177,
+      isMagic: true,
+      hitTime: 4000,
+      effectKind: 'magic_damage',
+      powerL1: 12,
+    });
+  });
+
+  it('parses Might buff with multiplier 1.08', () => {
+    const rows = parseSkillsXml(xml, [1068]);
+    expect(rows[0]).toMatchObject({
+      skillId: 1068,
+      effectKind: 'buff_self',
+      buffMultiplier: 1.08,
+    });
   });
 });
 

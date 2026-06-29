@@ -1,7 +1,7 @@
 import type { NewItem } from '../../db/schema';
 import { xmlParser, parseNumber, parseString } from './xml-utils';
 
-const ITEM_IDS = [1060, 17, 1835, 2369] as const;
+const ITEM_IDS = [1060, 17, 1835, 2509, 2369] as const;
 
 interface ItemSetNode {
   '@_name': string;
@@ -47,9 +47,10 @@ function collectStats(node: ItemNode): Map<string, number> {
   return map;
 }
 
-function mapItemType(l2Type: string, etcType?: string): string {
+function mapItemType(l2Type: string, etcType?: string, defaultAction?: string): string {
   if (l2Type === 'Weapon') return 'weapon';
   if (etcType === 'POTION') return 'consumable';
+  if (defaultAction === 'SPIRITSHOT' || etcType === 'SOULSHOT') return 'shot';
   return 'etc';
 }
 
@@ -72,7 +73,11 @@ export function parseItemsXml(xml: string): NewItem[] {
     const l2Type = parseString(itemId, 'type', node['@_type']);
     const sets = collectSets(node);
     const stats = collectStats(node);
-    const mappedType = mapItemType(l2Type, sets.get('etcitem_type'));
+    const mappedType = mapItemType(
+      l2Type,
+      sets.get('etcitem_type'),
+      sets.get('default_action')
+    );
 
     const row: NewItem = {
       itemId,

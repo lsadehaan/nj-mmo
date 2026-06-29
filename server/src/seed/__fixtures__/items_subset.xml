@@ -28,6 +28,10 @@
 	<item id="1835" name="Soulshot (No-grade)" type="EtcItem">
 		<set name="etcitem_type" val="SOULSHOT" />
 	</item>
+	<item id="2509" name="Spiritshot (No-grade)" type="EtcItem">
+		<set name="default_action" val="SPIRITSHOT" />
+		<set name="etcitem_type" val="SOULSHOT" />
+	</item>
 	<item id="21" name="Shirt" type="Armor">
 		<set name="bodypart" val="chest" />
 	</item>

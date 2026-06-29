@@ -72,7 +72,13 @@ function applySchema(sqlite: Database.Database): void {
       cast_range INTEGER NOT NULL,
       reuse_delay INTEGER NOT NULL,
       mp_consume_l1 INTEGER NOT NULL,
-      power_l1 INTEGER NOT NULL DEFAULT 0
+      power_l1 INTEGER NOT NULL DEFAULT 0,
+      hit_time INTEGER NOT NULL DEFAULT 0,
+      is_magic INTEGER NOT NULL DEFAULT 0,
+      effect_kind TEXT NOT NULL DEFAULT 'physical_damage',
+      abnormal_time INTEGER NOT NULL DEFAULT 0,
+      buff_multiplier REAL,
+      debuff_multiplier REAL
     );
     CREATE TABLE IF NOT EXISTS experience (
       level INTEGER PRIMARY KEY,
@@ -150,11 +156,27 @@ function applySchema(sqlite: Database.Database): void {
       count INTEGER NOT NULL,
       PRIMARY KEY (character_id, item_id)
     );
+    CREATE TABLE IF NOT EXISTS class_skill_tree (
+      class_id INTEGER NOT NULL,
+      skill_id INTEGER NOT NULL,
+      skill_level INTEGER NOT NULL,
+      get_level INTEGER NOT NULL,
+      level_up_sp INTEGER NOT NULL,
+      auto_get INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (class_id, skill_id, skill_level)
+    );
+    CREATE TABLE IF NOT EXISTS character_skills (
+      character_id TEXT NOT NULL,
+      skill_id INTEGER NOT NULL,
+      skill_level INTEGER NOT NULL,
+      PRIMARY KEY (character_id, skill_id)
+    );
   `);
   migrateMonstersColumns(sqlite);
   migrateSkillsColumns(sqlite);
   migrateCharactersColumns(sqlite);
   migrateClassTables(sqlite);
+  migrateClassTemplateColumns(sqlite);
 }
 
 function migrateClassTables(sqlite: Database.Database): void {
@@ -188,8 +210,27 @@ function migrateClassTables(sqlite: Database.Database): void {
 function migrateSkillsColumns(sqlite: Database.Database): void {
   const cols = sqlite.pragma('table_info(skills)') as { name: string }[];
   const names = new Set(cols.map((c) => c.name));
-  if (!names.has('power_l1')) {
-    sqlite.exec('ALTER TABLE skills ADD COLUMN power_l1 INTEGER NOT NULL DEFAULT 0');
+  const adds: [string, string][] = [
+    ['power_l1', 'INTEGER NOT NULL DEFAULT 0'],
+    ['hit_time', 'INTEGER NOT NULL DEFAULT 0'],
+    ['is_magic', 'INTEGER NOT NULL DEFAULT 0'],
+    ['effect_kind', "TEXT NOT NULL DEFAULT 'physical_damage'"],
+    ['abnormal_time', 'INTEGER NOT NULL DEFAULT 0'],
+    ['buff_multiplier', 'REAL'],
+    ['debuff_multiplier', 'REAL'],
+  ];
+  for (const [col, def] of adds) {
+    if (!names.has(col)) {
+      sqlite.exec(`ALTER TABLE skills ADD COLUMN ${col} ${def}`);
+    }
+  }
+}
+
+function migrateClassTemplateColumns(sqlite: Database.Database): void {
+  const cols = sqlite.pragma('table_info(class_templates)') as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  if (!names.has('base_m_atk')) {
+    sqlite.exec('ALTER TABLE class_templates ADD COLUMN base_m_atk REAL NOT NULL DEFAULT 6');
   }
 }
 

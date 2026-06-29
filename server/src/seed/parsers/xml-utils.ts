@@ -7,6 +7,7 @@ export const xmlParser = new XMLParser({
     name === 'npc' ||
     name === 'experience' ||
     name === 'skill' ||
+    name === 'skillTree' ||
     name === 'item' ||
     name === 'level' ||
     name === 'class',
