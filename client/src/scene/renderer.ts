@@ -85,6 +85,7 @@ export interface GameRenderer {
     hp: number;
     maxHp: number;
     action: AnimationClip;
+    actionSeq: number;
   }>;
   syncNpc: (npc: {
     id: string;
