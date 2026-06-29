@@ -1,7 +1,7 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { EntityAction } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
 import {
   mountShopWindow,
@@ -16,6 +16,7 @@ import {
   isInventoryVisible,
 } from '../ui/inventory-window';
 import { mountNpcDialog, renderNpcDialog, setNpcDialogVisible } from '../ui/npc-dialog';
+import { mountQuestLog, renderQuestLog, isQuestLogVisible, setQuestLogVisible, entriesFromQuestState } from '../ui/quest-log';
 import { getLearnableSkillIds } from '../ui/trainer-skills';
 import { renderHotbar } from '../ui/hotbar';
 import { updateCastBar } from '../ui/cast-bar';
@@ -28,7 +29,6 @@ import {
   ROXXY_NPC_ID,
   type NpcPresence,
 } from '../npc-interaction';
-import { getGameState } from '../test-hook';
 import { getPlayerManifestEntry } from '../scene/creature/player-manifest';
 
 const DEFAULT_ENDPOINT =
@@ -124,6 +124,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     action?: number;
     actionSeq?: number;
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
+    questEntries?: {
+      length: number;
+      [index: number]: {
+        questId: number;
+        status: string;
+        step: number;
+      };
+    };
   };
 
   type MobSchema = {
@@ -393,10 +401,73 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     updateInteractPrompt();
   };
 
+  const readQuestEntries = (
+    player: PlayerSchema
+  ): { questId: number; status: string; step: number }[] => {
+    const arr = player.questEntries;
+    if (!arr) return [];
+    const out: { questId: number; status: string; step: number }[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      const e = arr[i]!;
+      out.push({ questId: e.questId, status: e.status, step: e.step });
+    }
+    return out;
+  };
+
+  const refreshQuestLogDom = (player: PlayerSchema): void => {
+    const entries = readQuestEntries(player);
+    setQuests(entries);
+    const { active, completed } = entriesFromQuestState(entries);
+    renderQuestLog({ active, completed, visible: isQuestLogVisible() });
+  };
+
+  const bindLocalPlayerQuests = (player: PlayerSchema): void => {
+    const onQuestsChanged = (): void => refreshQuestLogDom(player);
+    const collectionCallbacks = callbacks as {
+      onAdd: (
+        instance: PlayerSchema,
+        property: 'questEntries',
+        handler: (entry: { questId: number; status: string; step: number }) => void,
+        immediate?: boolean
+      ) => void;
+      onChange: (instance: PlayerSchema, property: 'questEntries', handler: () => void) => void;
+      onRemove: (instance: PlayerSchema, property: 'questEntries', handler: () => void) => void;
+      listen: (
+        instance: { questId: number; status: string; step: number },
+        property: 'step' | 'status' | 'questId',
+        handler: () => void
+      ) => void;
+    };
+    collectionCallbacks.onAdd(
+      player,
+      'questEntries',
+      (entry) => {
+        onQuestsChanged();
+        collectionCallbacks.listen(entry, 'step', onQuestsChanged);
+        collectionCallbacks.listen(entry, 'status', onQuestsChanged);
+      },
+      true
+    );
+    collectionCallbacks.onChange(player, 'questEntries', onQuestsChanged);
+    collectionCallbacks.onRemove(player, 'questEntries', onQuestsChanged);
+  };
+
   mountShopWindow();
   mountInventoryWindow();
   mountNpcDialog();
+  mountQuestLog();
   mountInteractPrompt();
+
+  window.__questAction__ = (npcId, action) => {
+    room.send('questAction', { npcId, action });
+  };
+
+  window.__toggleQuestLog__ = () => {
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    const next = !isQuestLogVisible();
+    setQuestLogVisible(next);
+    if (local) refreshQuestLogDom(local);
+  };
 
   const sendInteract = (npcId: number): void => {
     room.send('interact', { npcId });
@@ -476,8 +547,44 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
   window.addEventListener('keydown', onInventoryKey);
 
-  room.onMessage('interactResult', (message: { npcId: number; type: string; name: string }) => {
-    openNpcUiForInteract(message, {
+  const onQuestLogKey = (ev: KeyboardEvent): void => {
+    if (ev.key !== 'q' && ev.key !== 'Q') return;
+    ev.preventDefault();
+    window.__toggleQuestLog__?.();
+  };
+  window.addEventListener('keydown', onQuestLogKey);
+
+  room.onMessage(
+    'questDialog',
+    (message: {
+      npcId: number;
+      questId: number;
+      title: string;
+      body: string;
+      buttons: { action: string; label: string }[];
+      levelTooLow?: boolean;
+    }) => {
+      setShopVisible(false);
+      setShopOpen(false);
+      renderNpcDialog({
+        npcId: message.npcId,
+        name: message.title,
+        variant: 'quest',
+        visible: true,
+        questBody: message.body,
+        questButtons: message.buttons,
+        handlers: {
+          sendNpcAction: (payload) => room.send('npcAction', payload),
+          sendQuestAction: (payload) => room.send('questAction', payload),
+        },
+      });
+    }
+  );
+
+  room.onMessage('interactResult', (message: { npcId: number; type: string; name: string; questAvailable?: boolean }) => {
+    openNpcUiForInteract(
+      message,
+      {
       openShop: (npcId, merchantName) => {
         activeShopNpcId = npcId;
         activeShopMerchantName = merchantName;
@@ -526,7 +633,50 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         });
         fireNpcGreet(npcId);
       },
-    });
+      openQuestChooser: (npcId, merchantName) => {
+        setShopVisible(false);
+        renderNpcDialog({
+          npcId,
+          name: merchantName,
+          variant: 'quest',
+          visible: true,
+          questBody: 'What would you like to do?',
+          questButtons: [
+            { action: 'open_shop', label: 'Shop' },
+            { action: 'open_quest', label: 'Quest' },
+          ],
+          handlers: {
+            sendNpcAction: (payload) => room.send('npcAction', payload),
+            sendQuestAction: (payload) => {
+              if (payload.action === 'open_shop') {
+                const local = room.state.players.get(localId) as PlayerSchema | undefined;
+                activeShopNpcId = npcId;
+                activeShopMerchantName = merchantName;
+                if (local) {
+                  renderShopWindow({
+                    npcId,
+                    merchantName,
+                    adena: local.adena ?? 0,
+                    itemCounts: localItemCounts,
+                    visible: true,
+                    handlers: {
+                      sendBuy: (p) => room.send('buy', p),
+                      sendSell: (p) => room.send('sell', p),
+                    },
+                  });
+                }
+                setShopOpen(true);
+                setNpcDialogVisible(false);
+              } else if (payload.action === 'open_quest') {
+                room.send('interact', { npcId });
+              }
+            },
+          },
+        });
+      },
+    },
+      Boolean(message.questAvailable)
+    );
   });
 
   callbacks.onAdd('players', (player, sessionId) => {
@@ -536,6 +686,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       syncLocal(state);
       callbacks.onChange(state, () => syncLocal(state));
       bindLocalPlayerItems(state);
+      bindLocalPlayerQuests(state);
+      refreshQuestLogDom(state);
       return;
     }
 

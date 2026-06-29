@@ -4,6 +4,8 @@ import { renderHotbar } from './ui/hotbar';
 import { updateCastBar } from './ui/cast-bar';
 import type { AnimationClip } from '@nj/game-core';
 import { SKILL_EFFECT_NAMES } from './ui/trainer-skills';
+import { questObjectiveText, questTitle, TI_QUEST_TITLES } from './quest-catalog';
+import type { QuestLogEntry } from './ui/quest-log';
 
 export interface GameStateVfx {
   powerStrikeCount: number;
@@ -127,6 +129,17 @@ export interface GameStateNpc {
   action?: AnimationClip;
 }
 
+export interface GameStateQuestDef {
+  questId: number;
+  name: string;
+}
+
+export interface GameStateQuests {
+  active: QuestLogEntry[];
+  completed: QuestLogEntry[];
+  defs: Record<number, GameStateQuestDef>;
+}
+
 export interface GameState {
   connected: boolean;
   ready: boolean;
@@ -149,6 +162,7 @@ export interface GameState {
   localMovementTicks: number;
   vfx: GameStateVfx;
   environment: GameStateEnvironment;
+  quests: GameStateQuests;
 }
 
 declare global {
@@ -169,6 +183,8 @@ declare global {
     __useItem__?: (itemId: number) => void;
     __openInventory__?: () => void;
     __consentLeave__?: () => Promise<void>;
+    __questAction__?: (npcId: number, action: string) => void;
+    __toggleQuestLog__?: () => void;
   }
 }
 
@@ -204,6 +220,7 @@ const initialState: GameState = {
     peaceZone: { count: 0, renderKind: 'primitive' },
     loaded: false,
   },
+  quests: { active: [], completed: [], defs: {} },
 };
 
 export function initGameState(): GameState {
@@ -238,6 +255,7 @@ export function initGameState(): GameState {
       peaceZone: { count: 0, renderKind: 'primitive' },
       loaded: false,
     },
+    quests: { active: [], completed: [], defs: buildQuestDefs() },
   };
   return window.__GAME_STATE__;
 }
@@ -439,4 +457,41 @@ export function setEnvironment(environment: GameStateEnvironment): void {
     peaceZone: { ...environment.peaceZone },
     loaded: environment.loaded,
   };
+}
+
+function buildQuestDefs(): Record<number, GameStateQuestDef> {
+  const defs: Record<number, GameStateQuestDef> = {};
+  for (const [id, name] of Object.entries(TI_QUEST_TITLES)) {
+    defs[Number(id)] = { questId: Number(id), name };
+  }
+  return defs;
+}
+
+export function setQuests(
+  entries: { questId: number; status: string; step: number }[]
+): void {
+  const state = getGameState();
+  const active: QuestLogEntry[] = [];
+  const completed: QuestLogEntry[] = [];
+  for (const e of entries) {
+    const title = questTitle(e.questId);
+    if (e.status === 'completed') {
+      completed.push({
+        questId: e.questId,
+        title,
+        objectiveText: '',
+        step: e.step,
+        status: 'completed',
+      });
+    } else {
+      active.push({
+        questId: e.questId,
+        title,
+        objectiveText: questObjectiveText(e.questId, e.step),
+        step: e.step,
+        status: 'in_progress',
+      });
+    }
+  }
+  state.quests = { active, completed, defs: buildQuestDefs() };
 }

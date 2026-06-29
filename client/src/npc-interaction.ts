@@ -100,8 +100,14 @@ export function openNpcUiForInteract(
   handlers: {
     openShop: (npcId: number, merchantName: string) => void;
     openDialog: (npcId: number, name: string, variant: NpcDialogVariant) => void;
-  }
+    openQuestChooser?: (npcId: number, merchantName: string) => void;
+  },
+  questAvailable = false
 ): void {
+  if (isMerchantNpc(message.npcId, message.type) && questAvailable && handlers.openQuestChooser) {
+    handlers.openQuestChooser(message.npcId, message.name);
+    return;
+  }
   if (isMerchantNpc(message.npcId, message.type)) {
     handlers.openShop(message.npcId, message.name);
     return;

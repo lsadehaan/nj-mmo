@@ -4,11 +4,17 @@ export const BITZ_NPC_ID = 30026;
 export const GWINTER_NPC_ID = 30027;
 export const BAULRO_NPC_ID = 30033;
 
-export type NpcDialogVariant = 'helper' | 'warehouse' | 'trainer' | 'folkTrainer';
+export type NpcDialogVariant = 'helper' | 'warehouse' | 'trainer' | 'folkTrainer' | 'quest';
+
+export interface QuestDialogButton {
+  action: string;
+  label: string;
+}
 
 export interface NpcDialogHandlers {
   sendNpcAction: (payload: { npcId: number; action: 'heal' | 'starterKit' }) => void;
   sendLearnSkill?: (payload: { skillId: number }) => void;
+  sendQuestAction?: (payload: { npcId: number; action: string }) => void;
 }
 
 export interface NpcDialogRenderOptions {
@@ -17,6 +23,8 @@ export interface NpcDialogRenderOptions {
   variant: NpcDialogVariant;
   visible: boolean;
   learnableSkillIds?: number[];
+  questBody?: string;
+  questButtons?: QuestDialogButton[];
   handlers: NpcDialogHandlers;
 }
 
@@ -27,6 +35,7 @@ const VARIANT_TITLES: Record<NpcDialogVariant, string> = {
   warehouse: 'Warehouse Keeper',
   trainer: 'Grand Master',
   folkTrainer: 'Folk Trainer',
+  quest: 'Quest',
 };
 
 export function mountNpcDialog(): HTMLElement {
@@ -104,7 +113,19 @@ export function renderNpcDialog(options: NpcDialogRenderOptions): void {
   if (!actions) return;
   actions.innerHTML = '';
 
-  if (options.variant === 'helper') {
+  if (options.variant === 'quest') {
+    const body = document.createElement('p');
+    body.dataset['role'] = 'quest-body';
+    body.textContent = options.questBody ?? '';
+    body.style.margin = '0 0 12px';
+    actions.appendChild(body);
+    for (const btn of options.questButtons ?? []) {
+      appendActionButton(actions, btn.label, btn.action, {
+        onClick: () =>
+          options.handlers.sendQuestAction?.({ npcId: options.npcId, action: btn.action }),
+      });
+    }
+  } else if (options.variant === 'helper') {
     appendActionButton(actions, 'Heal', 'heal', {
       onClick: () => {
         options.handlers.sendNpcAction({ npcId: options.npcId, action: 'heal' });
