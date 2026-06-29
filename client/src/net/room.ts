@@ -105,6 +105,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     adena: number;
     equippedWeaponItemId: number;
     powerStrikeCooldownEndMs: number;
+    healingPotionCooldownEndMs: number;
     action?: number;
     actionSeq?: number;
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
@@ -235,12 +236,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   const refreshInventoryDom = (player: PlayerSchema): void => {
+    const { player: hookPlayer } = getGameState();
     renderInventoryWindow({
       itemCounts: localItemCounts,
       equippedWeaponItemId: player.equippedWeaponItemId ?? 0,
+      healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
       visible: isInventoryVisible(),
       handlers: {
         sendEquip: (payload) => room.send('equip', payload),
+        sendUseItem: (payload) => room.send('useItem', payload),
       },
     });
   };
@@ -306,6 +310,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       hp: player.hp,
       mp: player.mp,
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
+      healingPotionCooldownEndMs: player.healingPotionCooldownEndMs ?? 0,
       action: game.getCurrentAnimationClip(),
     });
     setMaxHp(player.maxHp ?? 0);
@@ -342,15 +347,21 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   window.__equipItem__ = (itemId) => {
     room.send('equip', { itemId });
   };
+  window.__useItem__ = (itemId) => {
+    room.send('useItem', { itemId });
+  };
   window.__openInventory__ = () => {
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
     if (local) {
+      const { player: hookPlayer } = getGameState();
       renderInventoryWindow({
         itemCounts: localItemCounts,
         equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
+        healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
         visible: true,
         handlers: {
           sendEquip: (payload) => room.send('equip', payload),
+          sendUseItem: (payload) => room.send('useItem', payload),
         },
       });
     } else {
@@ -377,12 +388,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
     const nextVisible = !isInventoryVisible();
     if (local) {
+      const { player: hookPlayer } = getGameState();
       renderInventoryWindow({
         itemCounts: localItemCounts,
         equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
+        healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
         visible: nextVisible,
         handlers: {
           sendEquip: (payload) => room.send('equip', payload),
+          sendUseItem: (payload) => room.send('useItem', payload),
         },
       });
     } else {

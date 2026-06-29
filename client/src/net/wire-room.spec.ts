@@ -139,6 +139,93 @@ describe('wireRoom player combat sync', () => {
     expect(window.__GAME_STATE__.player.powerStrikeCooldownRemainingMs).toBe(0);
   });
 
+  it('syncs healingPotionCooldownEndMs and derives remaining ms from server', async () => {
+    let localPlayer: Record<string, unknown> | null = null;
+    let localOnChange: (() => void) | null = null;
+    const cooldownEndMs = 20_000;
+    const nowMs = 10_000;
+
+    mockOnChange.mockImplementation(
+      (target: unknown, handlerOrProperty: string | (() => void), handler?: () => void) => {
+        if (target === localPlayer && typeof handlerOrProperty === 'function') {
+          localOnChange = handlerOrProperty;
+        }
+        if (
+          target === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          void handler;
+        }
+      }
+    );
+
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void),
+        handler?: (stack: unknown) => void
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          const player = {
+            x: 0,
+            y: 0,
+            z: 0,
+            xp: 0,
+            level: 1,
+            hp: 80,
+            maxHp: 100,
+            maxMp: 50,
+            mp: 50,
+            adena: 1000,
+            equippedWeaponItemId: 0,
+            powerStrikeCooldownEndMs: 0,
+            healingPotionCooldownEndMs: cooldownEndMs,
+            action: 0,
+            actionSeq: 0,
+            items: { entries: () => [] as const },
+          };
+          localPlayer = player;
+          handlerOrProperty(player, 'local-session');
+        }
+        if (
+          localPlayer &&
+          collectionOrPlayer === localPlayer &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          for (const [, stack] of (localPlayer.items as { entries: () => Iterable<[string, unknown]> }).entries()) {
+            handler(stack);
+          }
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    vi.spyOn(Date, 'now').mockReturnValue(nowMs);
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send: vi.fn(),
+      } as never,
+      mockGame as never
+    );
+
+    expect(window.__GAME_STATE__.player.healingPotionCooldownEndMs).toBe(cooldownEndMs);
+    expect(window.__GAME_STATE__.player.healingPotionCooldownRemainingMs).toBe(10_000);
+
+    if (!localPlayer) throw new Error('expected local player');
+    const onChange = localOnChange;
+    if (!onChange) throw new Error('expected onChange handler');
+    (localPlayer as { healingPotionCooldownEndMs: number }).healingPotionCooldownEndMs = 5_000;
+    (onChange as () => void)();
+
+    expect(window.__GAME_STATE__.player.healingPotionCooldownRemainingMs).toBe(0);
+    vi.restoreAllMocks();
+  });
+
   it('forwards mob hp deltas to syncMobVfx on change', async () => {
     let mobOnChange: (() => void) | null = null;
     let mobState: Record<string, unknown> | null = null;

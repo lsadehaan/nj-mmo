@@ -32,15 +32,18 @@ export interface GameStatePlayer {
   mp: number;
   powerStrikeCooldownEndMs: number;
   powerStrikeCooldownRemainingMs: number;
+  healingPotionCooldownEndMs: number;
+  healingPotionCooldownRemainingMs: number;
   action: AnimationClip;
 }
 
-/** Server snapshot input — remaining cooldown is derived client-side. */
+/** Server snapshot input — remaining cooldowns are derived client-side. */
 export type GameStatePlayerInput = Omit<
   GameStatePlayer,
-  'powerStrikeCooldownRemainingMs' | 'action'
+  'powerStrikeCooldownRemainingMs' | 'healingPotionCooldownRemainingMs' | 'action'
 > & {
   action?: AnimationClip;
+  healingPotionCooldownEndMs?: number;
 };
 
 export interface GameStateMob {
@@ -113,6 +116,7 @@ declare global {
     __sellItem__?: (npcId: number, itemId: number, quantity?: number) => void;
     __npcAction__?: (npcId: number, action: 'heal' | 'starterKit') => void;
     __equipItem__?: (itemId: number) => void;
+    __useItem__?: (itemId: number) => void;
     __openInventory__?: () => void;
     __consentLeave__?: () => Promise<void>;
   }
@@ -121,7 +125,7 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, action: 'idle' },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle' },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -216,6 +220,25 @@ export function computePowerStrikeCooldownRemainingMs(
   return Math.max(0, cooldownEndMs - nowMs);
 }
 
+export function computeHealingPotionCooldownRemainingMs(
+  cooldownEndMs: number,
+  nowMs = Date.now()
+): number {
+  return Math.max(0, cooldownEndMs - nowMs);
+}
+
+export function refreshPlayerCooldownRemaining(nowMs = Date.now()): void {
+  const state = getGameState();
+  state.player.powerStrikeCooldownRemainingMs = computePowerStrikeCooldownRemainingMs(
+    state.player.powerStrikeCooldownEndMs,
+    nowMs
+  );
+  state.player.healingPotionCooldownRemainingMs = computeHealingPotionCooldownRemainingMs(
+    state.player.healingPotionCooldownEndMs,
+    nowMs
+  );
+}
+
 export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): void {
   const state = getGameState();
   state.player.x = player.x;
@@ -226,8 +249,13 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
   state.player.hp = player.hp;
   state.player.mp = player.mp;
   state.player.powerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
+  state.player.healingPotionCooldownEndMs = player.healingPotionCooldownEndMs ?? 0;
   state.player.powerStrikeCooldownRemainingMs = computePowerStrikeCooldownRemainingMs(
     player.powerStrikeCooldownEndMs,
+    nowMs
+  );
+  state.player.healingPotionCooldownRemainingMs = computeHealingPotionCooldownRemainingMs(
+    player.healingPotionCooldownEndMs ?? 0,
     nowMs
   );
   if (player.action !== undefined) {

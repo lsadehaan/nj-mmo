@@ -56,6 +56,7 @@ describe('room inventory equip wiring', () => {
       adena: 1000,
       equippedWeaponItemId: 0,
       powerStrikeCooldownEndMs: 0,
+      healingPotionCooldownEndMs: 0,
       items: {
         entries: () => [['2369', { itemId: 2369, count: 1 }]] as const,
       },
@@ -147,5 +148,10 @@ describe('room inventory equip wiring', () => {
   it('syncs inventory items when player.items gains a stack', () => {
     itemsOnAdd?.({ itemId: 2369, count: 1 });
     expect(window.__GAME_STATE__.items[2369]).toBe(1);
+  });
+
+  it('__useItem__ sends useItem intent with itemId only', () => {
+    window.__useItem__?.(1060);
+    expect(send).toHaveBeenCalledWith('useItem', { itemId: 1060 });
   });
 });
