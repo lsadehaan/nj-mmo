@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calcClassBasePAtk } from './class-combat';
-import { calcMeleeDamage } from '../combat/melee-damage';
+import { calcClassBasePAtk, calcClassBaseMAtk } from './class-combat';
+import { calcMeleeDamage, calcPhysicalSkillDamage } from '../combat/melee-damage';
 import { GREMLIN_COMBAT } from '../combat/starter-combat';
 import {
   applyClassLevelUpReward,
@@ -20,6 +20,25 @@ describe('calcClassBasePAtk', () => {
 
   it('Human Mystic naked pAtk at level 1 is 2 (CHAR19-09)', () => {
     expect(calcClassBasePAtk({ basePAtk: 3, baseStr: 22 }, 1)).toBe(2);
+  });
+});
+
+describe('calcClassBaseMAtk', () => {
+  it('Human Mystic naked mAtk at level 1 is 8 (SKILL20-28)', () => {
+    expect(calcClassBaseMAtk({ baseMAtk: 6, baseInt: 19 }, 1)).toBe(8);
+  });
+});
+
+describe('class skill damage anchors', () => {
+  // SKILL20-21
+  it('Power Strike L1 deals 71 with class pAtk 11 vs Gremlin', () => {
+    const damage = calcPhysicalSkillDamage(
+      { pAtk: 11, randomDamage: 10 },
+      { pDef: GREMLIN_COMBAT.pDef },
+      30,
+      { rngOffset: 0 }
+    );
+    expect(damage).toBe(71);
   });
 });
 
