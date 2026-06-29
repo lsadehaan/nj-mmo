@@ -353,6 +353,13 @@ export class TownRoom extends Room<{ state: TownState }> {
     return calcPlayerMAtk(baseMAtk, template.baseInt, player.level);
   }
 
+  private getSkillMAtk(player: PlayerState, skill: Skill): number {
+    if (skill.effectKind === 'magic_damage') {
+      return this.getPlayerMAtk(player);
+    }
+    return 0;
+  }
+
   private getKnownSkillSet(sessionId: string): Set<number> {
     const skills = this.playerSkills.get(sessionId) ?? {};
     return new Set(Object.keys(skills).map(Number));
@@ -712,7 +719,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       playerX: player.x,
       playerZ: player.z,
       playerMp: player.mp,
-      playerMAtk: this.getPlayerMAtk(player),
+      playerMAtk: this.getSkillMAtk(player, skill),
       playerPAtk: this.getPlayerPAtk(player),
       playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
       playerDex: player.dex,
@@ -770,7 +777,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         playerX: player.x,
         playerZ: player.z,
         playerMp: player.mp,
-        playerMAtk: this.getPlayerMAtk(player),
+        playerMAtk: this.getSkillMAtk(player, skill),
         playerPAtk: this.getPlayerPAtk(player),
         playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
         playerDex: player.dex,
