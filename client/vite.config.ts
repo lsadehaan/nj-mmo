@@ -61,6 +61,9 @@ export default defineConfig(() => ({
     passWithNoTests: true,
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
+    env: {
+      VITE_NJ_E2E: 'true',
+    },
     coverage: {
       reportsDirectory: '../coverage/client',
       provider: 'v8',
