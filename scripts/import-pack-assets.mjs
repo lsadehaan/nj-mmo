@@ -98,6 +98,22 @@ async function main() {
   copyGltf(join(MONSTERS, 'Big/glTF/Frog.gltf'), join(OUT.monsters, 'GiantToad.glb'));
   copyGltf(join(MONSTERS, 'Big/glTF/Orc.gltf'), join(OUT.monsters, 'Orc.glb'));
 
+  // ── Phase 22 TI bestiary ──────────────────────────────────────────────────
+  copyGltf(join(MONSTERS, 'Big/glTF/Tribal.gltf'), join(OUT.monsters, 'OrcSoldier.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Ninja.gltf'), join(OUT.monsters, 'OrcArcher.glb'));
+  copyGltf(join(MONSTERS, 'Blob/glTF/Ninja.gltf'), join(OUT.monsters, 'GoblinScout.glb'));
+  copyGltf(join(MONSTERS, 'Blob/glTF/Yeti.gltf'), join(OUT.monsters, 'Werewolf.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Yeti.gltf'), join(OUT.monsters, 'WerewolfHunter.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Orc_Skull.gltf'), join(OUT.monsters, 'OrcWarrior.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/Demon.gltf'), join(OUT.monsters, 'OrcLieutenant.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/BlueDemon.gltf'), join(OUT.monsters, 'OrcCaptain.glb'));
+  copyGltf(join(MONSTERS, 'Big/glTF/MushroomKing.gltf'), join(OUT.monsters, 'WerewolfChieftain.glb'));
+  copyGltf(join(MONSTERS, 'Flying/glTF/Goleling.gltf'), join(OUT.monsters, 'StoneGolem.glb'));
+  copyGltf(join(MONSTERS, 'Blob/glTF/Cactoro.gltf'), join(OUT.monsters, 'Crasher.glb'));
+  copyGltf(join(MONSTERS, 'Flying/glTF/Squidle.gltf'), join(OUT.monsters, 'GiantSpider.glb'));
+  copyGltf(join(MONSTERS, 'Flying/glTF/Armabee.gltf'), join(OUT.monsters, 'GiantFangSpider.glb'));
+  copyGltf(join(MONSTERS, 'Flying/glTF/Armabee_Evolved.gltf'), join(OUT.monsters, 'GiantBladeSpider.glb'));
+
   writeFileSync(
     join(OUT.env, 'LICENSE.txt'),
     `Environment assets imported from ~/Downloads/packs (pre-live prototyping).
@@ -144,10 +160,27 @@ ElderWolf.glb — Big/Dino.gltf (distinct quadruped from Wolf.glb)
 GiantToad.glb — Big/Frog.gltf
 Orc.glb — Big/Orc.gltf (humanoid biped; NOT Blob Orc used by Goblin)
 
+Phase 22 — Complete TI bestiary:
+OrcSoldier.glb — Big/Tribal.gltf
+OrcArcher.glb — Big/Ninja.gltf
+GoblinScout.glb — Blob/Ninja.gltf
+Werewolf.glb — Blob/Yeti.gltf
+WerewolfHunter.glb — Big/Yeti.gltf
+OrcWarrior.glb — Big/Orc_Skull.gltf
+OrcLieutenant.glb — Big/Demon.gltf
+OrcCaptain.glb — Big/BlueDemon.gltf
+WerewolfChieftain.glb — Big/MushroomKing.gltf
+StoneGolem.glb — Flying/Goleling.gltf
+Crasher.glb — Blob/Cactoro.gltf
+GiantSpider.glb — Flying/Squidle.gltf
+GiantFangSpider.glb — Flying/Armabee.gltf
+GiantBladeSpider.glb — Flying/Armabee_Evolved.gltf
+
 Clip maps: creature-manifest.ts
   Blob: ULTIMATE_MONSTER_CLIP_MAP (Idle, Walk, Bite_Front, Death)
   Animals: QUATERNIUS_WOLF_CLIP_MAP / QUATERNIUS_DEER_CLIP_MAP
   Big: ULTIMATE_BIG_MONSTER_CLIP_MAP (Idle, Walk, Punch, Death)
+  Flying: QUATERNIUS_FLYING_CLIP_MAP (Flying_Idle, Fast_Flying, Punch, Death)
 
 Pre-launch: swap CC0 stand-ins for licensed L2-authentic assets where required (AD-004).
 
