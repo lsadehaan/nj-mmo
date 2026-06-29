@@ -155,6 +155,40 @@ describe('mobs visual mapping', () => {
     expect(map.get('orc-1')?.getObjectByName('capsuleBody')).toBeUndefined();
   });
 
+  it.each([20006, 20132, 20016, 20103])(
+    'renders rigged mesh (not capsule) for Phase 22 npcId %i (BEST22-42)',
+    async (npcId) => {
+      const skinned = new THREE.SkinnedMesh(
+        new THREE.BoxGeometry(0.4, 1.2, 0.4),
+        new THREE.MeshBasicMaterial()
+      );
+      skinned.bind(new THREE.Skeleton([new THREE.Bone()]));
+      const mobRoot = new THREE.Group();
+      mobRoot.add(skinned);
+
+      vi.spyOn(await import('./creature/mesh-character'), 'loadGltfTemplate').mockResolvedValue({
+        scene: mobRoot,
+        animations: [],
+      });
+
+      const scene = { add: () => undefined, remove: () => undefined };
+      const map: MobMeshMap = new Map();
+      const instances = createMobInstanceMap();
+      const mobId = `mob-${npcId}`;
+      syncMobVisual(
+        map,
+        instances,
+        { id: mobId, npcId, x: 0, y: 0, z: 0, hp: 100, maxHp: 100 },
+        scene as never
+      );
+
+      await vi.waitFor(() => {
+        expect(mobUsesCapsule(instances, mobId)).toBe(false);
+      });
+      expect(map.get(mobId)?.getObjectByName('capsuleBody')).toBeUndefined();
+    }
+  );
+
   it('defers scene removal while die clip is latched', () => {
     vi.useFakeTimers();
     const removed: unknown[] = [];

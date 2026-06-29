@@ -1,5 +1,45 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { initGameState, getGameState, setQuests } from '../test-hook';
+import { initGameState, getGameState, setQuests, setMobs } from '../test-hook';
+
+describe('wireRoom mob sync (unit)', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('updates __GAME_STATE__.mobs with npcId for Phase 22 types (BEST22-51)', () => {
+    setMobs([
+      {
+        id: 'archer',
+        npcId: 20006,
+        x: 10,
+        y: 4,
+        z: -10,
+        hp: 131,
+        maxHp: 131,
+        action: 'idle',
+        actionSeq: 0,
+      },
+    ]);
+    expect(getGameState().mobs[0]?.npcId).toBe(20006);
+  });
+
+  it('updates __GAME_STATE__.mobs attack action for Orc Warrior (BEST22-52)', () => {
+    setMobs([
+      {
+        id: 'warrior',
+        npcId: 20093,
+        x: 0,
+        y: 0,
+        z: 0,
+        hp: 100,
+        maxHp: 172,
+        action: 'attack',
+        actionSeq: 1,
+      },
+    ]);
+    expect(getGameState().mobs[0]?.action).toBe('attack');
+  });
+});
 
 describe('wireRoom quest sync (unit)', () => {
   beforeEach(() => {
