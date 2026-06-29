@@ -1,6 +1,7 @@
 import { WORLD_MIN, WORLD_MAX } from './world-constants';
 import { sampleHeight } from './terrain';
 import { isBlocked, segmentIntersectsBlocker } from './world-blockers';
+import { isWaterZone } from './ti-zones';
 
 export interface Vec2 {
   x: number;
@@ -17,6 +18,10 @@ function isInBounds(x: number, z: number): boolean {
 
 export function isWalkable(from: Vec2, to: Vec2): boolean {
   if (!isInBounds(from.x, from.z) || !isInBounds(to.x, to.z)) {
+    return false;
+  }
+
+  if (isWaterZone(to.x, to.z)) {
     return false;
   }
 

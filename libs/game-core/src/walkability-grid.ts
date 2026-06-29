@@ -2,6 +2,7 @@ import { WORLD_MIN, WORLD_MAX } from './world-constants';
 import { sampleHeight } from './terrain';
 import { isBlocked } from './world-blockers';
 import { MAX_SLOPE_TANGENT } from './walkability';
+import { isWaterZone } from './ti-zones';
 
 export const GRID_CELL_SIZE = 1;
 export const GRID_SIZE = WORLD_MAX - WORLD_MIN;
@@ -26,6 +27,7 @@ function isCellCentreWalkable(cx: number, cz: number): boolean {
     return false;
   }
   if (isBlocked(x, z)) return false;
+  if (isWaterZone(x, z)) return false;
 
   const h = sampleHeight(x, z);
   const cardinals = [

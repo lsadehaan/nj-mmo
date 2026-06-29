@@ -8,10 +8,10 @@ import {
 import { isPointInAabb, BUILDING_AABBS } from './world-blockers';
 
 describe('walkability grid', () => {
-  it('bakes a 190×190 grid', () => {
+  it('bakes a 630×630 grid covering expanded bounds (TIW23-41)', () => {
     const grid = getWalkabilityGrid();
     expect(grid.length).toBe(GRID_SIZE * GRID_SIZE);
-    expect(GRID_SIZE).toBe(190);
+    expect(GRID_SIZE).toBe(630);
   });
 
   it('marks cell at building centre (0,-14) unwalkable', () => {
@@ -19,8 +19,8 @@ describe('walkability grid', () => {
     expect(isCellWalkable(cx, cz)).toBe(false);
   });
 
-  it('marks open field cell (20,20) walkable', () => {
-    const { cx, cz } = worldToCellCoords(20, 20);
+  it('marks open field cell (-100,20) walkable', () => {
+    const { cx, cz } = worldToCellCoords(-100, 20);
     expect(isCellWalkable(cx, cz)).toBe(true);
   });
 
