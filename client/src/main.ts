@@ -1,7 +1,8 @@
 import { initGameState, setReady, getGameState, refreshPlayerCooldownRemaining } from './test-hook';
 import { connectSafe, wireRoom, getStoredCharacterId } from './net/room';
 import { wireCombatControls } from './combat-input';
-import { mountPowerStrikeCooldown, startPowerStrikeCooldownLoop } from './hud/power-strike-cooldown';
+import { mountHotbar } from './ui/hotbar';
+import { mountCastBar } from './ui/cast-bar';
 import { mountPlayerVitalsHud } from './hud/player-vitals';
 import { mountShopWindow } from './ui/shop-window';
 import { mountInventoryWindow } from './ui/inventory-window';
@@ -9,19 +10,41 @@ import { mountNpcDialog } from './ui/npc-dialog';
 import { mountInteractPrompt } from './npc-interaction';
 import { mountCharacterCreation } from './ui/character-creation';
 import { createRenderer, startRenderLoop } from './scene/renderer';
+import { renderHotbar } from './ui/hotbar';
+import { updateCastBar } from './ui/cast-bar';
 
 async function boot(): Promise<void> {
   initGameState();
-  mountPowerStrikeCooldown();
+  mountHotbar();
+  mountCastBar();
   mountPlayerVitalsHud();
   mountShopWindow();
   mountInventoryWindow();
   mountNpcDialog();
   mountInteractPrompt();
-  startPowerStrikeCooldownLoop(() => {
-    refreshPlayerCooldownRemaining();
-    return getGameState().player.powerStrikeCooldownEndMs;
-  });
+
+  const startSkillUiLoop = (): (() => void) => {
+    const tick = (): void => {
+      refreshPlayerCooldownRemaining();
+      const { player } = getGameState();
+      const nowMs = Date.now();
+      renderHotbar({
+        knownSkillIds: player.knownSkillIds,
+        skillCooldownEndMs: player.skillCooldownEndMs,
+        nowMs,
+        handlers: { onUseSkill: (skillId) => window.__useSkill__?.(skillId) },
+      });
+      updateCastBar({
+        castingSkillId: player.castingSkillId,
+        castEndMs: player.castEndMs,
+        nowMs,
+      });
+      requestAnimationFrame(tick);
+    };
+    const rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  };
+  startSkillUiLoop();
 
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;
   if (!canvas) {

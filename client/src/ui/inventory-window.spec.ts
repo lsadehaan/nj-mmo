@@ -9,7 +9,7 @@ import { FALLBACK_ICON } from './icon-manifest';
 import { HEALING_POTION_ITEM_ID } from '@nj/game-core';
 
 function defaultHandlers() {
-  return { sendEquip: vi.fn(), sendUseItem: vi.fn() };
+  return { sendEquip: vi.fn(), sendUseItem: vi.fn(), sendUseShot: vi.fn() };
 }
 
 function defaultOptions(
@@ -185,5 +185,19 @@ describe('inventory-window DOM', () => {
       `#inventory-window [data-inventory-item-id="${HEALING_POTION_ITEM_ID}"] [data-action="use"]`
     ) as HTMLButtonElement;
     expect(useBtn.disabled).toBe(true);
+  });
+
+  it('sends useShot for soulshot row (SKILL20-37)', () => {
+    const handlers = defaultHandlers();
+    mountInventoryWindow();
+    renderInventoryWindow(
+      defaultOptions({ itemCounts: { 1835: 10 }, handlers })
+    );
+
+    const shotBtn = document.querySelector(
+      '#inventory-window [data-inventory-item-id="1835"] [data-action="use-shot"]'
+    ) as HTMLButtonElement;
+    shotBtn.click();
+    expect(handlers.sendUseShot).toHaveBeenCalledWith({ itemId: 1835 });
   });
 });

@@ -8,6 +8,7 @@ const WEAPON_ITEM_IDS = new Set<number>([SQUIRES_SWORD_ITEM_ID]);
 
 /** MVP consumable ids with inventory Use action — server validates on useItem intent. */
 const CONSUMABLE_ITEM_IDS = new Set<number>([HEALING_POTION_ITEM_ID]);
+const SHOT_ITEM_IDS = new Set<number>([1835, 2509]);
 
 const ITEM_DISPLAY_NAMES: Record<number, string> = {
   13: 'Short Bow',
@@ -20,6 +21,7 @@ const ITEM_DISPLAY_NAMES: Record<number, string> = {
   462: 'Stockings',
   1060: 'Healing Potion',
   1835: 'Soulshot (No-grade)',
+  2509: 'Spiritshot (No-grade)',
   1786: 'Recipe: Broadsword',
   1788: 'Recipe: Bow',
   1864: 'Stem',
@@ -32,6 +34,7 @@ const ITEM_DISPLAY_NAMES: Record<number, string> = {
 export interface InventorySendHandlers {
   sendEquip: (payload: { itemId: number }) => void;
   sendUseItem: (payload: { itemId: number }) => void;
+  sendUseShot?: (payload: { itemId: number }) => void;
 }
 
 export interface InventoryRenderOptions {
@@ -160,7 +163,16 @@ export function renderInventoryWindow(options: InventoryRenderOptions): void {
       row.appendChild(equipBtn);
     }
 
-    if (CONSUMABLE_ITEM_IDS.has(itemId)) {
+    if (SHOT_ITEM_IDS.has(itemId)) {
+      const shotBtn = document.createElement('button');
+      shotBtn.type = 'button';
+      shotBtn.dataset['action'] = 'use-shot';
+      shotBtn.textContent = 'Use';
+      shotBtn.addEventListener('click', () => {
+        options.handlers.sendUseShot?.({ itemId });
+      });
+      row.appendChild(shotBtn);
+    } else if (CONSUMABLE_ITEM_IDS.has(itemId)) {
       const useBtn = document.createElement('button');
       useBtn.type = 'button';
       useBtn.dataset['action'] = 'use';
