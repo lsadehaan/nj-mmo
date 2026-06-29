@@ -1,21 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { PEACE_ZONE, NPC_INTERACT_RADIUS, isInPeaceZone } from './peace-zone';
+import { NPC_INTERACT_RADIUS, isInPeaceZone } from './peace-zone';
+import { getZoneAt } from './ti-zones';
 
 describe('peace zone', () => {
-  it('returns true at village center and false outside bounds', () => {
+  it('returns true at village center and false at obelisk', () => {
     expect(isInPeaceZone(0, 0)).toBe(true);
-    expect(isInPeaceZone(25, 0)).toBe(false);
+    expect(isInPeaceZone(-155, 58)).toBe(false);
   });
 
-  it('includes axis-aligned corners at ±20 and excludes just outside', () => {
-    expect(isInPeaceZone(-20, -20)).toBe(true);
-    expect(isInPeaceZone(20, 20)).toBe(true);
-    expect(isInPeaceZone(-20.1, 0)).toBe(false);
-    expect(isInPeaceZone(0, 20.1)).toBe(false);
-  });
-
-  it('exports PEACE_ZONE rectangle x∈[−20,20], z∈[−20,20]', () => {
-    expect(PEACE_ZONE).toEqual({ minX: -20, maxX: 20, minZ: -20, maxZ: 20 });
+  it('matches getZoneAt peace type (TIW23-15)', () => {
+    const samples = [
+      { x: 0, z: 0 },
+      { x: -20, z: 15 },
+      { x: -155, z: 58 },
+      { x: -110, z: 29 },
+      { x: 250, z: 250 },
+    ];
+    for (const { x, z } of samples) {
+      expect(isInPeaceZone(x, z)).toBe(getZoneAt(x, z).type === 'peace');
+    }
   });
 
   it('exports NPC_INTERACT_RADIUS as 3.0 m', () => {
