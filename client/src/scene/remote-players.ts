@@ -23,6 +23,13 @@ export interface RemotePlayerInstance {
   avatar: RemotePlayerAvatar;
   lastClip: AnimationClip;
   equippedWeaponItemId: number;
+  classId: number;
+  sex: number;
+}
+
+function disposeRemoteInstance(instance: RemotePlayerInstance, scene: THREE.Scene): void {
+  scene.remove(instance.group);
+  disposeObject3D(instance.group);
 }
 
 export function upsertRemotePlayer(
@@ -31,14 +38,24 @@ export function upsertRemotePlayer(
   sync: RemotePlayerAvatarSync,
   scene: THREE.Scene
 ): RemotePlayerInstance {
+  const classId = sync.classId ?? 0;
+  const sex = sync.sex ?? 0;
   let instance = map.get(sessionId);
+  if (instance && (instance.classId !== classId || instance.sex !== sex)) {
+    disposeRemoteInstance(instance, scene);
+    map.delete(sessionId);
+    instance = undefined;
+  }
+
   if (!instance) {
-    const avatar = createRemotePlayerAvatar();
+    const avatar = createRemotePlayerAvatar({ classId, sex });
     instance = {
       group: avatar.group,
       avatar,
       lastClip: 'idle',
       equippedWeaponItemId: 0,
+      classId,
+      sex,
     };
     scene.add(avatar.group);
     map.set(sessionId, instance);
@@ -70,8 +87,7 @@ export function removeRemotePlayer(
 ): void {
   const instance = map.get(sessionId);
   if (!instance) return;
-  scene.remove(instance.group);
-  disposeObject3D(instance.group);
+  disposeRemoteInstance(instance, scene);
   map.delete(sessionId);
 }
 

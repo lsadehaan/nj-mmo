@@ -58,7 +58,9 @@ export interface GameRenderer {
     z: number,
     action?: number,
     actionSeq?: number,
-    equippedWeaponItemId?: number
+    equippedWeaponItemId?: number,
+    classId?: number,
+    sex?: number
   ) => void;
   getCurrentAnimationClip: () => AnimationClip;
   syncRemotePlayer: (sessionId: string, sync: RemotePlayerAvatarSync) => void;
@@ -167,8 +169,19 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     setEnvironment({ ...envResult, loaded: true });
   });
 
-  const playerAvatar = createPlayerAvatar();
+  let playerAvatar = createPlayerAvatar();
   scene.add(playerAvatar.group);
+  let activeClassId = 0;
+  let activeSex = 0;
+
+  const ensureLocalAvatar = (classId: number, sex: number): void => {
+    if (classId === activeClassId && sex === activeSex) return;
+    activeClassId = classId;
+    activeSex = sex;
+    scene.remove(playerAvatar.group);
+    playerAvatar = createPlayerAvatar({ classId, sex });
+    scene.add(playerAvatar.group);
+  };
   const vfxManager: VfxManager = createVfxManager(scene);
 
   const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
@@ -219,8 +232,11 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     z: number,
     action = 0,
     actionSeq = 0,
-    equippedWeaponItemId = 0
+    equippedWeaponItemId = 0,
+    classId = 0,
+    sex = 0
   ): void => {
+    ensureLocalAvatar(classId, sex);
     localPosition.x = x;
     localPosition.y = y;
     localPosition.z = z;

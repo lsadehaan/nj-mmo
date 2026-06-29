@@ -8,16 +8,13 @@ import {
   type AnimState,
 } from '@nj/game-core';
 import { createMeshCharacter, type MeshCharacter } from './creature/mesh-character';
+import { getPlayerManifestEntry } from './creature/player-manifest';
 import { MOVE_THRESHOLD, MOVE_COAST_MS } from './player-avatar';
 import {
   createWeaponVisualState,
   syncWeaponVisual,
   type WeaponVisualState,
 } from './creature/weapon-visual';
-
-const DEFAULT_CHARACTER = 'Rogue';
-const MODEL_SCALE = 1;
-const FEET_OFFSET_Y = 0.9;
 
 export interface RemotePlayerAvatarSync {
   x: number;
@@ -26,6 +23,8 @@ export interface RemotePlayerAvatarSync {
   action?: EntityAction;
   actionSeq?: number;
   equippedWeaponItemId?: number;
+  classId?: number;
+  sex?: number;
 }
 
 export interface RemotePlayerAvatar {
@@ -40,7 +39,8 @@ function yawFromDirection(dx: number, dz: number): number {
 }
 
 export interface RemotePlayerAvatarOptions {
-  character?: string;
+  classId?: number;
+  sex?: number;
   mesh?: MeshCharacter;
 }
 
@@ -50,10 +50,16 @@ export function createRemotePlayerAvatar(
   const group = new THREE.Group();
   group.name = 'remote-player-avatar';
 
+  const classId = options.classId ?? 0;
+  const entry = getPlayerManifestEntry(classId);
+  const sexScale = options.sex === 1 ? 0.97 : 1.0;
+  const feetOffsetY = entry.feetOffsetY;
+
   const mesh =
     options.mesh ??
-    createMeshCharacter(`/models/characters/${options.character ?? DEFAULT_CHARACTER}.glb`, {
-      scale: MODEL_SCALE,
+    createMeshCharacter(entry.model, {
+      scale: entry.scale * sexScale,
+      clipMap: entry.clipMap,
     });
   group.add(mesh.object);
   const ready = mesh.ready.catch(() => undefined);
@@ -90,7 +96,7 @@ export function createRemotePlayerAvatar(
     const weaponId = p.equippedWeaponItemId ?? 0;
     syncWeaponVisual(mesh.object, weaponId, weaponState);
 
-    group.position.set(p.x, p.y - FEET_OFFSET_Y, p.z);
+    group.position.set(p.x, p.y - feetOffsetY, p.z);
     prevX = p.x;
     prevZ = p.z;
   };

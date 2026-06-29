@@ -7,6 +7,7 @@ import {
   type AnimState,
 } from '@nj/game-core';
 import { createMeshCharacter, type MeshCharacter } from './creature/mesh-character';
+import { getPlayerManifestEntry } from './creature/player-manifest';
 import { getGameState } from '../test-hook';
 import {
   createWeaponVisualState,
@@ -16,21 +17,7 @@ import {
 
 /** Min server-step displacement (per sync) that counts as movement. */
 const MOVE_THRESHOLD = 0.02;
-/**
- * How long locomotion stays 'move' after the last movement sync. Must exceed the
- * server's movement broadcast interval so we don't flicker between syncs, but be
- * short enough to feel responsive when the player stops. The server stops
- * broadcasting position once stationary, so this timeout — not a zero-delta sync
- * — is what returns us to 'idle'.
- */
 const MOVE_COAST_MS = 200;
-
-/** Beginner look: leather-only Rogue (green tunic + straps), not the plate Knight. */
-const DEFAULT_CHARACTER = 'Rogue';
-/** KayKit bbox is ~2.69u tall at scale 1; keep it hero-readable in the follow cam. */
-const MODEL_SCALE = 1;
-/** Server y is the body-center height (legacy capsule); drop the mesh so its feet sit on the ground. */
-const FEET_OFFSET_Y = 0.9;
 
 export interface PlayerAvatarSync {
   x: number;
@@ -53,7 +40,8 @@ function yawFromDirection(dx: number, dz: number): number {
 }
 
 export interface PlayerAvatarOptions {
-  character?: string;
+  classId?: number;
+  sex?: number;
   mesh?: MeshCharacter;
 }
 
@@ -61,10 +49,16 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
   const group = new THREE.Group();
   group.name = 'player-avatar';
 
+  const classId = options.classId ?? 0;
+  const entry = getPlayerManifestEntry(classId);
+  const sexScale = options.sex === 1 ? 0.97 : 1.0;
+  const feetOffsetY = entry.feetOffsetY;
+
   const character =
     options.mesh ??
-    createMeshCharacter(`/models/characters/${options.character ?? DEFAULT_CHARACTER}.glb`, {
-      scale: MODEL_SCALE,
+    createMeshCharacter(entry.model, {
+      scale: entry.scale * sexScale,
+      clipMap: entry.clipMap,
     });
   group.add(character.object);
   const ready = character.ready.catch(() => {
@@ -92,9 +86,6 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
     const dz = p.z - prevZ;
     const delta = Math.hypot(dx, dz);
 
-    // Locomotion is derived from server position steps and held alive by a coast
-    // timer (see MOVE_COAST_MS): a real movement step refreshes the timer; the
-    // absence of further steps lets it expire to idle.
     if (delta > MOVE_THRESHOLD) {
       lastMoveMs = nowMs;
       lastYaw = yawFromDirection(dx, dz);
@@ -105,7 +96,7 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
 
     syncWeaponVisual(character.object, p.equippedWeaponItemId ?? 0, weaponState);
 
-    group.position.set(p.x, p.y - FEET_OFFSET_Y, p.z);
+    group.position.set(p.x, p.y - feetOffsetY, p.z);
     prevX = p.x;
     prevZ = p.z;
   };
@@ -120,7 +111,7 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
     character.play(clip);
     character.update(dt);
 
-    if ((clip === 'attack' || clip === 'cast')) {
+    if (clip === 'attack' || clip === 'cast') {
       const state = getGameState();
       const mob = state.mobs.find((entry) => entry.id === state.targetMobId);
       if (mob) {
