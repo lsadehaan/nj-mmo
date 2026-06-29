@@ -1,18 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { gotoGame } from './game-page';
-import { approachMob } from './mob-combat';
 
 const NEW_TI_MOB_IDS = [20432, 20544, 20442, 20121, 20130] as const;
-/** High-HP outer-ring mobs that survive first hit (TIMOB-29: Orc or Elder Wolf). */
+/** TIMOB-29: Orc (aggressive, meets player in aggro range) or Elder Wolf. */
 const CLIP_TEST_MOB_IDS = [20130, 20442] as const;
 
-async function waitReady(page: import('@playwright/test').Page) {
-  await page.waitForFunction(() => window.__GAME_STATE__?.ready === true, undefined, {
-    timeout: 30_000,
-  });
-}
-
-function pickNearestClipTestMob(
+function pickClipTestMob(
   mobs: Array<{ id: string; npcId: number; x: number; z: number; hp?: number }>,
   player: { x: number; z: number }
 ) {
@@ -29,7 +22,15 @@ function pickNearestClipTestMob(
   if (pool.length === 0) {
     throw new Error('No Orc (20130) or Elder Wolf (20442) in __GAME_STATE__ for combat e2e');
   }
-  return pool[0];
+  // Prefer aggressive Orc — enters aggro at 45 m and closes distance while the player approaches.
+  const orc = pool.find((m) => m.npcId === 20130);
+  return orc ?? pool[0];
+}
+
+async function waitReady(page: import('@playwright/test').Page) {
+  await page.waitForFunction(() => window.__GAME_STATE__?.ready === true, undefined, {
+    timeout: 30_000,
+  });
 }
 
 test('outer field exposes new TI mob npcIds in __GAME_STATE__', async ({ page }, testInfo) => {
@@ -81,15 +82,13 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
     })),
     player: { x: window.__GAME_STATE__.player.x, z: window.__GAME_STATE__.player.z },
   }));
-  const target = pickNearestClipTestMob(mobs, player);
+  const target = pickClipTestMob(mobs, player);
 
-  await approachMob(page, target.id, 3.4, 110_000);
-  await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
-  await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), target.id);
   await page.waitForFunction(
-    (mobId) => window.__GAME_STATE__?.targetMobId === mobId,
-    target.id,
-    { timeout: 5_000 }
+    () =>
+      typeof window.__handleMobTarget__ === 'function' &&
+      typeof window.__sendMoveIntent__ === 'function' &&
+      typeof window.__attack__ === 'function'
   );
 
   await expect
@@ -107,6 +106,11 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
             return flags.attack && flags.die;
           }
 
+          if (state.targetMobId !== mobId) {
+            window.__handleMobTarget__?.(mobId);
+            return false;
+          }
+
           const p = state.player;
           const dist = Math.hypot(p.x - mob.x, p.z - mob.z);
           if (dist > 3.4) {
@@ -120,7 +124,7 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
           }
           return false;
         }, target.id),
-      { timeout: 90_000, intervals: [100, 200, 400, 600] }
+      { timeout: 110_000, intervals: [100, 200, 400, 600] }
     )
     .toBe(true);
 });
