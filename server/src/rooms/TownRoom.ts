@@ -20,6 +20,8 @@ import {
   type ExperienceCurveRow,
   type SeededRng,
   type ClassVitalsRow,
+  type QuestDefinition,
+  type QuestRuntimeState,
   EntityAction,
   HEALING_POTION_HEAL_AMOUNT,
   HEALING_POTION_ITEM_ID,
@@ -35,9 +37,12 @@ import {
   saveCharacterItems,
   loadCharacterSkills,
   saveCharacterSkills,
+  loadCharacterQuests,
+  isQuestItem,
   type CharacterItemCounts,
   type CharacterSkillLevels,
 } from '../db/character-repository';
+import { loadQuestDefinitions } from '../db/quest-repository';
 import {
   loadClassTemplate,
   loadClassVitalsCurve,
@@ -82,6 +87,14 @@ import { buyItem, sellItem } from './shop-transaction';
 import { validateEquip, applyEquip } from './equip-transaction';
 import { canInteract, applyHeal, applyStarterKit } from './npc-actions';
 import { isStarterClassId, isValidSex } from './starter-classes';
+import {
+  buildQuestDialog,
+  ensureAutoStartQuests,
+  handleQuestAction,
+  onMobKilledForQuests,
+  syncQuestEntriesToPlayer,
+  type QuestRoomContext,
+} from './quest-handlers';
 
 const BITZ_NPC_ID = 30026;
 const GWINTER_NPC_ID = 30027;
@@ -156,6 +169,8 @@ export class TownRoom extends Room<{ state: TownState }> {
   private mobEffects = new Map<string, MobEffectState>();
   private nowMs = () => Date.now();
   private playerItems = new Map<string, CharacterItemCounts>();
+  private playerQuests = new Map<string, QuestRuntimeState[]>();
+  private questDefs = new Map<number, QuestDefinition>();
   private npcSpawnsById = new Map<number, { x: number; y: number; z: number }>();
   private classTemplatesById = new Map<number, ClassTemplate>();
   private classVitalsByClassId = new Map<number, ClassVitalsRow[]>();
@@ -170,6 +185,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       createSeededRng(options.combatSeed ?? hashRoomId(this.roomId));
 
     this.loadCombatData();
+    this.questDefs = loadQuestDefinitions(this.db);
     this.setState(new TownState());
     this.initializeNpcs();
     this.mobRuntime = initializeMobs(this.db, this.state);
@@ -247,6 +263,13 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.onMessage('useItem', (client, message: { itemId: number }) => {
       this.handleUseItem(client.sessionId, message.itemId);
     });
+
+    this.onMessage(
+      'questAction',
+      (client, message: { npcId: number; action: string }) => {
+        this.handleQuestAction(client.sessionId, message.npcId, message.action);
+      }
+    );
   }
 
   private initializeNpcs(): void {
@@ -545,7 +568,46 @@ export class TownRoom extends Room<{ state: TownState }> {
       combat.openTrainerNpcId = npcId;
     }
     const client = this.clients.find((c) => c.sessionId === sessionId);
+    const questDialog = buildQuestDialog(this.createQuestContext(sessionId), npcId);
+    if (questDialog) {
+      client?.send('questDialog', { npcId, ...questDialog });
+      return;
+    }
     client?.send('interactResult', { npcId, type: meta.type, name: meta.name });
+  }
+
+  private handleQuestAction(sessionId: string, npcId: number, action: string): void {
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+    handleQuestAction(this.createQuestContext(sessionId), npcId, action);
+  }
+
+  private createQuestContext(sessionId: string): QuestRoomContext {
+    const characterId = this.characterIds.get(sessionId)!;
+    const player = this.state.players.get(sessionId)!;
+    const stored = this.characters.get(sessionId)!;
+    const questEntries = this.playerQuests.get(sessionId) ?? [];
+    return {
+      db: this.db,
+      characterId,
+      player,
+      stored,
+      questDefs: this.questDefs,
+      questEntries,
+      playerItems: this.playerItems.get(sessionId) ?? {},
+      experienceCurve: this.experienceCurve,
+      setItemCount: (itemId, count) => this.setItemCount(sessionId, itemId, count),
+      getItemCount: (itemId) => this.getItemCount(sessionId, itemId),
+      persistItems: () => this.scheduleDebouncedSave(sessionId),
+      persistCharacter: () => this.persistCharacter(sessionId),
+      syncQuestEntries: () => this.syncQuestEntries(sessionId),
+    };
+  }
+
+  private syncQuestEntries(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const entries = this.playerQuests.get(sessionId) ?? [];
+    if (!player) return;
+    syncQuestEntriesToPlayer(player, entries);
   }
 
   private handleBuy(
@@ -597,6 +659,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       listing,
       quantity,
       itemId,
+      isQuestItem: isQuestItem(this.db, itemId),
     });
     if (!result.ok) return;
 
@@ -1080,6 +1143,8 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     this.persistCharacter(killerSessionId);
 
+    onMobKilledForQuests(this.createQuestContext(killerSessionId), runtime.npcId);
+
     const mobState = this.state.mobs.get(runtime.id);
     if (mobState) {
       this.emitMobAction(mobState, EntityAction.Die);
@@ -1170,8 +1235,11 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.connected = true;
     this.playerItems.set(client.sessionId, loadCharacterItems(this.db, character.id));
     this.playerSkills.set(client.sessionId, loadCharacterSkills(this.db, character.id));
-    this.syncItemsToPlayerState(client.sessionId);
+    this.playerQuests.set(client.sessionId, loadCharacterQuests(this.db, character.id));
     this.state.players.set(client.sessionId, player);
+    this.syncItemsToPlayerState(client.sessionId);
+    this.syncQuestEntries(client.sessionId);
+    ensureAutoStartQuests(this.createQuestContext(client.sessionId));
     this.tickStates.set(
       client.sessionId,
       createPathMoveState(character.x, character.y, character.z)
@@ -1221,6 +1289,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.playerCombat.delete(sessionId);
     this.playerItems.delete(sessionId);
     this.playerSkills.delete(sessionId);
+    this.playerQuests.delete(sessionId);
 
     for (const runtime of this.mobRuntime.values()) {
       if (runtime.targetSessionId === sessionId) {
