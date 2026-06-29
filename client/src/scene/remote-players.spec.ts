@@ -89,6 +89,8 @@ describe('remote-players', () => {
       avatar: { group, sync: () => undefined, update: () => 'idle', ready: Promise.resolve() },
       lastClip: 'idle',
       equippedWeaponItemId: 0,
+      classId: 0,
+      sex: 0,
     });
     scene.add(group);
 
@@ -109,6 +111,8 @@ describe('remote-players', () => {
       avatar: { group, sync: () => undefined, update, ready: Promise.resolve() },
       lastClip: 'idle',
       equippedWeaponItemId: 0,
+      classId: 0,
+      sex: 0,
     });
 
     const clips = tickRemotePlayers(map, 0.016, 100);
@@ -126,6 +130,8 @@ describe('remote-players', () => {
       avatar: { group, sync: () => undefined, update: () => 'attack', ready: Promise.resolve() },
       lastClip: 'attack',
       equippedWeaponItemId: 2369,
+      classId: 0,
+      sex: 0,
     });
 
     expect(listRemotePlayers(map)).toEqual([

@@ -1,13 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { EntityAction } from '@nj/game-core';
+
+vi.mock('./creature/mesh-character', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./creature/mesh-character')>();
+  return {
+    ...actual,
+    createMeshCharacter: vi.fn(() => ({
+      object: new THREE.Group(),
+      ready: Promise.resolve(),
+      play: () => undefined,
+      update: () => undefined,
+      setTime: () => undefined,
+    })),
+  };
+});
+
 import {
   computeFacingYaw,
   createPlayerAvatar,
   MOVE_THRESHOLD,
   MOVE_COAST_MS,
 } from './player-avatar';
-import type { MeshCharacter } from './creature/mesh-character';
+import { createMeshCharacter, type MeshCharacter } from './creature/mesh-character';
 import { initGameState, setMobs, setTargetMobId } from '../test-hook';
 import { syncWeaponVisual } from './creature/weapon-visual';
 
@@ -35,6 +50,7 @@ describe('createPlayerAvatar', () => {
     setMobs([]);
     setTargetMobId(null);
     vi.mocked(syncWeaponVisual).mockClear();
+    vi.mocked(createMeshCharacter).mockClear();
   });
 
   it('enters move on a server step and coasts to idle after movement stops', () => {
@@ -89,6 +105,14 @@ describe('createPlayerAvatar', () => {
       expect.anything(),
       2369,
       expect.any(Object)
+    );
+  });
+
+  it('loads Rogue_Hooded.glb for classId 31', () => {
+    createPlayerAvatar({ classId: 31 });
+    expect(createMeshCharacter).toHaveBeenCalledWith(
+      '/models/characters/Rogue_Hooded.glb',
+      expect.objectContaining({ scale: expect.any(Number) })
     );
   });
 

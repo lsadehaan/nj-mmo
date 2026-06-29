@@ -12,6 +12,8 @@ describe('renderer remote tick', () => {
       avatar: { group, sync: () => undefined, update, ready: Promise.resolve() },
       lastClip: 'idle',
       equippedWeaponItemId: 0,
+      classId: 0,
+      sex: 0,
     });
 
     tickRemotePlayers(map, 0.016, 50);
@@ -27,6 +29,8 @@ describe('renderer remote tick', () => {
       avatar: { group, sync, update: () => 'idle', ready: Promise.resolve() },
       lastClip: 'idle',
       equippedWeaponItemId: 0,
+      classId: 0,
+      sex: 0,
     });
 
     upsertRemotePlayer(

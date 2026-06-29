@@ -254,6 +254,25 @@ describe('TownRoom character creation join', () => {
       cleanup();
     }
   });
+
+  it('remote client sees joiner classId in replicated PlayerState', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const clientA = await colyseus.sdk.joinById(
+        room.roomId,
+        { create: { classId: 31, sex: 0 } },
+        TownState
+      );
+      const clientB = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const remoteOnB = clientB.state.players.get(clientA.sessionId);
+      expect(remoteOnB?.classId).toBe(31);
+      await clientA.leave();
+      await clientB.leave();
+    } finally {
+      cleanup();
+    }
+  });
 });
 
 describe('TownRoom', () => {
