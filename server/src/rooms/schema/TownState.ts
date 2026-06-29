@@ -17,6 +17,7 @@ export class PlayerState extends Schema {
   @type('number') adena = 1000;
   @type('boolean') connected = true;
   @type('number') powerStrikeCooldownEndMs = 0;
+  @type('number') healingPotionCooldownEndMs = 0;
   /** Render-only; not persisted (AD-015). */
   @type('number') action = 0;
   /** Render-only; not persisted (AD-015). */
