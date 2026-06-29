@@ -5,6 +5,12 @@ const baseURL = process.env['BASE_URL'] || 'http://localhost:4200';
 
 export default defineConfig({
   ...nxE2EPreset(__filename, { testDir: './src' }),
+  // AD-019 ceilings — per-test overrides only in terrain-pathing.spec.ts whitelist
+  // (test 25_000, poll 20_000). All other specs inherit these defaults.
+  timeout: 15_000,
+  expect: {
+    timeout: 5_000,
+  },
   // Each test joins its own isolated `town` room (see src/game-page.ts), so the
   // suite is parallel-safe — no shared-room state bleed, no serial ordering.
   fullyParallel: true,
