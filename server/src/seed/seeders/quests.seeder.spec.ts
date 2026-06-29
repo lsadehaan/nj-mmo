@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client';
-import { items, questObjectives, quests } from '../../db/schema';
+import { items, questObjectives, questRewards, quests } from '../../db/schema';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed';
 import { TI_QUEST_IDS } from './quests.seeder';
 import { TI_NPC_IDS } from '../paths';
@@ -63,5 +63,17 @@ describe('quest seeding', () => {
       .where(eq(items.itemId, 1012))
       .get();
     expect(row?.isQuestItem).toBe(true);
+  });
+
+  it('seeds reward anchors for quests 101, 105, and 156', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const q101 = db.select().from(questRewards).where(eq(questRewards.questId, 101)).all();
+    const q105 = db.select().from(questRewards).where(eq(questRewards.questId, 105)).all();
+    const q156 = db.select().from(questRewards).where(eq(questRewards.questId, 156)).all();
+    expect(q101.some((r) => r.itemId === 49043)).toBe(true);
+    expect(q105.some((r) => r.xp === 27772)).toBe(true);
+    expect(q156.some((r) => r.xp === 3000)).toBe(true);
   });
 });
