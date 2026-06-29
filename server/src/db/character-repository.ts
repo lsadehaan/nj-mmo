@@ -1,12 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
+import type { QuestRuntimeState } from '@nj/game-core';
 import type { AppDatabase } from './client';
 import {
   characters,
   characterItems,
   characterSkills,
+  characterQuests,
   classSkillTree,
+  items,
   type Character,
 } from './schema';
 import { loadClassVitalsAtLevel } from './class-template-repository';
@@ -230,4 +233,58 @@ export function saveCharacterItems(
     return;
   }
   db.insert(characterItems).values(rows).run();
+}
+
+export function loadCharacterQuests(
+  db: AppDatabase,
+  characterId: string
+): QuestRuntimeState[] {
+  const rows = db
+    .select()
+    .from(characterQuests)
+    .where(eq(characterQuests.characterId, characterId))
+    .all();
+  return rows.map((row) => ({
+    questId: row.questId,
+    status: row.status as QuestRuntimeState['status'],
+    step: row.step,
+    counters: JSON.parse(row.countersJson) as number[],
+  }));
+}
+
+export function saveCharacterQuest(
+  db: AppDatabase,
+  characterId: string,
+  entry: QuestRuntimeState
+): void {
+  db.insert(characterQuests)
+    .values({
+      characterId,
+      questId: entry.questId,
+      status: entry.status,
+      step: entry.step,
+      countersJson: JSON.stringify(entry.counters),
+    })
+    .onConflictDoUpdate({
+      target: [characterQuests.characterId, characterQuests.questId],
+      set: {
+        status: entry.status,
+        step: entry.step,
+        countersJson: JSON.stringify(entry.counters),
+      },
+    })
+    .run();
+}
+
+export function upsertQuestProgress(
+  db: AppDatabase,
+  characterId: string,
+  entry: QuestRuntimeState
+): void {
+  saveCharacterQuest(db, characterId, entry);
+}
+
+export function isQuestItem(db: AppDatabase, itemId: number): boolean {
+  const row = db.select().from(items).where(eq(items.itemId, itemId)).get();
+  return row?.isQuestItem ?? false;
 }

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import { getDb } from './client';
-import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems, loadCharacterSkills, saveCharacterSkills } from './character-repository';
+import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems, loadCharacterSkills, saveCharacterSkills, loadCharacterQuests, saveCharacterQuest, upsertQuestProgress } from './character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 
 describe('character repository', () => {
@@ -254,5 +254,38 @@ describe('character repository', () => {
     saveCharacterSkills(db, row.id, { 3: 1, 29: 1 });
     expect(loadCharacterSkills(db, row.id)).toEqual({ 3: 1, 29: 1 });
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  // QUEST21-12
+  it('saveCharacterQuest round-trips step and counters', () => {
+    const db = tempDb();
+    const row = createCharacter(db);
+    const entry = {
+      questId: 153,
+      status: 'in_progress' as const,
+      step: 2,
+      counters: [1, 0, 1],
+    };
+    saveCharacterQuest(db, row.id, entry);
+    const loaded = loadCharacterQuests(db, row.id);
+    expect(loaded).toEqual([entry]);
+  });
+
+  it('upsertQuestProgress persists completed status', () => {
+    const db = tempDb();
+    const row = createCharacter(db);
+    upsertQuestProgress(db, row.id, {
+      questId: 153,
+      status: 'completed',
+      step: 3,
+      counters: [],
+    });
+    expect(loadCharacterQuests(db, row.id)[0]?.status).toBe('completed');
+  });
+
+  it('loadCharacterQuests returns empty for new character', () => {
+    const db = tempDb();
+    const row = createCharacter(db);
+    expect(loadCharacterQuests(db, row.id)).toEqual([]);
   });
 });
