@@ -1,8 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import type { AppDatabase } from './client';
-import { characters, characterItems, type Character } from './schema';
+import {
+  characters,
+  characterItems,
+  characterSkills,
+  classSkillTree,
+  type Character,
+} from './schema';
 import { loadClassVitalsAtLevel } from './class-template-repository';
 
 const STARTER_NAME = 'Adventurer';
@@ -10,11 +16,114 @@ const STARTER_ADENA = 1000;
 const DEFAULT_CLASS_ID = 0;
 const DEFAULT_SEX = 0;
 
+const FIGHTER_CLASS_IDS = new Set([0, 18, 31, 44, 53]);
+const MYSTIC_CLASS_IDS = new Set([10, 25, 38, 49]);
+
 export type CharacterItemCounts = Record<number, number>;
+export type CharacterSkillLevels = Record<number, number>;
 
 export interface CreateCharacterOptions {
   classId?: number;
   sex?: 0 | 1;
+}
+
+export function loadCharacterSkills(
+  db: AppDatabase,
+  characterId: string
+): CharacterSkillLevels {
+  const rows = db
+    .select()
+    .from(characterSkills)
+    .where(eq(characterSkills.characterId, characterId))
+    .all();
+  const skills: CharacterSkillLevels = {};
+  for (const row of rows) {
+    skills[row.skillId] = row.skillLevel;
+  }
+  return skills;
+}
+
+export function saveCharacterSkills(
+  db: AppDatabase,
+  characterId: string,
+  skills: CharacterSkillLevels
+): void {
+  db.delete(characterSkills)
+    .where(eq(characterSkills.characterId, characterId))
+    .run();
+  const rows = Object.entries(skills)
+    .map(([skillId, skillLevel]) => ({
+      characterId,
+      skillId: Number(skillId),
+      skillLevel,
+    }))
+    .filter((row) => row.skillLevel > 0);
+  if (rows.length === 0) return;
+  db.insert(characterSkills).values(rows).run();
+}
+
+export function grantAutoGetSkills(
+  db: AppDatabase,
+  characterId: string,
+  classId: number
+): CharacterSkillLevels {
+  const rows = db
+    .select()
+    .from(classSkillTree)
+    .where(
+      and(
+        eq(classSkillTree.classId, classId),
+        eq(classSkillTree.autoGet, true)
+      )
+    )
+    .all();
+
+  const skills: CharacterSkillLevels = {};
+  for (const row of rows) {
+    if (!skills[row.skillId] || row.skillLevel === 1) {
+      skills[row.skillId] = row.skillLevel;
+    }
+  }
+
+  if (Object.keys(skills).length > 0) {
+    saveCharacterSkills(db, characterId, skills);
+  }
+  return skills;
+}
+
+export function migrateLegacyCharacterSkills(
+  db: AppDatabase,
+  character: Character
+): CharacterSkillLevels {
+  const existing = loadCharacterSkills(db, character.id);
+  if (Object.keys(existing).length > 0) {
+    return existing;
+  }
+
+  const skills: CharacterSkillLevels = { ...existing };
+
+  if (FIGHTER_CLASS_IDS.has(character.classId)) {
+    skills[3] = 1;
+  } else if (MYSTIC_CLASS_IDS.has(character.classId)) {
+    const autoRows = db
+      .select()
+      .from(classSkillTree)
+      .where(
+        and(
+          eq(classSkillTree.classId, character.classId),
+          eq(classSkillTree.autoGet, true)
+        )
+      )
+      .all();
+    for (const row of autoRows) {
+      skills[row.skillId] = row.skillLevel;
+    }
+  }
+
+  if (Object.keys(skills).length > 0) {
+    saveCharacterSkills(db, character.id, skills);
+  }
+  return skills;
 }
 
 export function createCharacter(
@@ -49,11 +158,15 @@ export function createCharacter(
     updatedAt: Date.now(),
   };
   db.insert(characters).values(row).run();
+  grantAutoGetSkills(db, row.id, classId);
   return row;
 }
 
 export function loadCharacter(db: AppDatabase, id: string): Character | undefined {
-  return db.select().from(characters).where(eq(characters.id, id)).get();
+  const row = db.select().from(characters).where(eq(characters.id, id)).get();
+  if (!row) return undefined;
+  migrateLegacyCharacterSkills(db, row);
+  return row;
 }
 
 export function saveCharacter(db: AppDatabase, row: Character): void {

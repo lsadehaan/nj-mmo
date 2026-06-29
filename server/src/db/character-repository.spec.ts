@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import { getDb } from './client';
-import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems } from './character-repository';
+import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems, loadCharacterSkills, saveCharacterSkills } from './character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 
 describe('character repository', () => {
@@ -203,6 +203,56 @@ describe('character repository', () => {
     const loaded = loadCharacter(db, created.id);
     expect(loaded?.classId).toBe(31);
     expect(loaded?.sex).toBe(1);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // SKILL20-09
+  it('createCharacter mystic classId 10 grants Wind Strike 1177', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nj-char-skills-'));
+    const dbPath = join(dir, 'test.db');
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const row = createCharacter(db, { classId: 10 });
+    expect(loadCharacterSkills(db, row.id)[1177]).toBe(1);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // SKILL20-10
+  it('createCharacter fighter classId 0 does not grant Power Strike 3', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nj-char-skills-'));
+    const dbPath = join(dir, 'test.db');
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const row = createCharacter(db, { classId: 0 });
+    expect(loadCharacterSkills(db, row.id)[3]).toBeUndefined();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // SKILL20-11
+  it('legacy fighter load migrates Power Strike 3', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nj-char-skills-'));
+    const dbPath = join(dir, 'test.db');
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const now = Date.now();
+    db.run(
+      `INSERT INTO characters (id, name, class_id, sex, level, xp, hp, mp, max_hp, max_mp, adena, starter_kit_granted, x, y, z, updated_at)
+       VALUES ('legacy-fighter', 'Legacy', 0, 0, 1, 0, 100, 50, 100, 50, 1000, 0, 0, 4.26, 0, ${now})`
+    );
+    loadCharacter(db, 'legacy-fighter');
+    expect(loadCharacterSkills(db, 'legacy-fighter')).toEqual({ 3: 1 });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // SKILL20-12
+  it('saveCharacterSkills round-trips learned skills', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nj-char-skills-'));
+    const dbPath = join(dir, 'test.db');
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const row = createCharacter(db, { classId: 0 });
+    saveCharacterSkills(db, row.id, { 3: 1, 29: 1 });
+    expect(loadCharacterSkills(db, row.id)).toEqual({ 3: 1, 29: 1 });
     rmSync(dir, { recursive: true, force: true });
   });
 });
