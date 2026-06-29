@@ -50,8 +50,13 @@ export function sellItem(params: {
   listing: MerchantItem;
   quantity: number;
   itemId?: number;
+  isQuestItem?: boolean;
 }): ShopResult {
-  const { adena, itemCount, listing, quantity, itemId = listing.itemId } = params;
+  const { adena, itemCount, listing, quantity, itemId = listing.itemId, isQuestItem = false } = params;
+
+  if (isQuestItem) {
+    return { ok: false, adena, itemCount, error: 'quest_item' };
+  }
 
   if (itemId !== listing.itemId) {
     return { ok: false, adena, itemCount, error: 'unknown_item' };

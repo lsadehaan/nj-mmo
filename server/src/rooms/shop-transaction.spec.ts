@@ -84,4 +84,20 @@ describe('shop-transaction', () => {
 
     expect(result.ok).toBe(false);
   });
+
+  // QUEST21-21
+  it('sell rejects quest item 1012', () => {
+    const result = sellItem({
+      adena: 1000,
+      itemCount: 1,
+      listing: { ...POTION_LISTING, itemId: 1012 },
+      quantity: 1,
+      itemId: 1012,
+      isQuestItem: true,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('quest_item');
+    }
+  });
 });
