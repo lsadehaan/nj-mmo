@@ -76,6 +76,23 @@ export function isBlocked(x: number, z: number): boolean {
   return false;
 }
 
+/** True when an NPC spawn at (x,z) overlaps buildings/props with margin (default 0.8 m). */
+export function isNpcSpawnBlocked(x: number, z: number, margin = 0.8): boolean {
+  for (const aabb of BUILDING_AABBS) {
+    const expanded: Aabb = {
+      cx: aabb.cx,
+      cz: aabb.cz,
+      halfW: aabb.halfW + margin,
+      halfD: aabb.halfD + margin,
+    };
+    if (isPointInAabb(x, z, expanded)) return true;
+  }
+  for (const prop of getPropBlockers()) {
+    if (isPointInCircle(x, z, { ...prop, radius: prop.radius + margin })) return true;
+  }
+  return false;
+}
+
 /** Segment vs axis-aligned box on XZ (Liang-Barsky style slab test). */
 export function segmentIntersectsAabb(
   x0: number,
