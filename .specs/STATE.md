@@ -149,7 +149,20 @@
 - **Date**: 2026-06-28
 - **Status**: active
 
+### AD-019
+- **Decision**: E2E determinism + timeout gate contract. (1) Playwright e2e proves **client wiring and one happy path** per feature; numeric outcomes, rejection rules, and formula proofs stay in room-integration/unit (AD-001/AD-014). (2) Flag-gated test intents (`NJ_E2E=1` on server, `VITE_NJ_E2E=true` on client build) expose `e2eTeleport`, `e2eDamage`, `e2eFreezeMob` for instant deterministic setup — never poll-walk or raise timeouts to mask flake. (3) Hard timeout ceilings: `expect.timeout: 5000`, default test timeout **15000**, poll/`waitForFunction` timeout **8000** max; single whitelist file `terrain-pathing.spec.ts` (test **25000**, poll **20000**). (4) `scripts/check-e2e-timeouts.mjs` rejects `waitForTimeout`, oversized timeouts in CI/lint. (5) Full `nx e2e client-e2e` target **≤ 30 s** cold.
+- **Reason**: E2e suite had 90–180 s timeouts chasing server-authoritative outcomes through wall-clock polls while mob AI wandered; agents raised caps instead of fixing root cause — violating AD-014 and AGENTS.md principle #1.
+- **Trade-off**: Small test-only surface in `TownRoom` + client hooks (inert unless flags set); one e2e cooldown test removed where room fake-clock test already proves rejection.
+- **Scope**: All Playwright e2e + e2e webServer env; room layer unchanged.
+- **Date**: 2026-06-29
+- **Status**: active
+
 ## Handoff
+
+**Phase 19 — E2E determinism & timeout gate: IN PROGRESS (Implementer).**
+`.specs/features/phase-19-e2e-determinism/` — flag-gated e2e intents, `e2e-setup.ts` helpers,
+Playwright timeout caps, `check-e2e-timeouts.mjs` CI gate, spec refactors (T1–T16).
+Verifier runs after T16.
 
 **Phase 18 — Consumable item use (Healing Potion): COMPLETE (Verifier PASS, 2026-06-28).**
 `.specs/features/phase-18-consumable-use/validation.md` records PASS after 1 fix iteration:
