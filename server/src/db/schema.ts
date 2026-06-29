@@ -108,7 +108,53 @@ export const items = sqliteTable('items', {
   pAtk: real('p_atk'),
   randomDamage: integer('random_damage'),
   bodyPart: text('body_part'),
+  isQuestItem: integer('is_quest_item', { mode: 'boolean' }).notNull().default(false),
 });
+
+export const quests = sqliteTable('quests', {
+  questId: integer('quest_id').primaryKey(),
+  name: text('name').notNull(),
+  minLevel: integer('min_level').notNull(),
+  stubGiverNpcId: integer('stub_giver_npc_id').notNull(),
+  autoStart: integer('auto_start', { mode: 'boolean' }).notNull().default(false),
+});
+
+export const questObjectives = sqliteTable('quest_objectives', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  questId: integer('quest_id').notNull(),
+  stepIndex: integer('step_index').notNull(),
+  objectiveIndex: integer('objective_index').notNull(),
+  kind: text('kind').notNull(),
+  mobNpcId: integer('mob_npc_id'),
+  npcId: integer('npc_id'),
+  itemId: integer('item_id'),
+  count: integer('count').notNull(),
+  description: text('description').notNull(),
+});
+
+export const questRewards = sqliteTable('quest_rewards', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  questId: integer('quest_id').notNull(),
+  xp: integer('xp').notNull().default(0),
+  adena: integer('adena').notNull().default(0),
+  itemId: integer('item_id'),
+  itemCount: integer('item_count').notNull().default(0),
+  rewardClass: text('reward_class'),
+});
+
+export const characterQuests = sqliteTable(
+  'character_quests',
+  {
+    characterId: text('character_id').notNull(),
+    questId: integer('quest_id').notNull(),
+    status: text('status').notNull(),
+    step: integer('step').notNull(),
+    countersJson: text('counters_json').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.characterId, table.questId] }),
+  })
+);
 
 export const merchantItems = sqliteTable('merchant_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -210,6 +256,14 @@ export type ExperienceRow = typeof experience.$inferSelect;
 export type NewExperienceRow = typeof experience.$inferInsert;
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
+export type Quest = typeof quests.$inferSelect;
+export type NewQuest = typeof quests.$inferInsert;
+export type QuestObjective = typeof questObjectives.$inferSelect;
+export type NewQuestObjective = typeof questObjectives.$inferInsert;
+export type QuestReward = typeof questRewards.$inferSelect;
+export type NewQuestReward = typeof questRewards.$inferInsert;
+export type CharacterQuest = typeof characterQuests.$inferSelect;
+export type NewCharacterQuest = typeof characterQuests.$inferInsert;
 export type MerchantItem = typeof merchantItems.$inferSelect;
 export type NewMerchantItem = typeof merchantItems.$inferInsert;
 export type NpcSpawn = typeof npcSpawns.$inferSelect;
@@ -239,4 +293,8 @@ export const schema = {
   npcSpawns,
   characterItems,
   characters,
+  quests,
+  questObjectives,
+  questRewards,
+  characterQuests,
 };

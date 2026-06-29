@@ -171,12 +171,49 @@ function applySchema(sqlite: Database.Database): void {
       skill_level INTEGER NOT NULL,
       PRIMARY KEY (character_id, skill_id)
     );
+    CREATE TABLE IF NOT EXISTS quests (
+      quest_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      min_level INTEGER NOT NULL,
+      stub_giver_npc_id INTEGER NOT NULL,
+      auto_start INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS quest_objectives (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      quest_id INTEGER NOT NULL,
+      step_index INTEGER NOT NULL,
+      objective_index INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      mob_npc_id INTEGER,
+      npc_id INTEGER,
+      item_id INTEGER,
+      count INTEGER NOT NULL,
+      description TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS quest_rewards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      quest_id INTEGER NOT NULL,
+      xp INTEGER NOT NULL DEFAULT 0,
+      adena INTEGER NOT NULL DEFAULT 0,
+      item_id INTEGER,
+      item_count INTEGER NOT NULL DEFAULT 0,
+      reward_class TEXT
+    );
+    CREATE TABLE IF NOT EXISTS character_quests (
+      character_id TEXT NOT NULL,
+      quest_id INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      step INTEGER NOT NULL,
+      counters_json TEXT NOT NULL,
+      PRIMARY KEY (character_id, quest_id)
+    );
   `);
   migrateMonstersColumns(sqlite);
   migrateSkillsColumns(sqlite);
   migrateCharactersColumns(sqlite);
   migrateClassTables(sqlite);
   migrateClassTemplateColumns(sqlite);
+  migrateItemsColumns(sqlite);
 }
 
 function migrateClassTables(sqlite: Database.Database): void {
@@ -259,6 +296,14 @@ function migrateCharactersColumns(sqlite: Database.Database): void {
   }
   if (!names.has('sex')) {
     sqlite.exec('ALTER TABLE characters ADD COLUMN sex INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
+function migrateItemsColumns(sqlite: Database.Database): void {
+  const cols = sqlite.pragma('table_info(items)') as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  if (!names.has('is_quest_item')) {
+    sqlite.exec('ALTER TABLE items ADD COLUMN is_quest_item INTEGER NOT NULL DEFAULT 0');
   }
 }
 
