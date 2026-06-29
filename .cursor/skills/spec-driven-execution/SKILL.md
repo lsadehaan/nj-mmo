@@ -79,11 +79,11 @@ translate (mob stats, formulas, item/skill defs). Server authority (`AD-001`)
 and the locked stack (`AD-007`) are hard constraints — game-outcome logic lives
 on the Colyseus server and is tested there.
 
-**Test layers + gate.** Map each AC to the cheapest of the four layers in
-`AGENTS.md` (unit / room-integration / seed-data / e2e). Run the gate with Nx:
-`nx test server`, `nx test client`, `nx e2e client-e2e`. The Verifier re-derives
-coverage with `nx affected -t test lint` (and `nx e2e client-e2e` when the
-client changed). Rely on Nx caching; never disable it to force a pass.
+**Test layers + gate.** Map each AC to the cheapest of the three layers in
+`AGENTS.md` (unit / room-integration / seed-data). Run the gate with Nx:
+`nx test server`, `nx test client`, `nx run-many -t build lint test`. The
+Verifier re-derives coverage with `nx affected -t test lint`. Rely on Nx caching;
+never disable it to force a pass.
 
 ## Autonomous loop mode
 

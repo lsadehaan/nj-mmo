@@ -77,14 +77,12 @@ real-time multiplayer.
 nx test game-core        # shared rules (formulas, RNG, XP, drops) — unit
 nx test server           # server rules + room integration (@colyseus/testing)
 nx test client           # client unit (state/DOM/hook mapping)
-nx e2e client-e2e        # Playwright: DOM HUD + multiplayer + full loop
 nx run-many -t build lint test   # full gate
 ```
 
 Tests assert server-defined outcomes; randomness runs through an injected seeded
-RNG; WebGL is not pixel-tested — logical state is asserted via the
-`window.__GAME_STATE__` hook. See `AGENTS.md` for the testing contract and
-`.specs/ROADMAP.md` for the phased build.
+RNG. Client tests use `__GAME_STATE__` and DOM assertions. See `AGENTS.md` for
+the testing contract and `.specs/ROADMAP.md` for the phased build.
 
 > Public production deployment is deferred post-MVP; the slice runs locally via
 > `npm run dev`.

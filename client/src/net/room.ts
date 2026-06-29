@@ -40,21 +40,6 @@ export function storeCharacterId(id: string): void {
   localStorage.setItem(CHARACTER_ID_STORAGE_KEY, id);
 }
 
-/**
- * Optional `?room=<key>` query param: when present the client joins an isolated
- * room instance (matched server-side via `filterBy(['instanceKey'])`). Used by
- * e2e tests for per-test isolation; absent in production, so all players share
- * the default `town` world.
- */
-function getRoomInstanceKey(): string | undefined {
-  if (typeof window === 'undefined') return undefined;
-  try {
-    return new URLSearchParams(window.location.search).get('room') ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export async function connect(endpoint = DEFAULT_ENDPOINT): Promise<Room> {
   const client = new Client(endpoint);
   const characterId = getStoredCharacterId();
@@ -62,8 +47,6 @@ export async function connect(endpoint = DEFAULT_ENDPOINT): Promise<Room> {
     setCharacterId(characterId);
   }
   const options: Record<string, string> = characterId ? { characterId } : {};
-  const instanceKey = getRoomInstanceKey();
-  if (instanceKey) options.instanceKey = instanceKey;
   const room = await client.joinOrCreate('town', options);
 
   room.onMessage('characterId', (id: string) => {
@@ -350,18 +333,6 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   window.__useItem__ = (itemId) => {
     room.send('useItem', { itemId });
   };
-
-  if (import.meta.env.VITE_NJ_E2E === 'true') {
-    window.__e2eTeleport__ = (x, z) => {
-      room.send('e2eTeleport', { x, z });
-    };
-    window.__e2eDamage__ = (amount) => {
-      room.send('e2eDamage', { amount });
-    };
-    window.__e2eFreezeMob__ = (mobId) => {
-      room.send('e2eFreezeMob', { mobId });
-    };
-  }
 
   window.__openInventory__ = () => {
     const local = room.state.players.get(localId) as PlayerSchema | undefined;

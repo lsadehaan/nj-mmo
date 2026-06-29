@@ -21,4 +21,4 @@ nx serve client --port=4201 &
 LAB_BASE=http://localhost:4201 node scripts/shoot-icons.mjs
 ```
 
-Output: `client-e2e/test-results/icon-sheet.png` (override with `LAB_OUT`).
+Output: `/tmp/icon-sheet.png` (override with `LAB_OUT`).

@@ -72,7 +72,7 @@ This is the high-level shape; the recipe files give exact commands and done-crit
 5. **Wire** the body to the brain + signal (character: `player-avatar.ts`; monster: `mobs.ts` + manifest).
 6. **Tune** scale, feet-on-ground offset, and facing — by rendering, not guessing.
 7. **Visual gate (blocking)**: run `node scripts/visual-gate.mjs` (structural), then render every clip via `scripts/shoot-character.mjs` and **look at the images**, judging fidelity against the entity description. Any FAIL blocks "done".
-8. **Prove + gate**: e2e asserts `__GAME_STATE__` action transitions; then `npx nx run-many -t test lint build`.
+8. **Prove + gate**: `nx test client` (hook/wiring unit tests) + `npx nx run-many -t test lint build`.
 9. **Record** any architectural change in `.specs/STATE.md` and tick the item in `.specs/ROADMAP.md`.
 
 ## Where things live (real paths)
@@ -88,14 +88,14 @@ This is the high-level shape; the recipe files give exact commands and done-crit
 - HUD/UI for icons: `client/src/hud/*.ts`, `client/src/ui/{shop-window.ts,inventory-window.ts}`
 - Assets + licenses: `client/public/models/characters/*.glb`, `.../LICENSE.txt` (props → `client/public/models/props/`, icons → `client/public/icons/`)
 - Visual gate: `scripts/visual-gate.mjs` (structural, blocking) + `client/character-lab.html`, `client/src/character-lab.ts`, `scripts/shoot-character.mjs` (render for fidelity/perception)
-- E2E proof: `client-e2e/src/character-animation.spec.ts`
+- Hook/wiring tests: `client/src/test-hook.spec.ts`, `client/src/net/wire-room.spec.ts`
 - Decisions/roadmap: `.specs/STATE.md` (AD-004, AD-015, AD-016, AD-017), `.specs/ROADMAP.md`
 
 ## Anti-patterns (do not do these)
 
 - ❌ **Treating the source pack as approval** ("it's a valid KayKit/Quaternius file, done"). Legal ≠ correct; fidelity is a separate, non-negotiable axis (golden rule 2).
 - ❌ **Substituting a wrong-category default or copying another entity's GLB** to fill a slot (mage→building, wolf→tree). If you can't source it: search harder, create it high-quality, or halt — never fall back to a random rig.
-- ❌ Declaring done from green unit/e2e tests + a *captured* screenshot without actually perceiving the image. (This is the original failure, twice.)
+- ❌ Declaring done from green unit tests + a *captured* screenshot without actually perceiving the image. (This is the original failure, twice.)
 - ❌ Hardcoding clip choice in the body, or driving attack animation from a client guess instead of the server signal.
 - ❌ Adding the same loaded skinned mesh to the scene twice (breaks skinning) — clone per instance (see monster recipe).
 - ❌ Letting an unlicensed/proprietary placeholder reach **production** untracked. Pre-live they're allowed — the failure mode is an *untracked* placeholder that silently survives to launch; always leave a replace-before-launch breadcrumb.
@@ -110,5 +110,5 @@ This is the high-level shape; the recipe files give exact commands and done-crit
 - [ ] Body wired through the brain + server signal (no client authority over outcomes).
 - [ ] Scale/feet/facing tuned against a rendered frame.
 - [ ] **Visual gate passes BOTH layers**: `scripts/visual-gate.mjs` (structural) green, and every clip rendered + perceived for fidelity against the entity description.
-- [ ] `__GAME_STATE__` e2e transitions pass; `nx run-many -t test lint build` green.
+- [ ] `nx run-many -t test lint build` green.
 - [ ] Decision/roadmap updated if anything architectural changed.

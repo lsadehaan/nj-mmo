@@ -32,12 +32,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: P6-R04-AC5 / spec.md (server/room-integration)
 - last seen: 2026-06-27T19:55:09Z
 
-### L-004 — E2E peace-zone ACs that name multiple hooks (__attack__ and __useSkill__) need one assertion per hook; testing only attack leaves skill path ungated in e2e.
-- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `client-e2e` · harmful: 0
-- features: phase-6-npcs-town
-- evidence: P6-R19-AC6 / town.spec.ts (client-e2e)
-- last seen: 2026-06-27T19:55:09Z
-
 ### L-005 — Discover the real hand bone name from each rig GLB before caching it in the weapon manifest; never assume KayKit bipeds share handslot.r without ingest verification.
 - signal: `ac_gap` · recurrence: 1 feature(s) · scope: `client/scene/creature` · harmful: 0
 - features: phase-11-remote-players-weapons
@@ -85,12 +79,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: phase-18-consumable-use
 - evidence: client/src/test-hook.ts:GameStatePlayerInput (client/test-hook)
 - last seen: 2026-06-29T02:39:43Z
-
-### L-013 — In Playwright page.evaluate and waitForFunction callbacks, pass numeric constants as serialized arguments — browser context cannot see Node module bindings.
-- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `client-e2e` · harmful: 0
-- features: phase-18-consumable-use
-- evidence: client-e2e/src/consumable-use.spec.ts:claimStarterKit (client-e2e)
-- last seen: 2026-06-29T02:39:44Z
 
 ### L-014 — Document test-hook cooldown remaining fields on the player sub-object in AC text when mirroring powerStrikeCooldownRemainingMs — root-level __GAME_STATE__ paths mislead implementers.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `spec/client` · harmful: 0

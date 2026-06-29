@@ -41,7 +41,7 @@ Replace the text/colour-swatch slots in the hotbar, shop, and inventory with an 
 
 ## Step 4 — Prove (DOM, not pixels)
 
-Because this is DOM, assert structure directly (the AGENTS.md rule: HUD is DOM-testable, WebGL is not). Unit/e2e: render the component, assert the `<img src>`/alt for a known id, and assert the fallback for an unknown id. A screenshot is a nice extra, not the test. `npx nx run-many -t test lint build`.
+Because this is DOM, assert structure directly (the AGENTS.md rule: HUD is DOM-testable, WebGL is not). Client unit tests: render the component, assert the `<img src>`/alt for a known id, and assert the fallback for an unknown id. A screenshot is a nice extra, not the test. `npx nx run-many -t test lint build`.
 
 **Done when:** DOM tests assert the right icon (and fallback) appear; gate green.
 

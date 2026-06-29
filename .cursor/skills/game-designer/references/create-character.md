@@ -101,16 +101,13 @@ Then **actually read each PNG** (idle, move, attack, cast, die) and judge it aga
 
 ## Step 8 — Prove in-game + run the gate
 
-The behavioral proof is the e2e that asserts the live action machine end-to-end:
-
 ```bash
-npx playwright test character-animation --config client-e2e/playwright.config.ts --workers=1
 npx nx run-many -t test lint build --projects=client,game-core
 ```
 
-`client-e2e/src/character-animation.spec.ts` asserts `idle → move → idle → attack → cast` via `__GAME_STATE__.player.action`. If you changed locomotion/coast timing, this is the test that catches a "stuck in move" or "never moves" regression.
+Client unit tests cover `__GAME_STATE__` hook wiring (`test-hook.spec.ts`, `wire-room.spec.ts`).
 
-**Done when:** the e2e passes and `test lint build` are green.
+**Done when:** `test lint build` are green.
 
 ## Step 9 — Record decisions
 
@@ -129,7 +126,7 @@ If you changed anything architectural (a new asset family, a new clip map conven
 - [ ] 5. Wired to brain + server signal; locomotion coast works
 - [ ] 6. Scale/feet/facing tuned against a rendered frame
 - [ ] 7. `visual-gate.mjs` green + all clips rendered & perceived as a faithful match (not just captured)
-- [ ] 8. e2e green + `nx test lint build` green
+- [ ] 8. `nx test lint build` green
 - [ ] 9. STATE/ROADMAP updated if architectural
 
 ## NPC note

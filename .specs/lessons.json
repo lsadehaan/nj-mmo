@@ -18,7 +18,7 @@
       "recurrence": 1,
       "harmful": 0,
       "evidence": [
-        "tsconfig.base.json + server/vitest.config.ts — vitest still resolves dist when present (nx/vitest/shared-libs)"
+        "tsconfig.base.json + server/vitest.config.ts \u2014 vitest still resolves dist when present (nx/vitest/shared-libs)"
       ],
       "created": "2026-06-27T16:12:01Z",
       "last_seen": "2026-06-27T16:12:01Z"
@@ -44,7 +44,7 @@
     {
       "id": "L-003",
       "key": "ac_gap::when spec assigns room integration to a behavior unit only proof of the same outcome is a coverage gap add a townroom test that exercises the full message path",
-      "text": "When spec assigns room-integration to a behavior, unit-only proof of the same outcome is a coverage gap—add a TownRoom test that exercises the full message path.",
+      "text": "When spec assigns room-integration to a behavior, unit-only proof of the same outcome is a coverage gap\u2014add a TownRoom test that exercises the full message path.",
       "signal": "ac_gap",
       "scope": "server/room-integration",
       "status": "candidate",
@@ -55,24 +55,6 @@
       "harmful": 0,
       "evidence": [
         "P6-R04-AC5 / spec.md (server/room-integration)"
-      ],
-      "created": "2026-06-27T19:55:09Z",
-      "last_seen": "2026-06-27T19:55:09Z"
-    },
-    {
-      "id": "L-004",
-      "key": "ac_gap::e2e peace zone acs that name multiple hooks attack and useskill need one assertion per hook testing only attack leaves skill path ungated in e2e",
-      "text": "E2E peace-zone ACs that name multiple hooks (__attack__ and __useSkill__) need one assertion per hook; testing only attack leaves skill path ungated in e2e.",
-      "signal": "ac_gap",
-      "scope": "client-e2e",
-      "status": "candidate",
-      "features": [
-        "phase-6-npcs-town"
-      ],
-      "recurrence": 1,
-      "harmful": 0,
-      "evidence": [
-        "P6-R19-AC6 / town.spec.ts (client-e2e)"
       ],
       "created": "2026-06-27T19:55:09Z",
       "last_seen": "2026-06-27T19:55:09Z"
@@ -116,7 +98,7 @@
     {
       "id": "L-007",
       "key": "ac_gap::when glb load failure falls back to a capsule mesh unit test the rejected ready promise path not only the happy mesh path",
-      "text": "When GLB load failure falls back to a capsule mesh, unit-test the rejected ready promise path—not only the happy mesh path.",
+      "text": "When GLB load failure falls back to a capsule mesh, unit-test the rejected ready promise path\u2014not only the happy mesh path.",
       "signal": "ac_gap",
       "scope": "client/scene",
       "status": "candidate",
@@ -170,7 +152,7 @@
     {
       "id": "L-010",
       "key": "ac_gap::add unit tests for each vfx trigger call site player hp die dissolve attach dead target ring renderer tick shared detector tests alone do not satisfy wiring acs",
-      "text": "Add unit tests for each VFX trigger call site (player HP, die dissolve attach, dead-target ring, renderer tick) — shared detector tests alone do not satisfy wiring ACs.",
+      "text": "Add unit tests for each VFX trigger call site (player HP, die dissolve attach, dead-target ring, renderer tick) \u2014 shared detector tests alone do not satisfy wiring ACs.",
       "signal": "ac_gap",
       "scope": "client/vfx",
       "status": "candidate",
@@ -188,7 +170,7 @@
     {
       "id": "L-011",
       "key": "surviving_mutant::when spec requires placement coordinates assert world x z per placement not just prop count",
-      "text": "When spec requires placement coordinates, assert world x/z per placement—not just prop count.",
+      "text": "When spec requires placement coordinates, assert world x/z per placement\u2014not just prop count.",
       "signal": "surviving_mutant",
       "scope": "client/scene environment-renderer",
       "status": "candidate",
@@ -206,7 +188,7 @@
     {
       "id": "L-012",
       "key": "gate_fail::when a gamestateplayerinput field is optional with a default in setplayer omit it from the base type before re adding as optional intersection does not relax required fields",
-      "text": "When a GameStatePlayerInput field is optional with a default in setPlayer, Omit it from the base type before re-adding as optional — intersection does not relax required fields.",
+      "text": "When a GameStatePlayerInput field is optional with a default in setPlayer, Omit it from the base type before re-adding as optional \u2014 intersection does not relax required fields.",
       "signal": "gate_fail",
       "scope": "client/test-hook",
       "status": "candidate",
@@ -222,27 +204,9 @@
       "last_seen": "2026-06-29T02:39:43Z"
     },
     {
-      "id": "L-013",
-      "key": "gate_fail::in playwright page evaluate and waitforfunction callbacks pass numeric constants as serialized arguments browser context cannot see node module bindings",
-      "text": "In Playwright page.evaluate and waitForFunction callbacks, pass numeric constants as serialized arguments — browser context cannot see Node module bindings.",
-      "signal": "gate_fail",
-      "scope": "client-e2e",
-      "status": "candidate",
-      "features": [
-        "phase-18-consumable-use"
-      ],
-      "recurrence": 1,
-      "harmful": 0,
-      "evidence": [
-        "client-e2e/src/consumable-use.spec.ts:claimStarterKit (client-e2e)"
-      ],
-      "created": "2026-06-29T02:39:44Z",
-      "last_seen": "2026-06-29T02:39:44Z"
-    },
-    {
       "id": "L-014",
       "key": "spec_precision_gap::document test hook cooldown remaining fields on the player sub object in ac text when mirroring powerstrikecooldownremainingms root level game state paths mislead implementers",
-      "text": "Document test-hook cooldown remaining fields on the player sub-object in AC text when mirroring powerStrikeCooldownRemainingMs — root-level __GAME_STATE__ paths mislead implementers.",
+      "text": "Document test-hook cooldown remaining fields on the player sub-object in AC text when mirroring powerStrikeCooldownRemainingMs \u2014 root-level __GAME_STATE__ paths mislead implementers.",
       "signal": "spec_precision_gap",
       "scope": "spec/client",
       "status": "candidate",

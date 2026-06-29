@@ -51,7 +51,7 @@
 - **Status**: active
 
 ### AD-007
-- **Decision**: Locked stack — TS 6 / Node 22+ (machine v24); Nx 23.0.1 (`@nx/node`, `@nx/vite`, `@nx/playwright`); server: colyseus 0.17.10 + `@colyseus/schema` 4.0.26 + `@colyseus/tools` 0.17.19 (dev runner `tsx`); client: three 0.185.0 (Vite-bundled, not CDN) + `@colyseus/sdk` 0.17.43 + Vite 8.1.0; DB: better-sqlite3 12.11.1 + Drizzle ORM 0.45.2 + drizzle-kit 0.31.10 (SQLite now, Postgres-ready); seed: fast-xml-parser 5.9.3; tests: Vitest 4.1.9 + `@colyseus/testing` 0.17.11 + `@playwright/test` 1.61.1.
+- **Decision**: Locked stack — TS 6 / Node 22+ (machine v24); Nx 23.0.1 (`@nx/node`, `@nx/vite`); server: colyseus 0.17.10 + `@colyseus/schema` 4.0.26 + `@colyseus/tools` 0.17.19 (dev runner `tsx`); client: three 0.185.0 (Vite-bundled, not CDN) + `@colyseus/sdk` 0.17.43 + Vite 8.1.0; DB: better-sqlite3 12.11.1 + Drizzle ORM 0.45.2 + drizzle-kit 0.31.10 (SQLite now, Postgres-ready); seed: fast-xml-parser 5.9.3; tests: Vitest 4.1.9 + `@colyseus/testing` 0.17.11; visual tooling: `@playwright/test` 1.61.1 (shoot scripts only, not in gate).
 - **Reason**: Verified current versions; Vite-bundled Three.js for types/HMR (CDN swap trivial later); SQLite-first for speed.
 - **Trade-off**: Native module (better-sqlite3) build dependency on Node version.
 - **Scope**: Whole monorepo.
@@ -67,15 +67,15 @@
 - **Status**: active
 
 ### AD-009
-- **Decision**: The client publishes a `window.__GAME_STATE__` test hook (`{ connected, ready, player:{x,y,z} }`); on-screen tests assert DOM + this hook, never pixels (WebGL is not DOM-testable).
-- **Reason**: Reliable e2e without reading meshes from the canvas.
+- **Decision**: The client publishes a `window.__GAME_STATE__` test hook (`{ connected, ready, player:{x,y,z} }`); client unit tests assert DOM + this hook via Vitest/jsdom and `wireRoom` specs.
+- **Reason**: Observable client wiring without a browser test runner in the gate.
 - **Trade-off**: Test hook is shipped client code (guard behind a flag if needed later).
-- **Scope**: Client + all Playwright e2e, all phases.
+- **Scope**: Client unit tests, all phases.
 - **Date**: 2026-06-27
 - **Status**: active
 
 ### AD-010
-- **Decision**: Four test layers (unit/Vitest, room integration/`@colyseus/testing`, seed-data/Vitest, e2e/Playwright); randomness runs through an injected seeded RNG; the gate (test runner) decides "done"; use `nx affected` + Nx caching, never disabling cache to force a pass. Gate commands: Quick = `nx test server`/`nx test client`; Full = adds `nx e2e client-e2e`; Build = `nx run-many -t build lint test`.
+- **Decision**: Three test layers (unit/Vitest, room integration/`@colyseus/testing`, seed-data/Vitest); randomness runs through an injected seeded RNG; the gate (test runner) decides "done"; use `nx affected` + Nx caching, never disabling cache to force a pass. Gate commands: Quick = `nx test server`/`nx test client`; Full = `nx run-many -t build lint test`.
 - **Reason**: AGENTS.md testing contract; deterministic, fast, cache-friendly gate.
 - **Trade-off**: Discipline required to keep logic in unit-testable pure modules.
 - **Scope**: All features/tests.
@@ -107,13 +107,13 @@
 - **Status**: active
 
 ### AD-014
-- **Decision**: Test-infrastructure performance + determinism contract. (1) Room-integration tests run with `NJ_AUTOSIM=0` so `TownRoom` starts no background simulation interval; tests advance the world by calling `simulate()` directly (synchronous `tick()` helper) and await real message delivery via `room.waitForMessage` (`deliver()` helper) before processing — no wall-clock tick sleeps, no transport/tick races. Production is unchanged (auto-simulates at 50 ms with the real measured delta). (2) E2E isolates each test in its own Colyseus room via `town`.`filterBy(['instanceKey'])` + a client `?room=<key>` query (production passes no key → shared world); this enables Playwright `fullyParallel` with 4 workers and removes serial mode + the `0-`-prefix ordering hack. (3) E2E serves a prebuilt client (`nx run client:preview`) instead of the dev server to avoid first-request compile contention. (4) E2E combat/skill polls chase the mob's live position (mobs wander) instead of a stale snapshot.
-- **Reason**: `nx test server` was ~9 s (one file, `TownRoom.spec`, was ~7.8 s of it) because `@colyseus/testing`'s `waitForNextSimulationTick` is a `setTimeout(interval)` and the room ticked every 50 ms (~150 serialized sleeps); the e2e suite was serial and flaky from shared-room state bleed + dev-server cold-compile + stale-snapshot mob targeting.
-- **Trade-off**: Tests reach into the room (`simulate`, message helpers) and the client reads a `?room` test param; a small amount of test-only surface in production code (guarded/inert in production).
-- **Scope**: All server room-integration tests + all Playwright e2e.
+- **Decision**: Test-infrastructure performance + determinism contract. Room-integration tests run with `NJ_AUTOSIM=0` so `TownRoom` starts no background simulation interval; tests advance the world by calling `simulate()` directly (synchronous `tick()` helper) and await real message delivery via `room.waitForMessage` (`deliver()` helper) before processing — no wall-clock tick sleeps, no transport/tick races. Production is unchanged (auto-simulates at 50 ms with the real measured delta).
+- **Reason**: `nx test server` was ~9 s (one file, `TownRoom.spec`, was ~7.8 s of it) because `@colyseus/testing`'s `waitForNextSimulationTick` is a `setTimeout(interval)` and the room ticked every 50 ms (~150 serialized sleeps).
+- **Trade-off**: Tests reach into the room (`simulate`, message helpers).
+- **Scope**: All server room-integration tests.
 - **Date**: 2026-06-27
 - **Status**: active
-- **Result**: `nx test server` ~9.2 s → ~2.3 s; full `nx run-many -t build lint test` ~15.5 s → ~11 s; `nx e2e client-e2e` ~56 s → ~23 s and reliably green (14 consecutive cold runs). All test counts unchanged (game-core 44, client 57, server 135, e2e 12); no tests skipped/weakened; L-001 source resolution preserved (vitest `resolve.alias`, `nx test` has no `^build` dep).
+- **Result**: `nx test server` ~9.2 s → ~2.3 s; full `nx run-many -t build lint test` ~15.5 s → ~11 s. L-001 source resolution preserved (vitest `resolve.alias`, `nx test` has no `^build` dep).
 
 ### AD-015
 - **Decision**: Entities carry a **render-only action signal** — replicated scalar fields `action` (enum: `None/Attack/Cast/Die`) + `actionSeq` (bumped per firing) on the entity schema. The authoritative server sets them when an action resolves (attack/skill/death); the client only animates from them. The signal NEVER affects gameplay outcomes (HP/XP/position/combat) and is NEVER persisted to the DB (defaults to `None`/`0` on load/reconnect).
@@ -149,20 +149,7 @@
 - **Date**: 2026-06-28
 - **Status**: active
 
-### AD-019
-- **Decision**: E2E determinism + timeout gate contract. (1) Playwright e2e proves **client wiring and one happy path** per feature; numeric outcomes, rejection rules, and formula proofs stay in room-integration/unit (AD-001/AD-014). (2) Flag-gated test intents (`NJ_E2E=1` on server, `VITE_NJ_E2E=true` on client build) expose `e2eTeleport`, `e2eDamage`, `e2eFreezeMob` for instant deterministic setup — never poll-walk or raise timeouts to mask flake. (3) Hard timeout ceilings: `expect.timeout: 5000`, default test timeout **15000**, poll/`waitForFunction` timeout **8000** max; single whitelist file `terrain-pathing.spec.ts` (test **25000**, poll **20000**). (4) `scripts/check-e2e-timeouts.mjs` rejects `waitForTimeout`, oversized timeouts in CI/lint. (5) Full `nx e2e client-e2e` target **≤ 30 s** cold.
-- **Reason**: E2e suite had 90–180 s timeouts chasing server-authoritative outcomes through wall-clock polls while mob AI wandered; agents raised caps instead of fixing root cause — violating AD-014 and AGENTS.md principle #1.
-- **Trade-off**: Small test-only surface in `TownRoom` + client hooks (inert unless flags set); one e2e cooldown test removed where room fake-clock test already proves rejection.
-- **Scope**: All Playwright e2e + e2e webServer env; room layer unchanged.
-- **Date**: 2026-06-29
-- **Status**: active
-
 ## Handoff
-
-**Phase 19 — E2E determinism & timeout gate: IN PROGRESS (Implementer).**
-`.specs/features/phase-19-e2e-determinism/` — flag-gated e2e intents, `e2e-setup.ts` helpers,
-Playwright timeout caps, `check-e2e-timeouts.mjs` CI gate, spec refactors (T1–T16).
-Verifier runs after T16.
 
 **Phase 18 — Consumable item use (Healing Potion): COMPLETE (Verifier PASS, 2026-06-28).**
 `.specs/features/phase-18-consumable-use/validation.md` records PASS after 1 fix iteration:

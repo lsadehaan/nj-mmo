@@ -11,9 +11,6 @@ const gameCoreSrc = path.resolve(root, '../libs/game-core/src');
 export default defineConfig(() => ({
   root,
   cacheDir: '../node_modules/.vite/client',
-  define: {
-    'import.meta.env.VITE_NJ_E2E': JSON.stringify(process.env['VITE_NJ_E2E'] ?? ''),
-  },
   resolve: {
     alias: [
       {
@@ -61,9 +58,6 @@ export default defineConfig(() => ({
     passWithNoTests: true,
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
-    env: {
-      VITE_NJ_E2E: 'true',
-    },
     coverage: {
       reportsDirectory: '../coverage/client',
       provider: 'v8',

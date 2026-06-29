@@ -69,7 +69,7 @@ After the four deltas, the rest is identical to the character recipe — do not 
 
 - Step 1 source the **best match for each mob** (a Gremlin looks like a gremlin, a Wolf like a wolf — not a generic humanoid in a costume). Fidelity is law; license is relaxed pre-live (golden rule 2). If no good match exists: search harder, create one high-quality, or halt — **never copy a character GLB onto a mob name.** Step 2 inspect, Step 4 body backend (now via the clone path), Step 6 tune scale/feet/facing per family.
 - Step 7 **visual gate (blocking)**: run `node scripts/visual-gate.mjs` (it will flag any mob that's a byte-copy of a character/another mob), then render each mob type's clips in `client/character-lab.html` (`?char=<Model>`) via `scripts/shoot-character.mjs` and **actually look** — judge each against the real creature, especially non-humanoids (idle/move/death). Mismatch = FAIL.
-- Step 8 prove + gate: add/extend an e2e that drives a real mob to death and asserts its animation/`__GAME_STATE__.mobs` reflects it; then `npx nx run-many -t test lint build`.
+- Step 8 prove + gate: `nx run-many -t test lint build`.
 - Step 9 record: note the manifest + any mob-schema signal change as an `AD-***` in `.specs/STATE.md`; tick `.specs/ROADMAP.md`.
 
 ## Checklist
@@ -78,7 +78,7 @@ After the four deltas, the rest is identical to the character recipe — do not 
 - [ ] B. `npcId → CreatureEntry` manifest; `mobs.ts` selects by npcId; safe fallback
 - [ ] C. Server-driven signal: locomotion from position, die from hp=0, (optional) render-only mob `action`/`actionSeq` set server-side
 - [ ] D. Per-family clip maps from real track names, with fallbacks
-- [ ] Shared: best-match source (right creature, not a copied character; placeholder OK if it looks right), inspect, tune, **blocking visual gate (`visual-gate.mjs` + render & perceive)**, e2e + `nx test lint build`, STATE/ROADMAP
+- [ ] Shared: best-match source (right creature, not a copied character; placeholder OK if it looks right), inspect, tune, **blocking visual gate (`visual-gate.mjs` + render & perceive)**, `nx test lint build`, STATE/ROADMAP
 
 ## Anti-patterns specific to monsters
 

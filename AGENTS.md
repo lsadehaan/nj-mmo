@@ -29,30 +29,29 @@ versions live with each project; this is the contract.
 2. **Tests derive from spec acceptance criteria.** A test asserts a
    spec-defined outcome. It never mirrors the implementation, and we never
    weaken or skip a test to make it pass. The test runner decides "done".
-3. **Four test layers** — pick the cheapest one that proves the criterion:
+3. **Three test layers** — pick the cheapest one that proves the criterion:
 
-- **Unit (server)** — formulas, curves, rules. The bulk of our tests.
-- **Room integration** (`@colyseus/testing`) — join/leave, intent
-  validation, state broadcast, persistence/reconnect. Proves "no client
-  trust" without a browser.
+- **Unit (server + client)** — formulas, curves, rules, DOM/hook mapping. The
+  bulk of our tests.
+- **Room integration** (`@colyseus/testing`) — join/leave, intent validation,
+  state broadcast, persistence/reconnect. Proves "no client trust" without a
+  browser.
 - **Seed/data** — the L2J XML → SQLite seed produced the expected Classic
   values (mobs, NPCs, skill, XP curve).
-- **E2E / on-screen** (Playwright) — DOM HUD, two-browser multiplayer,
-  real input.
 
-1. **WebGL is not DOM-testable.** Playwright cannot read 3D meshes out of the
-   canvas. We assert HUD/DOM elements directly, and assert logical game state
-   through a `window.__GAME_STATE__` test hook the client publishes. We do not
-   anchor correctness on pixel screenshots.
-2. **Determinism.** Anything random (drop chance, damage variance) runs through
+4. **WebGL is not directly testable in Vitest.** Assert HUD/DOM in client unit
+   tests, and assert logical game state through `window.__GAME_STATE__` and
+   `wireRoom` tests. Do not anchor correctness on pixel screenshots in the test
+   gate.
+5. **Determinism.** Anything random (drop chance, damage variance) runs through
    an **injected seeded RNG** so tests and the Verifier's fault-injection are
    reliable.
-3. **Independent verification.** After implementation, a fresh Verifier
+6. **Independent verification.** After implementation, a fresh Verifier
    (author ≠ verifier) re-checks against the spec and injects behavior-level
    faults to confirm the tests actually catch regressions.
-4. **Run only what changed.** Use `nx affected` and Nx caching so the gate is
+7. **Run only what changed.** Use `nx affected` and Nx caching so the gate is
    fast every time; never disable the cache to force a pass.
-5. **Tests are the source of confidence — keep them HIGH QUALITY and FAST.**
+8. **Tests are the source of confidence — keep them HIGH QUALITY and FAST.**
    The test suite is what lets agents (and humans) trust a change without
    re-reading everything. Treat tests as first-class code: clear, deterministic,
    isolated, and quick. **Fast feedback is a hard requirement, not a
@@ -69,23 +68,21 @@ versions live with each project; this is the contract.
   logic **deterministically** — advance the simulation synchronously and await
   real message delivery instead of sleeping (see the `NJ_AUTOSIM=0` +
   `tick()`/`deliver()` room-test harness).
-- **Isolate and parallelize.** Room-integration and e2e tests must be
-  parallel-safe: per-test isolation (own DB / own room via the room
-  `instanceKey` filter), no shared mutable state, deterministic polling
-  (`expect.poll`) over fixed delays. E2E serves a **prebuilt** client, not a
-  cold dev server.
+- **Isolate and parallelize.** Room-integration tests must be parallel-safe:
+  per-test isolation (own DB / own room via `instanceKey` when needed), no
+  shared mutable state.
 - This performance + determinism contract is recorded as **AD-014** in
   `.specs/STATE.md`; honor and extend it. A test that is slow or flaky is a
   bug to fix before the feature is "done".
 
 ### Per-phase emphasis
 
-- **Phase 1–2** (scaffold, render): seed/data tests + a Playwright smoke test.
-- **Phase 3–5** (authoritative server, combat, skill): unit + room integration.
-- **Phase 6–7** (NPCs, shop, go-live): Playwright E2E for the full player loop.
+- **Phase 1–2** (scaffold, render): seed/data tests + client unit smoke.
+- **Phase 3–7** (authoritative server, combat, NPCs, shop): unit + room
+  integration.
 
 ## Stack (current versions)
 
 TypeScript, Node 22+, Nx, Colyseus + `@colyseus/schema` (server),
 Three.js + `@colyseus/sdk` + Vite (client), better-sqlite3 + Drizzle (DB),
-fast-xml-parser (seed), Vitest + `@colyseus/testing` + Playwright (tests).
+fast-xml-parser (seed), Vitest + `@colyseus/testing` (tests).
