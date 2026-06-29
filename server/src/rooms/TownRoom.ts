@@ -63,6 +63,9 @@ import {
 import { buyItem, sellItem } from './shop-transaction';
 import { validateEquip, applyEquip } from './equip-transaction';
 import { canInteract, applyHeal, applyStarterKit } from './npc-actions';
+import { isE2EMode } from './e2e-mode';
+import { placePlayerAt, applyE2eDamage } from './player-placement';
+import { freezeMobWander } from './mob-placement';
 
 export interface TownRoomOptions {
   dbPath?: string;
@@ -85,8 +88,10 @@ export interface TownRoomOptions {
 const DEFAULT_DB_PATH = process.env['NJ_DB_PATH'] ?? 'data/game.db';
 const DEFAULT_SAVE_DEBOUNCE_MS = 5000;
 export const DEFAULT_SIM_INTERVAL_MS = 50;
+export const E2E_SIM_INTERVAL_MS = 16;
 
 function resolveSimIntervalMs(option?: number): number {
+  if (isE2EMode()) return E2E_SIM_INTERVAL_MS;
   if (typeof option === 'number' && option > 0) return option;
   return DEFAULT_SIM_INTERVAL_MS;
 }
@@ -201,6 +206,20 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.onMessage('useItem', (client, message: { itemId: number }) => {
       this.handleUseItem(client.sessionId, message.itemId);
     });
+
+    if (isE2EMode()) {
+      this.onMessage('e2eTeleport', (client, message: { x: number; z: number }) => {
+        this.handleE2eTeleport(client.sessionId, message.x, message.z);
+      });
+
+      this.onMessage('e2eDamage', (client, message: { amount: number }) => {
+        this.handleE2eDamage(client.sessionId, message.amount);
+      });
+
+      this.onMessage('e2eFreezeMob', (_client, message: { mobId: string }) => {
+        this.handleE2eFreezeMob(message.mobId);
+      });
+    }
   }
 
   private initializeNpcs(): void {
@@ -340,6 +359,42 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.setItemCount(sessionId, itemId, result.itemCount);
     player.healingPotionCooldownEndMs = result.cooldownEndMs;
     this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleE2eTeleport(sessionId: string, x: number, z: number): void {
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+
+    const from = { x: player.x, z: player.z };
+    const to = { x, z };
+    if (!isWalkable(from, to)) return;
+
+    placePlayerAt(player, this.tickStates.get(sessionId), x, z);
+    const stored = this.characters.get(sessionId);
+    if (stored) {
+      stored.x = x;
+      stored.y = player.y;
+      stored.z = z;
+    }
+  }
+
+  private handleE2eDamage(sessionId: string, amount: number): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored) return;
+
+    const damage = Math.max(0, amount);
+    player.hp = applyE2eDamage(player.hp, damage);
+    stored.hp = player.hp;
+  }
+
+  private handleE2eFreezeMob(mobId: string): void {
+    const runtime = this.mobRuntime.get(mobId);
+    if (!runtime) return;
+
+    freezeMobWander(runtime);
+    const mobState = this.state.mobs.get(mobId);
+    if (mobState) syncMobState(mobState, runtime);
   }
 
   private setItemCount(sessionId: string, itemId: number, count: number): void {
