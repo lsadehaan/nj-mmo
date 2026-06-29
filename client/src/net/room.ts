@@ -172,6 +172,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   let localItemCounts: Record<number, number> = {};
+  let activeShopNpcId = KATERINA_NPC_ID;
+  let activeShopMerchantName = 'Katerina';
   const npcPresences: NpcPresence[] = [];
   let greetUiEpoch = 0;
 
@@ -220,6 +222,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
 
   const refreshShopDom = (player: PlayerSchema): void => {
     renderShopWindow({
+      npcId: activeShopNpcId,
+      merchantName: activeShopMerchantName,
       adena: player.adena ?? 0,
       itemCounts: localItemCounts,
       visible: isShopVisible(),
@@ -389,10 +393,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
 
   room.onMessage('interactResult', (message: { npcId: number; type: string; name: string }) => {
     openNpcUiForInteract(message, {
-      openShop: () => {
+      openShop: (npcId, merchantName) => {
+        activeShopNpcId = npcId;
+        activeShopMerchantName = merchantName;
         const local = room.state.players.get(localId) as PlayerSchema | undefined;
         if (local) {
           renderShopWindow({
+            npcId,
+            merchantName,
             adena: local.adena ?? 0,
             itemCounts: localItemCounts,
             visible: true,
@@ -406,14 +414,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         }
         setShopOpen(true);
         setNpcDialogVisible(false);
-        fireNpcGreet(KATERINA_NPC_ID);
+        fireNpcGreet(npcId);
       },
-      openDialog: (npcId, name) => {
+      openDialog: (npcId, name, variant) => {
         setShopVisible(false);
         setShopOpen(false);
         renderNpcDialog({
           npcId,
           name,
+          variant,
           visible: true,
           handlers: {
             sendNpcAction: (payload) => room.send('npcAction', payload),

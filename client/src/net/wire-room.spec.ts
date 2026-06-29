@@ -295,4 +295,63 @@ describe('wireRoom player combat sync', () => {
     expect(last.action).toBe(0);
     expect(last.actionSeq).toBe(0);
   });
+
+  it('fires greet for interacted merchant npcId on shop open (TINPC-29)', async () => {
+    let interactHandler: ((message: { npcId: number; type: string; name: string }) => void) | null =
+      null;
+
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void),
+        handler?: (stack: unknown) => void
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          handlerOrProperty(
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+              xp: 0,
+              level: 1,
+              hp: 100,
+              maxHp: 100,
+              maxMp: 50,
+              mp: 50,
+              adena: 1000,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 0,
+              action: 0,
+              actionSeq: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+        if (
+          collectionOrPlayer !== 'players' &&
+          collectionOrPlayer === 'players' &&
+          handlerOrProperty === 'items' &&
+          typeof handler === 'function'
+        ) {
+          void handler;
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    const room = {
+      sessionId: 'local-session',
+      state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+      onMessage: vi.fn((type: string, cb: (message: unknown) => void) => {
+        if (type === 'interactResult') interactHandler = cb as typeof interactHandler;
+      }),
+      send: vi.fn(),
+    };
+    wireRoom(room as never, mockGame as never);
+
+    expect(interactHandler).not.toBeNull();
+    interactHandler!({ npcId: 30001, type: 'Merchant', name: 'Lector' });
+    expect(mockGame.triggerNpcGreet).toHaveBeenCalledWith(30001, expect.any(Object), expect.any(Number));
+  });
 });

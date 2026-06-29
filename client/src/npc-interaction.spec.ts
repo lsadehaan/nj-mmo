@@ -1,10 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { NPC_INTERACT_RADIUS, horizontalDistance } from '@nj/game-core';
 import {
   KATERINA_NPC_ID,
   ROXXY_NPC_ID,
+  LECTOR_NPC_ID,
+  WILFORD_NPC_ID,
+  BITZ_NPC_ID,
   findNearestInteractableNpc,
   isWithinInteractRadius,
+  isMerchantNpc,
+  openNpcUiForInteract,
+  resolveDialogVariant,
 } from './npc-interaction';
 
 describe('npc-interaction proximity', () => {
@@ -35,8 +41,37 @@ describe('npc-interaction proximity', () => {
     expect(horizontalDistance(0, 0, -6, -8)).toBeGreaterThan(NPC_INTERACT_RADIUS);
   });
 
-  it('maps Katerina to shop and Roxxy to helper dialog roles', () => {
-    expect(npcs.find((n) => n.npcId === KATERINA_NPC_ID)?.type).toBe('Merchant');
-    expect(npcs.find((n) => n.npcId === ROXXY_NPC_ID)?.type).toBe('Teleporter');
+  it('maps merchant type to shop and utility types to dialog variants', () => {
+    expect(isMerchantNpc(LECTOR_NPC_ID, 'Merchant')).toBe(true);
+    expect(resolveDialogVariant(WILFORD_NPC_ID, 'Warehouse')).toBe('warehouse');
+    expect(resolveDialogVariant(BITZ_NPC_ID, 'VillageMasterFighter')).toBe('trainer');
+    expect(resolveDialogVariant(ROXXY_NPC_ID, 'Teleporter')).toBe('helper');
+  });
+
+  it('routes merchant interact to shop with merchant npcId (TINPC-29)', () => {
+    const openShop = vi.fn();
+    const openDialog = vi.fn();
+    openNpcUiForInteract(
+      { npcId: LECTOR_NPC_ID, type: 'Merchant', name: 'Lector' },
+      { openShop, openDialog }
+    );
+    expect(openShop).toHaveBeenCalledWith(LECTOR_NPC_ID, 'Lector');
+    expect(openDialog).not.toHaveBeenCalled();
+  });
+
+  it('routes warehouse and trainer types to dialog variants', () => {
+    const openShop = vi.fn();
+    const openDialog = vi.fn();
+    openNpcUiForInteract(
+      { npcId: WILFORD_NPC_ID, type: 'Warehouse', name: 'Wilford' },
+      { openShop, openDialog }
+    );
+    expect(openDialog).toHaveBeenCalledWith(WILFORD_NPC_ID, 'Wilford', 'warehouse');
+    openDialog.mockClear();
+    openNpcUiForInteract(
+      { npcId: BITZ_NPC_ID, type: 'VillageMasterFighter', name: 'Bitz' },
+      { openShop, openDialog }
+    );
+    expect(openDialog).toHaveBeenCalledWith(BITZ_NPC_ID, 'Bitz', 'trainer');
   });
 });
