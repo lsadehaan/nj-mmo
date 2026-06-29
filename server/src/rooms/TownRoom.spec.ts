@@ -2,7 +2,8 @@ import { boot, ColyseusTestServer } from '@colyseus/testing';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
@@ -204,20 +205,21 @@ function tick(room: TestRoom): void {
 }
 
 /**
- * Deterministically deliver one or more client→server messages. `waitForMessage`
- * resolves only after the room has RECEIVED and run the handler for the final
- * message, so the caller never races the async transport. Messages are ordered,
- * so awaiting the last one guarantees the earlier ones were handled too.
+ * Deterministically deliver one or more client→server messages. Each message is
+ * awaited individually — `waitForMessage` only intercepts the next handler
+ * invocation, so batching same-type messages (e.g. multiple `questAction`) must
+ * not share a single wait or later actions are asserted before they run.
  */
 async function deliver(
   room: TestRoom,
   client: TestClient,
   messages: Array<[string, unknown]>
 ): Promise<void> {
-  const lastType = messages[messages.length - 1][0];
-  const delivered = room.waitForMessage(lastType);
-  for (const [type, payload] of messages) client.send(type, payload);
-  await delivered;
+  for (const [type, payload] of messages) {
+    const delivered = room.waitForMessage(type);
+    client.send(type, payload);
+    await delivered;
+  }
 }
 
 /**
@@ -235,9 +237,24 @@ async function deliverAndTick(
 }
 
 async function leaveRoom(room: TestRoom, client: TestClient): Promise<void> {
-  await client.leave();
+  await client.leave(true);
   await room.disconnect();
   await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+type TownRoomCreateOptions = {
+  dbPath?: string;
+  instanceKey?: string;
+  combatRng?: ReturnType<typeof zeroOffsetRng>;
+};
+
+async function createIsolatedTownRoom(
+  options: TownRoomCreateOptions
+): Promise<TestRoom> {
+  return colyseus.createRoom('town', {
+    instanceKey: options.instanceKey ?? randomUUID(),
+    ...options,
+  });
 }
 
 function expectedWindStrikeDamage(room: TestRoom, classId = 10): number {
@@ -3040,11 +3057,15 @@ async function killMobNearPlayer(
 }
 
 describe.sequential('TownRoom quests', () => {
+  afterEach(async () => {
+    await colyseus.cleanup();
+  });
+
   // QUEST21-23
   it('auto-starts tutorial quest 255 on join', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       const entry = getQuestEntry(room, client.sessionId, 255);
       expect(entry?.questId).toBe(255);
@@ -3060,7 +3081,7 @@ describe.sequential('TownRoom quests', () => {
   it('restores in-progress tutorial on reconnect', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       advanceQuestStep(room, client.sessionId, 255, 1, [0]);
       const characterId = (room as { characterIds: Map<string, string> }).characterIds.get(
@@ -3073,7 +3094,7 @@ describe.sequential('TownRoom quests', () => {
       );
       expect(loadCharacterQuests(getDb(dbPath), characterId)[0]?.step).toBe(1);
       await leaveRoom(room, client);
-      const room2 = await colyseus.createRoom('town', { dbPath });
+      const room2 = await createIsolatedTownRoom({ dbPath });
       const client2 = await colyseus.connectTo(room2, { characterId });
       const entry = getQuestEntry(room2, client2.sessionId, 255);
       expect(entry?.step ?? loadCharacterQuests(getDb(dbPath), characterId)[0]?.step).toBe(1);
@@ -3087,7 +3108,7 @@ describe.sequential('TownRoom quests', () => {
   it('questAction accept starts quest 105 at Bitz', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
@@ -3107,7 +3128,7 @@ describe.sequential('TownRoom quests', () => {
   it('tutorial gremlin kill advances to step 2', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const room = await createIsolatedTownRoom({ dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       advanceQuestStep(room, client.sessionId, 255, 1, [0]);
       onMobKilledForQuests(
@@ -3127,7 +3148,7 @@ describe.sequential('TownRoom quests', () => {
   it('fighter tutorial complete grants soulshot 1835 x200', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await joinWithClass(room, { classId: 0, sex: 0 });
       advanceQuestStep(room, client.sessionId, 255, 3, []);
       placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
@@ -3146,7 +3167,7 @@ describe.sequential('TownRoom quests', () => {
   it('mystic tutorial complete grants spiritshot 2509 x100', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await joinWithClass(room, { classId: 10, sex: 0 });
       advanceQuestStep(room, client.sessionId, 255, 3, []);
       placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
@@ -3164,7 +3185,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 105 complete grants 27772 XP', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       const xpBefore = room.state.players.get(client.sessionId)!.xp;
@@ -3190,7 +3211,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 101 complete grants item 49043', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       placePlayerAtNpc(room, client.sessionId, LECTOR_NPC);
@@ -3220,7 +3241,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 151 complete grants healing potion 1060', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 15);
       placePlayerAtNpc(room, client.sessionId, KATERINA_NPC);
@@ -3248,7 +3269,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 158 Nerkas kill advances quest step', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 21);
       const quests = (room as { playerQuests: Map<string, { questId: number; status: string; step: number; counters: number[] }[]> }).playerQuests;
@@ -3274,7 +3295,7 @@ describe.sequential('TownRoom quests', () => {
   it('rejects selling quest item 1012', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       grantItem(room, client.sessionId, 1012, 1);
       const adenaBefore = room.state.players.get(client.sessionId)!.adena;
@@ -3294,7 +3315,7 @@ describe.sequential('TownRoom quests', () => {
   it('level 9 at Bitz shows levelTooLow dialog without accept', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       setPlayerLevel(room, client.sessionId, 9);
       placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
@@ -3317,7 +3338,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest complete strips quest item 1012 from inventory', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       placePlayerAtNpc(room, client.sessionId, GWINTER_NPC);
@@ -3346,7 +3367,7 @@ describe.sequential('TownRoom quests', () => {
   it('rejects complete without objectives done', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       const xpBefore = room.state.players.get(client.sessionId)!.xp;
@@ -3368,7 +3389,7 @@ describe.sequential('TownRoom quests', () => {
   it('rejects re-accept on completed quest 105', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
@@ -3399,7 +3420,7 @@ describe.sequential('TownRoom quests', () => {
   it('Roxxy step 0 dialog offers Continue tutorial', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
       placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
       client.send('interact', { npcId: ROXXY_NPC });
@@ -3415,7 +3436,7 @@ describe.sequential('TownRoom quests', () => {
   it('completed tutorial is not re-offered at Roxxy', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await joinWithClass(room, { classId: 0, sex: 0 });
       advanceQuestStep(room, client.sessionId, 255, 3, []);
       placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
@@ -3440,7 +3461,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 104 mirror kills advance per mob type', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       placePlayerAtNpc(room, client.sessionId, JACKSON_NPC);
@@ -3475,7 +3496,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 152 golem kill grants shard 1012', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 10);
       placePlayerAtNpc(room, client.sessionId, GWINTER_NPC);
@@ -3499,7 +3520,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 153 delivery chain grants healing potion 1060', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 2);
       placePlayerAtNpc(room, client.sessionId, JACKSON_NPC);
@@ -3543,19 +3564,20 @@ describe.sequential('TownRoom quests', () => {
   it('quest 155 talk step grants haste potion 49036', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 3);
       placePlayerAtNpc(room, client.sessionId, WILFORD_NPC);
       await deliver(room, client, [
         ['questAction', { npcId: WILFORD_NPC, action: 'accept' }],
-        ['questAction', { npcId: WILFORD_NPC, action: 'talk' }],
+      ]);
+      await deliver(room, client, [
         ['questAction', { npcId: WILFORD_NPC, action: 'talk' }],
       ]);
-      const beforeComplete = getQuestEntry(room, client.sessionId, 155);
-      if ((beforeComplete?.step ?? 0) < 2) {
-        advanceQuestStep(room, client.sessionId, 155, 2, []);
-      }
+      await deliver(room, client, [
+        ['questAction', { npcId: WILFORD_NPC, action: 'talk' }],
+      ]);
+      expect(getQuestEntry(room, client.sessionId, 155)?.step).toBe(2);
       await deliver(room, client, [
         ['questAction', { npcId: WILFORD_NPC, action: 'complete' }],
       ]);
@@ -3570,7 +3592,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 157 collect 4 goods grants healing potion 1060', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 5);
       placePlayerAtNpc(room, client.sessionId, WILFORD_NPC);
@@ -3588,6 +3610,8 @@ describe.sequential('TownRoom quests', () => {
       placePlayerAtNpc(room, client.sessionId, WILFORD_NPC);
       await deliver(room, client, [
         ['questAction', { npcId: WILFORD_NPC, action: 'deliver' }],
+      ]);
+      await deliver(room, client, [
         ['questAction', { npcId: WILFORD_NPC, action: 'complete' }],
       ]);
       expect(getPlayerItemCount(room, client.sessionId, 1060)).toBe(1);
@@ -3601,7 +3625,7 @@ describe.sequential('TownRoom quests', () => {
   it('quest 158 Nerkas kill completable at Baulro grants 49037', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
-      const room = await colyseus.createRoom('town', { dbPath });
+      const room = await createIsolatedTownRoom({ dbPath });
       const client = await colyseus.connectTo(room);
       setPlayerLevel(room, client.sessionId, 21);
       const quests = (room as { playerQuests: Map<string, { questId: number; status: string; step: number; counters: number[] }[]> }).playerQuests;
