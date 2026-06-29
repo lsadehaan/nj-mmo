@@ -151,13 +151,19 @@
 
 ## Handoff
 
-**Phase 19 — Character creation & classes: Implementer complete (T1–T10); Verifier pending.**
+**Loop status: RUNNING — next unchecked phase: Phase 20.**
 
-- **Feature dir**: `.specs/features/phase-19-character-creation/`
-- **Branch**: `master`
-- **Next**: Dispatch Verifier sub-agent; on PASS flip ROADMAP Phase 19 and write `validation.md`
+**Next step:** **Phase 20 — Skills & combat depth** (`.specs/ROADMAP.md`). Planner
+sub-agent writes `.specs/features/phase-20-skills-combat/` — skill learning at trainers,
+generalized skill resolver, soulshots, magic cast path, minimal buff/debuff system.
 
-**Loop status:** Phase 19 implementation done; awaiting verification.
+**Phase 19 — Character creation & classes: COMPLETE (Verifier PASS, 2026-06-29).**
+`.specs/features/phase-19-character-creation/validation.md` records PASS (0 fix iterations):
+37/37 ACs traced (CHAR19-31 KayKit-pack GLB sharing documented deviation), discrimination
+sensor 3/3 killed, gate green (game-core 117, server 235, client 251, visual 30/30).
+Nine starter classes seeded from L2J; character creation UI; class-based stats/combat/vitals;
+per-class player manifest avatars; `classId`/`sex` on PlayerState + `__GAME_STATE__`.
+ROADMAP Phase 19 flipped to `[x]`.
 
 **Post-MVP track (Phases 19–29):** Complete Talking Island locally — character
 creation, skills, quests, full bestiary, expanded world, town services, economy,

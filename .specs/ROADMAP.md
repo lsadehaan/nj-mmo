@@ -5,6 +5,9 @@
 > implementation by researching the codebase, `STATE.md` decisions, `AGENTS.md`,
 > and the L2J Classic reference tree. Checkboxes flip to `[x]` only when a
 > Verifier PASS is recorded in `.specs/features/<feature>/validation.md`.
+>
+> **MVP (Phases 1–18): complete.** **Post-MVP TI completion (Phases 19–29):**
+> eleven phases through UI shell — public deployment explicitly excluded.
 
 High-level roadmap for the MVP. Each phase ends in something runnable and is
 built through the `spec-driven-execution` flow (Planner → Implementer →
@@ -13,8 +16,13 @@ Verifier). Check an item only when its Verifier pass is recorded in
 
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (Verifier PASS)
 
-**Hard dependency order:** Phase 3 (server authority) must precede combat and
+**Hard dependency order (MVP):** Phase 3 (server authority) must precede combat and
 skills. Town + NPCs (Phase 6) depend on combat + peace zone existing first.
+Never run phases in parallel.
+
+**Hard dependency order (Post-MVP 19–29):** Phases 19–20 (character + skills)
+before 21 (quests) and 27 (progression). Phase 23 (world) before or alongside
+22 (bestiary spawn placement). See the Post-MVP section header for the full chain.
 Never run phases in parallel.
 
 ---
@@ -539,6 +547,342 @@ Via `spec-driven-execution`:
 
 ---
 
+## Post-MVP — Complete Talking Island (Phases 19–29)
+
+> **Goal:** Close the gap between the Phase 1–18 vertical slice and an authentic
+> L2J Mobius Classic Talking Island experience — races/classes, skill trees,
+> quests, full bestiary, real geography, town services, economy, social, PvP
+> rules, and a complete client shell. **Local only** — public deployment is
+> explicitly out of scope (former Epic 12).
+>
+> **Test gate (AGENTS.md):** Three layers only — unit (server + client), room
+> integration, seed/data. **No Playwright / browser e2e.** Client wiring is proven
+> via `wireRoom` unit tests and `__GAME_STATE__` mapping; game outcomes via room
+> tests with `NJ_AUTOSIM=0` + `tick()`/`deliver()` (AD-014). Phases 1–18 may
+> mention Playwright historically; that layer has been removed.
+>
+> **Hard dependency order:** Phases 19–20 (character + skills) unlock 21 (quests)
+> and 27 (progression). Phase 23 (world) should land before or alongside 22
+> (bestiary spawn placement). Never run phases in parallel.
+
+**Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (Verifier PASS)
+
+---
+
+## Phase 19 — Character creation & classes `[x]`
+
+> Done when: a new player picks race/gender/class at creation; base stats (STR/DEX/
+> CON/INT/WIT/MEN) and HP/MP curves differ by class; avatar reflects the choice;
+> existing combat/XP uses class stats server-side.
+>
+> **Depends on:** Phases 1–18 (MVP scaffold).
+>
+> **Skill:** `game-designer` → `create-character.md` (per-class avatars).
+
+### Scope
+
+- Character creation screen (Human Fighter/Mystic, Elf, Dark Elf, Orc, Dwarf paths).
+- Server: class template from L2J `stats/chars/*`; persist race/class on character row.
+- Client: creation UI + class-appropriate starter appearance (manifest per class).
+- Room tests: stat anchors per class; client unit: creation flow updates
+  `__GAME_STATE__` via `wireRoom`.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| 1st class transfer (Village Master) | Phase 24 (trainer wiring) + Phase 20 (skill learn) |
+| Subclasses / dual class | Post-TI |
+| Face/hair customization beyond class pick | Cosmetic stretch |
+
+---
+
+## Phase 20 — Skills & combat depth `[ ]`
+
+> Done when: each starter class has a learnable skill subset (not just Power Strike);
+> MP/cooldown/reuse validated server-side; soulshots consumed for damage bonus;
+> magic cast path exists for mystics; buffs/debuffs on a minimal effect system.
+>
+> **Depends on:** Phase 19 (class identity), Phase 4–5 (combat resolver baseline).
+
+### Scope
+
+- Skill learning at trainers (Bitz + folk trainers — dialog → `learnSkill` intent).
+- Generalize skill resolver beyond skill **3**; seed TI-relevant skills from L2J XML.
+- Soulshot/spiritshot as functional consumables (item **1835** already icon'd).
+- Cast bar + interrupt-on-hit for magic; crit/evasion from L2J formulas where seeded.
+- Unit tests per skill anchor; room tests per intent; client unit: skill hotkey sends
+  intent via `wireRoom`.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Full enchant skill trees | Phase 25 |
+| All 200+ Classic skills | TI-relevant subset only |
+| Olympiad / siege skills | Post-TI |
+
+---
+
+## Phase 21 — Quests & tutorial `[ ]`
+
+> Done when: TI starter quest chain is playable — Tutorial (Q00255) plus core
+> Q001xx/Q0015x quests (~17); quest log UI; NPC quest markers; kill/collect/talk
+> objectives with server-validated rewards.
+>
+> **Depends on:** Phase 19–20 (class + skills for quest prerequisites), Phase 24
+> (quest-giver NPCs — may stub earlier with existing seven NPCs).
+
+### Selection (TI starter quests — first batch)
+
+| Quest | L2J script | MVP objective type |
+| ----- | ---------- | ------------------ |
+| Q00255 | Tutorial | Guided UI + first kill |
+| Q00101 | Sword of Solidarity | Collect + deliver |
+| Q00104 | Spirit of Mirrors | Kill + collect |
+| Q00105 | Skirmish With Orcs | Kill count |
+| Q00151 | Cure For Fever | Collect drops |
+| Q00152 | Shards of Golem | Kill + collect |
+| … | *(Planner extends to ~17 from L2J `scripts/quests/Q001*`, `Q0015*`)* | |
+
+### Scope
+
+- Quest engine: state machine, quest items, branching dialog, reward grant (XP/adena/items).
+- Server authority on every transition; client quest log + `__GAME_STATE__.quests` hook.
+- Room tests per quest outcome; client unit: quest log reflects server state.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Seven Signs / epic quests | Post-TI |
+| Party-shared quest credit | Phase 26 |
+| Full L2J HTML dialog port | MVP dialog shell + key lines |
+
+---
+
+## Phase 22 — Complete TI bestiary (+12 mobs) `[ ]`
+
+> Done when: all **remaining** authentic TI field monsters from
+> `TalkingIslandMonsters.xml` are seeded, spawned, and rendered — same pipeline
+> as Phases 10/16.
+>
+> **Depends on:** Phase 10/16 (creature backend), Phase 23 preferred for spawn
+> territories (may use simplified rings if 23 not done).
+
+### Selection (remaining 12 by level)
+
+| npcId | Name | Lv |
+| ----- | ---- | -- |
+| 20006 | Orc Archer | 8 |
+| 20326 | Goblin Scout | 8 |
+| 20131 | Orc Soldier | 7 |
+| 20132 | Werewolf | 9 |
+| 20342 | Werewolf Chieftain | 9 |
+| 20343 | Werewolf Hunter | 9 |
+| 20093 | Orc Warrior | 10 |
+| 20096 | Orc Lieutenant | 11 |
+| 20098 | Orc Captain | 12 |
+| 20016 | Stone Golem | 13 |
+| 20101 | Crasher | 14 |
+| 20103/06/08 | Giant Spider family | 15–17 |
+
+*(Planner confirms exact list against L2J spawn table minus the nine already seeded.)*
+
+### Scope
+
+- Per mob: seed stats/drops/spawns + rigged GLB + manifest row + visual gate.
+- Ranged AI for Orc Archer; social aggro for wolf packs where L2J defines it.
+- Ring progression on expanded map (Phase 23) or interim outer bands.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Raid bosses | Not on TI spawn table |
+| Mob weapon attachments (Orc axe) | Defer; Phase 11 attachment pattern |
+
+---
+
+## Phase 23 — Full Talking Island world & zones `[ ]`
+
+> Done when: the playable area covers TI Village, eastern fields, Elven Ruins,
+> Obelisk, Harbor, and Cave of Souls / Maze — named zones (peace/combat/water)
+> replace the single peace rectangle; spawns re-mapped from L2J territories.
+>
+> **Depends on:** Phase 9 (walkability baseline); partially supersedes AD-006
+> simplified 200 m patch.
+
+### Scope
+
+- Expand heightmap / multi-region layout (L2J territory centroids → local space, AD-013).
+- Zone definitions: peace, combat, fishing, water (no combat in town — extend P6).
+- Hand-placed landmarks (ruins, obelisk, harbor dock, cave entrance) as GLB props.
+- Re-home existing NPC/mob spawns to new coordinates; update blocker volumes.
+- Room tests: zone guard rules; client unit: zone indicator in `__GAME_STATE__`.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| L2J geodata / NSWE cell parsing (Tier 4) | AD-006 deferred; keep grid pathfinding |
+| Seamless open-world streaming | Single expanded room instance for TI |
+| Other regions (Gludin, Dion, …) | TI vertical slice only |
+
+---
+
+## Phase 24 — Town services & full NPC roster `[ ]`
+
+> Done when: remaining TI town NPCs are seeded and functional — High Priest,
+> guards, blacksmith, folk trainers, Gatekeeper teleports; real warehouse
+> deposit/withdraw; Bitz class-change (1st transfer) wired to Phase 19.
+>
+> **Depends on:** Phase 17 (NPC pipeline), Phase 19–20 (class/skill services).
+
+### Selection (next batch after Phase 17's seven)
+
+| npcId | Name | Service |
+| ----- | ---- | ------- |
+| 30031 | Biotin | High Priest — buffs/resurrect |
+| 30039–30046 | Guards | Static patrol or idle |
+| 30027–30036 | Folk trainers | Class skill subsets |
+| 30006 | Roxxy | Gatekeeper — teleport destinations |
+| 30005 | Wilford | Warehouse — full storage DB |
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Private store / player shops | Phase 26 |
+| Castle / clan hall NPCs | Post-TI |
+
+---
+
+## Phase 25 — Items, economy & crafting `[ ]`
+
+> Done when: full TI-grade equipment tables (No-grade/D-grade weapons/armor/jewelry);
+> all equip slots; soulshots functional; dwarf crafting/recipes for TI subset;
+> enchant UI stub or +1..+3 safe enchant from L2J tables.
+>
+> **Depends on:** Phase 24 (merchant/blacksmith NPCs), Phase 20 (soulshots).
+
+### Scope
+
+- Extend equip beyond weapon-only (chest/legs/gloves/boots/helmet/jewelry paper-doll).
+- Seed buylists + drop tables completion for TI items; set bonuses where Classic defines.
+- Recipe system MVP (Dwarf); `Recipes.xml` TI subset.
+- Room: buy/equip/enchant/craft transactions; client unit: equip updates vitals HUD.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Auction house / economy sim | Post-TI |
+| Full A–S grade equipment | TI level cap only |
+
+---
+
+## Phase 26 — Social & multiplayer systems `[ ]`
+
+> Done when: chat (all/local/trade/party), party invite + shared XP/loot rules,
+> player trade window, friend list; room tests for two-session party + trade.
+>
+> **Depends on:** Phase 3 (multiplayer baseline).
+
+### Scope
+
+- Chat channels + rate limit; party schema on room state; trade request/confirm flow.
+- Server validates all social actions (AD-001); client unit: party/chat in
+  `__GAME_STATE__` via `wireRoom`.
+- Re-modeled L2 social rules — not the real L2 protocol (AD-004).
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Clans / alliances | Post-TI |
+| Mail system | Post-TI |
+
+---
+
+## Phase 27 — Progression rules & PvP `[ ]`
+
+> Done when: death XP loss + restore; PvP flag/karma; delevel; full XP curve to
+> TI level cap; stat re-spec at trainer.
+>
+> **Depends on:** Phase 19–20 (stats/skills), Phase 7 (death/respawn baseline).
+
+### Scope
+
+- Translate L2J penalty/PK rules to `@nj/game-core` pure functions + room tests.
+- PvP flag toggle; karma on player kill; peace zone enforcement extended to new zones.
+- XP curve completion from L2J `stats/experience.xml` to TI cap.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Siege / clan war | Post-TI |
+| Full Olympiad | Post-TI |
+
+---
+
+## Phase 28 — UI/UX client shell `[ ]`
+
+> Done when: login + character select screens; full inventory grid (weight/slots);
+> skill window; quest log; party UI; minimap/world map; buff/debuff bars; system
+> menu; target-of-target frame — replacing stub HUD panels from MVP.
+>
+> **Depends on:** Phases 19–21 (data to display), Phase 14 (icon pipeline).
+
+### Scope
+
+- Windowed UI layer (DOM) for all major L2 panels; hotkeys; context actions on target.
+- Minimap from zone layout (Phase 23); quest tracker from Phase 21 state.
+- Client unit: DOM assertions per panel open/close (Vitest + jsdom); no WebGL reads
+  (AD-009).
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Cash shop / Prime Shop | Not Classic TI |
+| Full options/keybind remapping | MVP defaults sufficient |
+
+---
+
+## Phase 29 — Audio & world ambience `[ ]`
+
+> Done when: zone-appropriate music loops, combat/cast/UI SFX, and ambient world
+> audio play in the client without blocking the Vitest gate.
+>
+> **Depends on:** Phase 23 (zones), Phase 28 (UI shell for volume/settings hook).
+
+### Scope
+
+- Music: town / field / combat stingers (license-clean assets).
+- SFX: melee hit, skill cast, footsteps, level-up, UI click — wired to existing VFX events.
+- Client unit: audio manager loads and triggers on mocked game events (no real playback in CI).
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Voice acting / NPC barks | Post-TI |
+| Dynamic adaptive music engine | MVP loops sufficient |
+
+---
+
+## Explicitly deferred (not in Phases 19–29)
+
+| Former epic | Reason |
+| ----------- | ------ |
+| **Live-ops & public deployment** (Railway/Fly + Vercel, accounts at scale, Postgres migration, monitoring) | User decision: not going to prod now; runs locally via `npm run dev` |
+| Other continents / regions beyond TI | Out of vertical slice |
+| Authentic L2 client protocol | AD-004 |
+
+---
+
 ## Per-phase execution (how each `[ ]` gets to `[x]`)
 
 1. **Plan** — Planner writes `spec.md` (+ `design.md`/`tasks.md`) under `.specs/features/<phase>/`, deciding autonomously and logging assumptions (no approval gate).
@@ -552,3 +896,5 @@ stuck (see the `spec-driven-execution` skill, "Autonomy & decision-making"): the
 Verifier still FAILs after its 3 fix→re-verify iterations, or a true blocker
 (contradictory requirements, missing secret/resource, destructive out-of-repo action,
 or a missing prerequisite phase).
+
+**Next unchecked phase:** Phase 19 — Character creation & classes.
