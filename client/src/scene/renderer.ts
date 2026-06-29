@@ -367,11 +367,14 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     id: string,
     snapshot: ReturnType<typeof mobStateToVisual>
   ): AnimationClip => {
+    const serverClip = clipFromServerAction(snapshot);
+    if (serverClip === 'attack' || serverClip === 'die') {
+      return serverClip;
+    }
     const tickClip = lastMobClips.get(id);
     if (tickClip === 'attack' || tickClip === 'cast' || tickClip === 'die') {
       return tickClip;
     }
-    const serverClip = clipFromServerAction(snapshot);
     if (serverClip) return serverClip;
     return tickClip ?? 'idle';
   };
@@ -464,11 +467,15 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
           hp: snapshot.hp,
           maxHp: snapshot.maxHp,
           action: (() => {
+            const serverClip = clipFromServerAction(snapshot);
+            if (serverClip === 'attack' || serverClip === 'die') {
+              return serverClip;
+            }
             const tickClip = mobClips.get(id);
             if (tickClip === 'attack' || tickClip === 'cast' || tickClip === 'die') {
               return tickClip as AnimationClip;
             }
-            return (clipFromServerAction(snapshot) ?? tickClip ?? 'idle') as AnimationClip;
+            return (serverClip ?? tickClip ?? 'idle') as AnimationClip;
           })(),
           actionSeq: snapshot.actionSeq ?? 0,
         }))

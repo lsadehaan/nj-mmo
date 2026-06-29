@@ -1,4 +1,6 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
+import { EntityAction } from '@nj/game-core';
+import type { AnimationClip } from '@nj/game-core';
 import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
 import {
@@ -128,6 +130,19 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     z: number;
   };
 
+  const mobActionClip = (actionNum: number | undefined, fallback: AnimationClip): AnimationClip => {
+    switch (actionNum) {
+      case EntityAction.Attack:
+        return 'attack';
+      case EntityAction.Cast:
+        return 'cast';
+      case EntityAction.Die:
+        return 'die';
+      default:
+        return fallback;
+    }
+  };
+
   const publishMobs = (): void => {
     const hookById = new Map((game.getMobHookEntries?.() ?? []).map((mob) => [mob.id, mob]));
     const mobsMap = room.state.mobs;
@@ -146,7 +161,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         z: state.z,
         hp: state.hp,
         maxHp: state.maxHp,
-        action: hook?.action ?? 'idle',
+        action: mobActionClip(state.action, hook?.action ?? 'idle'),
         actionSeq: state.actionSeq ?? hook?.actionSeq ?? 0,
       };
     });

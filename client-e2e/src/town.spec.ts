@@ -254,24 +254,7 @@ test('attack inside peace zone does not reduce mob HP or grant XP', async ({ pag
     2.5
   );
 
-  await expect
-    .poll(
-      async () =>
-        page.evaluate((mobId) => {
-          const player = window.__GAME_STATE__.player;
-          const mob = window.__GAME_STATE__.mobs.find((entry) => entry.id === mobId);
-          if (!mob) return false;
-          const inPeaceZone =
-            player.x >= -20 &&
-            player.x <= 20 &&
-            player.z >= -20 &&
-            player.z <= 20;
-          const dist = Math.hypot(player.x - mob.x, player.z - mob.z);
-          return inPeaceZone && dist <= 3.5;
-        }, mob.id),
-      { timeout: 15_000, intervals: [200, 400, 800] }
-    )
-    .toBe(true);
+  await walkTowardPeaceZoneMob(page, mob.id, 3.5, 30_000);
 
   const inPeaceZone = await page.evaluate(() => {
     const { x, z } = window.__GAME_STATE__.player;
@@ -342,24 +325,7 @@ test('Power Strike inside peace zone does not reduce mob HP or spend MP', async 
     2.5
   );
 
-  await expect
-    .poll(
-      async () =>
-        page.evaluate((mobId) => {
-          const player = window.__GAME_STATE__.player;
-          const mob = window.__GAME_STATE__.mobs.find((entry) => entry.id === mobId);
-          if (!mob) return false;
-          const inPeaceZone =
-            player.x >= -20 &&
-            player.x <= 20 &&
-            player.z >= -20 &&
-            player.z <= 20;
-          const dist = Math.hypot(player.x - mob.x, player.z - mob.z);
-          return inPeaceZone && dist <= 3.5;
-        }, mob.id),
-      { timeout: 15_000, intervals: [200, 400, 800] }
-    )
-    .toBe(true);
+  await walkTowardPeaceZoneMob(page, mob.id, 3.5, 30_000);
 
   const before = await page.evaluate((mobId) => {
     const state = window.__GAME_STATE__;
