@@ -33,13 +33,16 @@ import {
   saveCharacter,
   loadCharacterItems,
   saveCharacterItems,
+  loadCharacterSkills,
+  saveCharacterSkills,
   type CharacterItemCounts,
+  type CharacterSkillLevels,
 } from '../db/character-repository';
 import {
   loadClassTemplate,
   loadClassVitalsCurve,
 } from '../db/class-template-repository';
-import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, classTemplates, type Character, type MerchantItem, type Item, type ClassTemplate } from '../db/schema';
+import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, classTemplates, classSkillTree, type Character, type MerchantItem, type Item, type ClassTemplate, type Skill } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
@@ -52,11 +55,20 @@ import {
   createPlayerCombatState,
   resolvePlayerAttack,
   resolvePowerStrike,
+  resolveSkillUse,
   resolveMobAttack,
   applyKillRewards,
+  beginSkillCast,
+  cancelSkillCast,
+  canUseSkill,
+  getSkillCooldownEnd,
+  applyDamageToCastingPlayer,
+  tickCombatEffects,
+  calcPlayerMAtk,
   type PlayerCombatState,
   type KillEvent,
   type PowerStrikeSkill,
+  type MobEffectState,
 } from './combat-resolver';
 import {
   initializeMobs,
@@ -70,6 +82,13 @@ import { buyItem, sellItem } from './shop-transaction';
 import { validateEquip, applyEquip } from './equip-transaction';
 import { canInteract, applyHeal, applyStarterKit } from './npc-actions';
 import { isStarterClassId, isValidSex } from './starter-classes';
+
+const BITZ_NPC_ID = 30026;
+const GWINTER_NPC_ID = 30027;
+const BAULRO_NPC_ID = 30033;
+const SOULSHOT_ITEM_ID = 1835;
+const SPIRITSHOT_ITEM_ID = 2509;
+const TRAINER_NPC_IDS = new Set([BITZ_NPC_ID, GWINTER_NPC_ID, BAULRO_NPC_ID]);
 
 export interface TownJoinOptions {
   characterId?: string;
@@ -132,6 +151,9 @@ export class TownRoom extends Room<{ state: TownState }> {
   private dropsByNpcId = new Map<number, DropRow[]>();
   private itemsById = new Map<number, Item>();
   private powerStrikeSkill!: PowerStrikeSkill;
+  private skillsById = new Map<number, Skill>();
+  private playerSkills = new Map<string, CharacterSkillLevels>();
+  private mobEffects = new Map<string, MobEffectState>();
   private nowMs = () => Date.now();
   private playerItems = new Map<string, CharacterItemCounts>();
   private npcSpawnsById = new Map<number, { x: number; y: number; z: number }>();
@@ -182,12 +204,15 @@ export class TownRoom extends Room<{ state: TownState }> {
     });
 
     this.onMessage('useSkill', (client, message: { skillId: number }) => {
-      if (message.skillId !== 3) return;
-      const combat = this.playerCombat.get(client.sessionId);
-      if (!combat || !combat.targetMobId) return;
-      const mob = this.mobRuntime.get(combat.targetMobId);
-      if (!mob || mob.hp <= 0) return;
-      combat.skillPending = true;
+      this.handleUseSkill(client.sessionId, message.skillId);
+    });
+
+    this.onMessage('learnSkill', (client, message: { skillId: number }) => {
+      this.handleLearnSkill(client.sessionId, message.skillId);
+    });
+
+    this.onMessage('useShot', (client, message: { itemId: number }) => {
+      this.handleUseShot(client.sessionId, message.itemId);
     });
 
     this.onMessage('interact', (client, message: { npcId: number }) => {
@@ -321,6 +346,122 @@ export class TownRoom extends Room<{ state: TownState }> {
     );
   }
 
+  private getPlayerMAtk(player: PlayerState): number {
+    const template = this.classTemplatesById.get(player.classId);
+    if (!template) return 8;
+    const baseMAtk = template.baseMAtk ?? 6;
+    return calcPlayerMAtk(baseMAtk, template.baseInt, player.level);
+  }
+
+  private getKnownSkillSet(sessionId: string): Set<number> {
+    const skills = this.playerSkills.get(sessionId) ?? {};
+    return new Set(Object.keys(skills).map(Number));
+  }
+
+  private syncPlayerSkillsToState(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const learned = this.playerSkills.get(sessionId);
+    const combat = this.playerCombat.get(sessionId);
+    if (!player || !learned) return;
+
+    player.knownSkillIds.clear();
+    player.skillCooldownEndMs.clear();
+    const ids = Object.keys(learned)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .slice(0, 8);
+    for (const skillId of ids) {
+      player.knownSkillIds.push(skillId);
+      player.skillCooldownEndMs.push(
+        combat ? getSkillCooldownEnd(combat, skillId) : 0
+      );
+    }
+    const psCd = combat ? getSkillCooldownEnd(combat, 3) : 0;
+    player.powerStrikeCooldownEndMs = psCd;
+    player.castingSkillId = combat?.castingSkillId ?? 0;
+    player.castEndMs = combat?.castEndMs ?? 0;
+  }
+
+  private handleUseSkill(sessionId: string, skillId: number): void {
+    const combat = this.playerCombat.get(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (!combat || !player || !combat.targetMobId) return;
+
+    const known = this.getKnownSkillSet(sessionId);
+    if (!known.has(skillId)) return;
+
+    const skill = this.skillsById.get(skillId);
+    const mob = this.mobRuntime.get(combat.targetMobId);
+    if (!skill || !mob || mob.hp <= 0) return;
+
+    const now = this.nowMs();
+    if (!canUseSkill(combat, skillId, known, now)) return;
+
+    if (skill.hitTime > 0 && (skill.isMagic || skill.effectKind === 'buff_self' || skill.effectKind === 'debuff_enemy')) {
+      if (player.mp < skill.mpConsumeL1) return;
+      beginSkillCast(combat, skillId, combat.targetMobId, skill.hitTime, now);
+      player.castingSkillId = combat.castingSkillId;
+      player.castEndMs = combat.castEndMs;
+      return;
+    }
+
+    combat.skillPending = true;
+    combat.pendingSkillId = skillId;
+  }
+
+  private handleLearnSkill(sessionId: string, skillId: number): void {
+    const combat = this.playerCombat.get(sessionId);
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    const characterId = this.characterIds.get(sessionId);
+    if (!combat || !player || !stored || !characterId) return;
+
+    const trainerNpcId = combat.openTrainerNpcId;
+    if (!trainerNpcId || !TRAINER_NPC_IDS.has(trainerNpcId)) return;
+    if (!this.isNearNpc(sessionId, trainerNpcId).ok) return;
+
+    const treeRow = this.db
+      .select()
+      .from(classSkillTree)
+      .where(
+        and(
+          eq(classSkillTree.classId, player.classId),
+          eq(classSkillTree.skillId, skillId),
+          eq(classSkillTree.skillLevel, 1)
+        )
+      )
+      .get();
+    if (!treeRow) return;
+
+    const learned = this.playerSkills.get(sessionId) ?? {};
+    if (learned[skillId]) return;
+
+    const updated = { ...learned, [skillId]: 1 };
+    this.playerSkills.set(sessionId, updated);
+    saveCharacterSkills(this.db, characterId, updated);
+    this.syncPlayerSkillsToState(sessionId);
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleUseShot(sessionId: string, itemId: number): void {
+    const player = this.state.players.get(sessionId);
+    const combat = this.playerCombat.get(sessionId);
+    if (!player || !combat || player.hp <= 0) return;
+
+    const count = this.getItemCount(sessionId, itemId);
+    if (count <= 0) return;
+
+    if (itemId === SOULSHOT_ITEM_ID) {
+      combat.armedShot = 'soul';
+      this.setItemCount(sessionId, itemId, count - 1);
+      return;
+    }
+    if (itemId === SPIRITSHOT_ITEM_ID) {
+      combat.armedShot = 'spirit';
+      this.setItemCount(sessionId, itemId, count - 1);
+    }
+  }
+
   private handleEquip(sessionId: string, itemId: number): void {
     const player = this.state.players.get(sessionId);
     const stored = this.characters.get(sessionId);
@@ -389,6 +530,10 @@ export class TownRoom extends Room<{ state: TownState }> {
     if (!this.isNearNpc(sessionId, npcId).ok) return;
     const meta = this.db.select().from(npcs).where(eq(npcs.npcId, npcId)).get();
     if (!meta) return;
+    const combat = this.playerCombat.get(sessionId);
+    if (combat && TRAINER_NPC_IDS.has(npcId)) {
+      combat.openTrainerNpcId = npcId;
+    }
     const client = this.clients.find((c) => c.sessionId === sessionId);
     client?.send('interactResult', { npcId, type: meta.type, name: meta.name });
   }
@@ -517,9 +662,12 @@ export class TownRoom extends Room<{ state: TownState }> {
       this.itemsById.set(row.itemId, row);
     }
 
-    const powerStrike =
-      this.db.select().from(skills).where(eq(skills.skillId, 3)).get() ??
-      this.ensurePowerStrikeSeeded();
+    this.skillsById.clear();
+    for (const row of this.db.select().from(skills).all()) {
+      this.skillsById.set(row.skillId, row);
+    }
+
+    const powerStrike = this.skillsById.get(3) ?? this.ensurePowerStrikeSeeded();
     if (!powerStrike) {
       throw new Error('Power Strike (skillId 3) not found in database');
     }
@@ -533,7 +681,123 @@ export class TownRoom extends Room<{ state: TownState }> {
 
   private ensurePowerStrikeSeeded() {
     seedSkills(this.db, FIXTURE_DATA_DIR);
-    return this.db.select().from(skills).where(eq(skills.skillId, 3)).get();
+    for (const row of this.db.select().from(skills).all()) {
+      this.skillsById.set(row.skillId, row);
+    }
+    return this.skillsById.get(3);
+  }
+
+  private resolvePendingSkill(
+    sessionId: string,
+    player: PlayerState,
+    combat: PlayerCombatState,
+    now: number
+  ): void {
+    const skillId = combat.pendingSkillId || 3;
+    if (!combat.skillPending || !combat.targetMobId) return;
+
+    const skill = this.skillsById.get(skillId);
+    const runtime = this.mobRuntime.get(combat.targetMobId);
+    if (!skill || !runtime) return;
+
+    const mobEffect = this.mobEffects.get(runtime.id) ?? { activeEffect: null };
+    this.mobEffects.set(runtime.id, mobEffect);
+
+    const template = this.classTemplatesById.get(player.classId);
+    const result = resolveSkillUse({
+      sessionId,
+      playerX: player.x,
+      playerZ: player.z,
+      playerMp: player.mp,
+      playerMAtk: this.getPlayerMAtk(player),
+      playerPAtk: this.getPlayerPAtk(player),
+      playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
+      playerDex: player.dex,
+      combat,
+      mob: runtime,
+      mobEffect,
+      skill,
+      nowMs: now,
+      rng: this.combatRng,
+    });
+
+    combat.skillPending = false;
+    combat.pendingSkillId = 0;
+
+    if (result.mpCost > 0) {
+      player.mp -= result.mpCost;
+      this.emitPlayerAction(player, EntityAction.Cast);
+      this.syncPlayerSkillsToState(sessionId);
+      this.scheduleDebouncedSave(sessionId);
+    }
+
+    if (result.damage > 0) {
+      const mobState = this.state.mobs.get(runtime.id);
+      if (mobState) syncMobState(mobState, runtime);
+      if (result.killed) {
+        this.handleMobKill(sessionId, runtime);
+      }
+    }
+  }
+
+  private resolveCastingSkills(now: number): void {
+    for (const [sessionId, combat] of this.playerCombat.entries()) {
+      if (combat.castingSkillId === 0 || combat.castEndMs > now) continue;
+      const player = this.state.players.get(sessionId);
+      const skill = this.skillsById.get(combat.castingSkillId);
+      const targetId = combat.castTargetMobId;
+      if (!player || !skill || !targetId) {
+        cancelSkillCast(combat);
+        continue;
+      }
+      const runtime = this.mobRuntime.get(targetId);
+      if (!runtime || runtime.hp <= 0) {
+        cancelSkillCast(combat);
+        player.castingSkillId = 0;
+        player.castEndMs = 0;
+        continue;
+      }
+
+      const mobEffect = this.mobEffects.get(runtime.id) ?? { activeEffect: null };
+      this.mobEffects.set(runtime.id, mobEffect);
+
+      const template = this.classTemplatesById.get(player.classId);
+      const result = resolveSkillUse({
+        sessionId,
+        playerX: player.x,
+        playerZ: player.z,
+        playerMp: player.mp,
+        playerMAtk: this.getPlayerMAtk(player),
+        playerPAtk: this.getPlayerPAtk(player),
+        playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
+        playerDex: player.dex,
+        combat,
+        mob: runtime,
+        mobEffect,
+        skill,
+        nowMs: now,
+        rng: this.combatRng,
+      });
+
+      cancelSkillCast(combat);
+      player.castingSkillId = 0;
+      player.castEndMs = 0;
+
+      if (result.mpCost > 0) {
+        player.mp -= result.mpCost;
+        this.emitPlayerAction(player, EntityAction.Cast);
+        this.syncPlayerSkillsToState(sessionId);
+        this.scheduleDebouncedSave(sessionId);
+      }
+
+      if (result.damage > 0) {
+        const mobState = this.state.mobs.get(runtime.id);
+        if (mobState) syncMobState(mobState, runtime);
+        if (result.killed) {
+          this.handleMobKill(sessionId, runtime);
+        }
+      }
+    }
   }
 
   private simulate(deltaTimeMs: number): void {
@@ -597,39 +861,17 @@ export class TownRoom extends Room<{ state: TownState }> {
       if (mobState) syncMobState(mobState, runtime);
     }
 
+    for (const combat of this.playerCombat.values()) {
+      tickCombatEffects(combat, this.mobEffects, now);
+    }
+
+    this.resolveCastingSkills(now);
+
     for (const [sessionId, combat] of this.playerCombat.entries()) {
       if (!combat.skillPending || !combat.targetMobId) continue;
       const player = this.state.players.get(sessionId);
-      const runtime = this.mobRuntime.get(combat.targetMobId);
-      if (!player || !runtime) continue;
-
-      const result = resolvePowerStrike({
-        sessionId,
-        playerX: player.x,
-        playerZ: player.z,
-        playerMp: player.mp,
-        combat,
-        mob: runtime,
-        skill: this.powerStrikeSkill,
-        nowMs: now,
-        rng: this.combatRng,
-        attackerPAtk: this.getPlayerPAtk(player),
-      });
-
-      if (result.mpCost > 0) {
-        player.mp -= result.mpCost;
-        player.powerStrikeCooldownEndMs = result.cooldownEndMs;
-        this.emitPlayerAction(player, EntityAction.Cast);
-        this.scheduleDebouncedSave(sessionId);
-      }
-
-      if (result.damage > 0) {
-        const mobState = this.state.mobs.get(runtime.id);
-        if (mobState) syncMobState(mobState, runtime);
-        if (result.killed) {
-          this.handleMobKill(sessionId, runtime);
-        }
-      }
+      if (!player) continue;
+      this.resolvePendingSkill(sessionId, player, combat, now);
     }
 
     for (const [sessionId, combat] of this.playerCombat.entries()) {
@@ -638,15 +880,19 @@ export class TownRoom extends Room<{ state: TownState }> {
       const runtime = this.mobRuntime.get(combat.targetMobId);
       if (!player || !runtime) continue;
 
+      const mobEffect = this.mobEffects.get(runtime.id);
       const result = resolvePlayerAttack({
         sessionId,
         playerX: player.x,
         playerZ: player.z,
         combat,
         mob: runtime,
+        mobEffect,
         nowMs: now,
         rng: this.combatRng,
         attackerPAtk: this.getPlayerPAtk(player),
+        attackerCritRate: this.classTemplatesById.get(player.classId)?.baseCritRate,
+        attackerDex: player.dex,
       });
 
       if (result.damage > 0) {
@@ -666,6 +912,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
       const mobResult = resolveMobAttack({
         mob: runtime,
+        mobEffect: this.mobEffects.get(runtime.id),
         targetSessionId: runtime.targetSessionId,
         targetX: target.x,
         targetZ: target.z,
@@ -675,6 +922,12 @@ export class TownRoom extends Room<{ state: TownState }> {
       });
 
       if (mobResult.damage > 0) {
+        const targetCombat = this.playerCombat.get(runtime.targetSessionId);
+        if (targetCombat) {
+          applyDamageToCastingPlayer(targetCombat, mobResult.damage);
+          target.castingSkillId = targetCombat.castingSkillId;
+          target.castEndMs = targetCombat.castEndMs;
+        }
         const mobState = this.state.mobs.get(runtime.id);
         if (mobState) {
           this.emitMobAction(mobState, EntityAction.Attack);
@@ -897,6 +1150,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.adena = character.adena;
     player.connected = true;
     this.playerItems.set(client.sessionId, loadCharacterItems(this.db, character.id));
+    this.playerSkills.set(client.sessionId, loadCharacterSkills(this.db, character.id));
     this.syncItemsToPlayerState(client.sessionId);
     this.state.players.set(client.sessionId, player);
     this.tickStates.set(
@@ -904,6 +1158,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       createPathMoveState(character.x, character.y, character.z)
     );
     this.playerCombat.set(client.sessionId, createPlayerCombatState());
+    this.syncPlayerSkillsToState(client.sessionId);
 
     client.send('characterId', character.id);
   }
@@ -946,6 +1201,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.saveTimers.delete(sessionId);
     this.playerCombat.delete(sessionId);
     this.playerItems.delete(sessionId);
+    this.playerSkills.delete(sessionId);
 
     for (const runtime of this.mobRuntime.values()) {
       if (runtime.targetSessionId === sessionId) {
@@ -979,6 +1235,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       z: player.z,
     });
     saveCharacterItems(this.db, characterId, this.playerItems.get(sessionId) ?? {});
+    saveCharacterSkills(this.db, characterId, this.playerSkills.get(sessionId) ?? {});
   }
 
   private scheduleDebouncedSave(sessionId: string): void {

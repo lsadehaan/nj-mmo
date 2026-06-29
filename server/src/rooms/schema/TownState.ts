@@ -1,4 +1,4 @@
-import { Schema, type, MapSchema } from '@colyseus/schema';
+import { Schema, type, MapSchema, ArraySchema } from '@colyseus/schema';
 import { MobState } from './MobState';
 import { NpcState } from './NpcState';
 import { ItemStackState } from './ItemStackState';
@@ -24,6 +24,11 @@ export class PlayerState extends Schema {
   @type('number') level = 1;
   @type('number') adena = 1000;
   @type('boolean') connected = true;
+  @type(['number']) knownSkillIds = new ArraySchema<number>();
+  @type(['number']) skillCooldownEndMs = new ArraySchema<number>();
+  @type('number') castingSkillId = 0;
+  @type('number') castEndMs = 0;
+  /** @deprecated alias for skill 3 cooldown — synced from skillCooldownEndMs */
   @type('number') powerStrikeCooldownEndMs = 0;
   @type('number') healingPotionCooldownEndMs = 0;
   /** Render-only; not persisted (AD-015). */

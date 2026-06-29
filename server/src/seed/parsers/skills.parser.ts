@@ -210,7 +210,7 @@ export function parseSkillsXml(xml: string, skillIds?: number[]): NewSkill[] {
     }
   }
 
-  return rows.sort((a, b) => a.skillId - b.skillId);
+  return rows.sort((a, b) => (a.skillId ?? 0) - (b.skillId ?? 0));
 }
 
 /** @deprecated use parseSkillsXml — kept for existing parser tests */
