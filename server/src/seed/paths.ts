@@ -12,7 +12,7 @@ export const TI_MOB_IDS = [
   20432, 20544, 20442, 20121, 20130,
 ] as const;
 export const TI_NPC_IDS = [
-  30001, 30002, 30003, 30004, 30005, 30006, 30026,
+  30001, 30002, 30003, 30004, 30005, 30006, 30026, 30027, 30033,
 ] as const;
 
 export function resolveDataDir(dataDir?: string): string {

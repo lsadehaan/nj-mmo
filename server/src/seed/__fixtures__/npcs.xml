@@ -100,4 +100,14 @@
 		<sex>MALE</sex>
 		<status attackable="false" undying="true" />
 	</npc>
+	<npc id="30027" level="70" type="Folk" name="Gwinter" title="Master">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30033" level="70" type="Folk" name="Baulro" title="Magister">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
 </list>

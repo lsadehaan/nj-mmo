@@ -2,6 +2,7 @@ import { getDb, type AppDatabase } from '../db/client';
 import {
   classLevelVitals,
   classTemplates,
+  classSkillTree,
   monsters,
   npcs,
   skills,
@@ -16,6 +17,7 @@ import { seedClassTemplates } from './seeders/class-templates.seeder';
 import { seedMonsters } from './seeders/monsters.seeder';
 import { seedNpcs } from './seeders/npcs.seeder';
 import { seedSkills } from './seeders/skills.seeder';
+import { seedClassSkillTree } from './seeders/class-skill-tree.seeder';
 import { seedExperience } from './seeders/experience.seeder';
 import { seedMobDrops } from './seeders/drops.seeder';
 import { seedMobSpawns } from './seeders/spawns.seeder';
@@ -34,6 +36,7 @@ export interface SeedReport {
   monsters: number;
   npcs: number;
   skills: number;
+  classSkillTree: number;
   experience: number;
   items: number;
   mobDrops: number;
@@ -49,6 +52,7 @@ export function runSeed(options: SeedOptions): SeedReport {
   return db.transaction((tx) => {
     tx.delete(classLevelVitals).run();
     tx.delete(classTemplates).run();
+    tx.delete(classSkillTree).run();
     tx.delete(mobSpawns).run();
     tx.delete(mobDrops).run();
     tx.delete(merchantItems).run();
@@ -68,6 +72,7 @@ export function runSeed(options: SeedOptions): SeedReport {
       merchantItems: seedMerchantItems(tx as unknown as AppDatabase, dataDir),
       npcSpawns: seedNpcSpawns(tx as unknown as AppDatabase, dataDir),
       skills: seedSkills(tx as unknown as AppDatabase, dataDir),
+      classSkillTree: seedClassSkillTree(tx as unknown as AppDatabase, dataDir),
       experience: seedExperience(tx as unknown as AppDatabase, dataDir),
       items: seedItems(tx as unknown as AppDatabase, dataDir),
     };
