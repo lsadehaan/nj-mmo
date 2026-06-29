@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { initGameState, setMobs } from './test-hook';
+import { initGameState, setMobs, setPlayer } from './test-hook';
 import { wireCombatControls } from './combat-input';
 import type { Room } from '@colyseus/sdk';
 import type { GameRenderer } from './scene/renderer';
@@ -19,12 +19,43 @@ describe('combat input', () => {
     wireCombatControls(room, game);
   });
 
-  it('sends useSkill intent when key 2 is pressed', () => {
+  it('sends useSkill for first known skill when key 2 pressed (SKILL20-47)', () => {
+    setPlayer({
+      x: 0,
+      y: 0,
+      z: 0,
+      xp: 0,
+      level: 1,
+      hp: 100,
+      mp: 50,
+      knownSkillIds: [3, 1068],
+      skillCooldownEndMs: [0, 0],
+      powerStrikeCooldownEndMs: 0,
+    });
+
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '2' }));
     expect(send).toHaveBeenCalledWith('useSkill', { skillId: 3 });
   });
 
-  it('exposes __useSkill__ without mutating local mob hp', () => {
+  it('sends second known skill on key 3', () => {
+    setPlayer({
+      x: 0,
+      y: 0,
+      z: 0,
+      xp: 0,
+      level: 1,
+      hp: 100,
+      mp: 50,
+      knownSkillIds: [3, 1177],
+      skillCooldownEndMs: [0, 0],
+      powerStrikeCooldownEndMs: 0,
+    });
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '3' }));
+    expect(send).toHaveBeenCalledWith('useSkill', { skillId: 1177 });
+  });
+
+  it('exposes __useSkill__ with explicit skillId without mutating local mob hp', () => {
     setMobs([
       {
         id: 'mob-1',
@@ -39,8 +70,8 @@ describe('combat input', () => {
       },
     ]);
 
-    window.__useSkill__?.();
-    expect(send).toHaveBeenCalledWith('useSkill', { skillId: 3 });
+    window.__useSkill__?.(29);
+    expect(send).toHaveBeenCalledWith('useSkill', { skillId: 29 });
     expect(window.__GAME_STATE__.mobs[0].hp).toBe(41);
   });
 

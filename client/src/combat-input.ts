@@ -1,6 +1,7 @@
-import { setTarget, setTargetMobId } from './test-hook';
+import { setTarget, setTargetMobId, getGameState } from './test-hook';
 import type { Room } from '@colyseus/sdk';
 import type { GameRenderer } from './scene/renderer';
+import { getHotbarHotkeys } from './ui/hotbar';
 
 export function wireCombatControls(room: Room, game: GameRenderer): void {
   game.setMoveIntentHandler((intent) => {
@@ -17,8 +18,8 @@ export function wireCombatControls(room: Room, game: GameRenderer): void {
     room.send('attack');
   };
 
-  const useSkill = (): void => {
-    room.send('useSkill', { skillId: 3 });
+  const useSkill = (skillId: number): void => {
+    room.send('useSkill', { skillId });
   };
 
   game.setMobTargetHandler(targetMob);
@@ -28,9 +29,14 @@ export function wireCombatControls(room: Room, game: GameRenderer): void {
       ev.preventDefault();
       attack();
     }
-    if (ev.key === '2') {
-      ev.preventDefault();
-      useSkill();
+    const hotkeys = getHotbarHotkeys();
+    const idx = hotkeys.indexOf(ev.key as (typeof hotkeys)[number]);
+    if (idx >= 0) {
+      const skillId = getGameState().player.knownSkillIds[idx];
+      if (skillId) {
+        ev.preventDefault();
+        useSkill(skillId);
+      }
     }
   });
 
@@ -40,5 +46,5 @@ export function wireCombatControls(room: Room, game: GameRenderer): void {
     room.send('move', { targetX, targetZ });
   };
   window.__attack__ = attack;
-  window.__useSkill__ = useSkill;
+  window.__useSkill__ = (skillId = 3) => useSkill(skillId);
 }
