@@ -54,7 +54,7 @@ test('Power Strike drops MP, engages cooldown, and kills a mob', async ({ page }
           const cooldownEl = document.getElementById('power-strike-cooldown');
           const domRemaining = Number(cooldownEl?.getAttribute('data-remaining-ms') ?? 0);
           const mob = state.mobs.find((m) => m.id === mobId);
-          if (!mob) {
+          if (!mob || mob.hp <= 0) {
             if (
               state.player.mp === 41 &&
               state.player.powerStrikeCooldownRemainingMs > 0 &&

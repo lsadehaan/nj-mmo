@@ -50,7 +50,7 @@ test('melee combat increments VFX hook counters', async ({ page }, testInfo) => 
         page.evaluate((mobId) => {
           const state = window.__GAME_STATE__;
           const mob = state.mobs.find((m) => m.id === mobId);
-          if (!mob) return state.vfx.meleeHitCount;
+          if (!mob || mob.hp <= 0) return state.vfx.meleeHitCount;
           const p = state.player;
           const dist = Math.hypot(p.x - mob.x, p.z - mob.z);
           if (dist > 3.4) {

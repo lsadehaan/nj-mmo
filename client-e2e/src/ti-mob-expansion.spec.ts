@@ -1,29 +1,31 @@
 import { test, expect } from '@playwright/test';
+import { isOutsidePeaceZone, pickNearestCombatMob } from './peace-zone';
 import { gotoGame } from './game-page';
 import { approachMob } from './mob-combat';
 
 const NEW_TI_MOB_IDS = [20432, 20544, 20442, 20121, 20130] as const;
-/** TIMOB-29: Orc (aggressive, meets player in aggro range) or Elder Wolf. */
+/** TIMOB-29: Orc (aggressive) or Elder Wolf. */
 const CLIP_TEST_MOB_IDS = [20130, 20442] as const;
 
 function pickClipTestMob(
   mobs: Array<{ id: string; npcId: number; x: number; z: number; hp?: number }>,
   player: { x: number; z: number }
 ) {
-  const pool = mobs
-    .filter(
-      (m) =>
-        (CLIP_TEST_MOB_IDS as readonly number[]).includes(m.npcId) && (m.hp ?? 0) > 0
-    )
-    .map((m) => ({
-      ...m,
-      dist: Math.hypot(m.x - player.x, m.z - player.z),
-    }))
-    .sort((a, b) => a.dist - b.dist);
+  const pool = mobs.filter(
+    (m) =>
+      (CLIP_TEST_MOB_IDS as readonly number[]).includes(m.npcId) &&
+      isOutsidePeaceZone(m.x, m.z) &&
+      (m.hp ?? 0) > 0
+  );
   if (pool.length === 0) {
     throw new Error('No Orc (20130) or Elder Wolf (20442) in __GAME_STATE__ for combat e2e');
   }
-  return pool[0];
+  const wolves = pool.filter((m) => m.npcId === 20442);
+  const pick =
+    wolves.length > 0
+      ? pickNearestCombatMob(wolves, player)
+      : pickNearestCombatMob(pool, player);
+  return pool.find((m) => m.id === pick.id) ?? { ...pick, npcId: pool[0].npcId };
 }
 
 async function waitReady(page: import('@playwright/test').Page) {
@@ -40,7 +42,6 @@ test('outer field exposes new TI mob npcIds in __GAME_STATE__', async ({ page },
   await gotoGame(page, testInfo);
   await waitReady(page);
 
-  // All room mobs sync to __GAME_STATE__ at join; Elpy spawns at (22,-16) outside peace zone.
   await expect
     .poll(
       async () =>
@@ -86,7 +87,13 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
   }));
   const target = pickClipTestMob(mobs, player);
 
-  await approachMob(page, target.id, 3.4, 90_000);
+  await page.waitForFunction(
+    (id) => window.__GAME_STATE__.mobs.some((m) => m.id === id && (m.hp ?? 0) > 0),
+    target.id,
+    { timeout: 10_000 }
+  );
+
+  await approachMob(page, target.id, 3.4);
   await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
   await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), target.id);
   await page.waitForFunction(
@@ -95,38 +102,40 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
     { timeout: 5_000 }
   );
 
-  await page.waitForFunction(
-    () =>
-      typeof window.__handleMobTarget__ === 'function' &&
-      typeof window.__sendMoveIntent__ === 'function' &&
-      typeof window.__attack__ === 'function'
-  );
-
   await expect
     .poll(
       async () =>
-        page.evaluate((mobId) => {
+        page.evaluate(
+          ({ mobId, npcId }) => {
           const flags = (window as unknown as {
             __mobClipFlags?: { attack: boolean; die: boolean; lastActionSeq: number };
           }).__mobClipFlags!;
           const state = window.__GAME_STATE__;
-          const mob = state.mobs.find((m) => m.id === mobId);
-          if (mob) {
-            if (mob.action === 'attack') flags.attack = true;
-            if (mob.action === 'die') flags.die = true;
-            if (mob.actionSeq > flags.lastActionSeq) {
-              flags.lastActionSeq = mob.actionSeq;
-              if (mob.action === 'attack') flags.attack = true;
-              if (mob.action === 'die') flags.die = true;
+          const tracked = state.mobs.filter((m) => m.npcId === npcId);
+          for (const entry of tracked) {
+            if (entry.action === 'attack') flags.attack = true;
+            if (entry.action === 'die') flags.die = true;
+            if (entry.actionSeq > flags.lastActionSeq) {
+              flags.lastActionSeq = entry.actionSeq;
+              if (entry.action === 'attack') flags.attack = true;
+              if (entry.action === 'die') flags.die = true;
             }
           }
+
+          if (flags.attack && flags.die) {
+            return true;
+          }
+
+          const mob =
+            state.mobs.find((m) => m.id === mobId && (m.hp ?? 0) > 0) ??
+            state.mobs.find((m) => m.npcId === npcId && (m.hp ?? 0) > 0);
 
           if (!mob) {
             return flags.attack && flags.die;
           }
 
-          if (state.targetMobId !== mobId) {
-            window.__handleMobTarget__?.(mobId);
+          if (state.targetMobId !== mob.id) {
+            window.__handleMobTarget__?.(mob.id);
             return false;
           }
 
@@ -142,8 +151,10 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
             window.__attack__?.();
           }
           return false;
-        }, target.id),
-      { timeout: 120_000, intervals: [100, 200, 400, 600] }
+        },
+          { mobId: target.id, npcId: target.npcId }
+        ),
+      { timeout: 120_000, intervals: [100, 200, 300, 500, 800] }
     )
     .toBe(true);
 });

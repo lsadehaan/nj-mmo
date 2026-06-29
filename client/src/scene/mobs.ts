@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { EntityAction } from '@nj/game-core';
+import { EntityAction, ACTION_DURATION_MS } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
 import { getCreatureEntry } from './creature/creature-manifest';
 import { loadGltfTemplate } from './creature/mesh-character';
@@ -300,6 +300,8 @@ export function removeMob(
     instance.avatar.latchDie(nowMs);
   } else if (!instance.avatar) {
     instance.currentClip = 'die';
+    instance.pendingRemovalAtMs = nowMs + ACTION_DURATION_MS[EntityAction.Die];
+    return false;
   }
 
   if (instance.avatar?.isDiePlaying(nowMs)) {

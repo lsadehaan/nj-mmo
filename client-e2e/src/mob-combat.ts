@@ -5,7 +5,7 @@ import { expect, type Page } from '@playwright/test';
  * LIVE position. Mobs wander (server-side AI), so chasing a stale snapshot
  * position is unreliable — this always reads the mob's current position from
  * `__GAME_STATE__` and re-issues a move intent toward it. Resolves once in range
- * (or once the mob no longer exists, i.e. it died).
+ * (or once the mob no longer exists after having been seen, i.e. it died).
  */
 export async function approachMob(
   page: Page,

@@ -430,6 +430,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
           ...snap,
           action: EntityAction.Die,
           actionSeq: (snap.actionSeq ?? 0) + 1,
+          hp: 0,
         });
         publishMobHookEntries();
       }

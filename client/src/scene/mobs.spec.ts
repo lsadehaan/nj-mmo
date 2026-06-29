@@ -193,7 +193,8 @@ describe('mobs visual mapping', () => {
     vi.useRealTimers();
   });
 
-  it('removes mob group from map and scene immediately without avatar', () => {
+  it('defers capsule mob removal for die clip duration without avatar', () => {
+    vi.useFakeTimers();
     const removed: unknown[] = [];
     const scene = {
       add: () => undefined,
@@ -213,9 +214,17 @@ describe('mobs visual mapping', () => {
       clubProp: null,
     });
 
-    expect(removeMob(map, instances, 'mob-b', scene as never)).toBe(true);
+    expect(removeMob(map, instances, 'mob-b', scene as never, 0)).toBe(false);
+    expect(map.has('mob-b')).toBe(true);
+    expect(instances.get('mob-b')?.currentClip).toBe('die');
+
+    vi.advanceTimersByTime(ACTION_DURATION_MS[EntityAction.Die] + 1);
+    expect(flushPendingMobRemovals(map, instances, scene as never, ACTION_DURATION_MS[EntityAction.Die] + 1)).toEqual([
+      'mob-b',
+    ]);
     expect(map.has('mob-b')).toBe(false);
     expect(removed).toEqual([group]);
+    vi.useRealTimers();
   });
 
   it('attaches a club prop only to Goblin npcId 20003', async () => {

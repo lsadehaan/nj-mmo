@@ -67,6 +67,10 @@ test('mob __GAME_STATE__ action shows attack then die during combat kill', async
             }
           }
 
+          if (flags.attack && flags.die) {
+            return true;
+          }
+
           if (!mob) {
             return flags.attack && flags.die;
           }

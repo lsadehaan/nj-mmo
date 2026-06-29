@@ -50,7 +50,7 @@ test('killing a mob grants server-validated XP via __GAME_STATE__', async ({ pag
         page.evaluate((mobId) => {
           const state = window.__GAME_STATE__;
           const mob = state.mobs.find((m) => m.id === mobId);
-          if (!mob) return state.player.xp;
+          if (!mob || mob.hp <= 0) return state.player.xp;
           // Mob still alive: keep within melee range (mobs wander) before attacking.
           const p = state.player;
           const dist = Math.hypot(p.x - mob.x, p.z - mob.z);
