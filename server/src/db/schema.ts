@@ -104,9 +104,41 @@ export const characterItems = sqliteTable(
   })
 );
 
+export const classTemplates = sqliteTable('class_templates', {
+  classId: integer('class_id').primaryKey(),
+  name: text('name').notNull(),
+  race: text('race').notNull(),
+  archetype: text('archetype').notNull(),
+  baseStr: integer('base_str').notNull(),
+  baseDex: integer('base_dex').notNull(),
+  baseCon: integer('base_con').notNull(),
+  baseInt: integer('base_int').notNull(),
+  baseWit: integer('base_wit').notNull(),
+  baseMen: integer('base_men').notNull(),
+  basePAtk: real('base_p_atk').notNull(),
+  baseRandomDamage: integer('base_random_damage').notNull(),
+  basePAtkSpd: integer('base_p_atk_spd').notNull(),
+  baseCritRate: real('base_crit_rate').notNull(),
+});
+
+export const classLevelVitals = sqliteTable(
+  'class_level_vitals',
+  {
+    classId: integer('class_id').notNull(),
+    level: integer('level').notNull(),
+    hp: real('hp').notNull(),
+    mp: real('mp').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.classId, table.level] }),
+  })
+);
+
 export const characters = sqliteTable('characters', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  classId: integer('class_id').notNull().default(0),
+  sex: integer('sex').notNull().default(0),
   level: integer('level').notNull(),
   xp: integer('xp').notNull(),
   hp: real('hp').notNull(),
@@ -142,12 +174,18 @@ export type MerchantItem = typeof merchantItems.$inferSelect;
 export type NewMerchantItem = typeof merchantItems.$inferInsert;
 export type NpcSpawn = typeof npcSpawns.$inferSelect;
 export type NewNpcSpawn = typeof npcSpawns.$inferInsert;
+export type ClassTemplate = typeof classTemplates.$inferSelect;
+export type NewClassTemplate = typeof classTemplates.$inferInsert;
+export type ClassLevelVital = typeof classLevelVitals.$inferSelect;
+export type NewClassLevelVital = typeof classLevelVitals.$inferInsert;
 export type CharacterItem = typeof characterItems.$inferSelect;
 export type NewCharacterItem = typeof characterItems.$inferInsert;
 export type Character = typeof characters.$inferSelect;
 export type NewCharacter = typeof characters.$inferInsert;
 
 export const schema = {
+  classTemplates,
+  classLevelVitals,
   monsters,
   mobDrops,
   mobSpawns,

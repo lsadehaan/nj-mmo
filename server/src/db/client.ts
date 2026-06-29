@@ -79,9 +79,34 @@ function applySchema(sqlite: Database.Database): void {
       xp_to_next_level INTEGER NOT NULL,
       training_rate REAL NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS class_templates (
+      class_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      race TEXT NOT NULL,
+      archetype TEXT NOT NULL,
+      base_str INTEGER NOT NULL,
+      base_dex INTEGER NOT NULL,
+      base_con INTEGER NOT NULL,
+      base_int INTEGER NOT NULL,
+      base_wit INTEGER NOT NULL,
+      base_men INTEGER NOT NULL,
+      base_p_atk REAL NOT NULL,
+      base_random_damage INTEGER NOT NULL,
+      base_p_atk_spd INTEGER NOT NULL,
+      base_crit_rate REAL NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS class_level_vitals (
+      class_id INTEGER NOT NULL,
+      level INTEGER NOT NULL,
+      hp REAL NOT NULL,
+      mp REAL NOT NULL,
+      PRIMARY KEY (class_id, level)
+    );
     CREATE TABLE IF NOT EXISTS characters (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      class_id INTEGER NOT NULL DEFAULT 0,
+      sex INTEGER NOT NULL DEFAULT 0,
       level INTEGER NOT NULL,
       xp INTEGER NOT NULL,
       hp REAL NOT NULL,
@@ -129,6 +154,35 @@ function applySchema(sqlite: Database.Database): void {
   migrateMonstersColumns(sqlite);
   migrateSkillsColumns(sqlite);
   migrateCharactersColumns(sqlite);
+  migrateClassTables(sqlite);
+}
+
+function migrateClassTables(sqlite: Database.Database): void {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS class_templates (
+      class_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      race TEXT NOT NULL,
+      archetype TEXT NOT NULL,
+      base_str INTEGER NOT NULL,
+      base_dex INTEGER NOT NULL,
+      base_con INTEGER NOT NULL,
+      base_int INTEGER NOT NULL,
+      base_wit INTEGER NOT NULL,
+      base_men INTEGER NOT NULL,
+      base_p_atk REAL NOT NULL,
+      base_random_damage INTEGER NOT NULL,
+      base_p_atk_spd INTEGER NOT NULL,
+      base_crit_rate REAL NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS class_level_vitals (
+      class_id INTEGER NOT NULL,
+      level INTEGER NOT NULL,
+      hp REAL NOT NULL,
+      mp REAL NOT NULL,
+      PRIMARY KEY (class_id, level)
+    );
+  `);
 }
 
 function migrateSkillsColumns(sqlite: Database.Database): void {
@@ -158,6 +212,12 @@ function migrateCharactersColumns(sqlite: Database.Database): void {
   }
   if (!names.has('equipped_weapon_item_id')) {
     sqlite.exec('ALTER TABLE characters ADD COLUMN equipped_weapon_item_id INTEGER');
+  }
+  if (!names.has('class_id')) {
+    sqlite.exec('ALTER TABLE characters ADD COLUMN class_id INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!names.has('sex')) {
+    sqlite.exec('ALTER TABLE characters ADD COLUMN sex INTEGER NOT NULL DEFAULT 0');
   }
 }
 
