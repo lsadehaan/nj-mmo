@@ -1,3 +1,5 @@
+import { getZoneAt } from './ti-zones';
+
 export interface TerrainConfig {
   seed: number;
   size: number;
@@ -10,8 +12,8 @@ export const TERRAIN_SEED = 42;
 
 export const TERRAIN_CONFIG: TerrainConfig = {
   seed: TERRAIN_SEED,
-  size: 200,
-  segments: 64,
+  size: 640,
+  segments: 128,
   heightScale: 10,
 };
 
@@ -50,23 +52,36 @@ function noise2D(seed: number, x: number, z: number): number {
   return a * (1 - ux) * (1 - uz) + b * ux * (1 - uz) + c * (1 - ux) * uz + d * ux * uz;
 }
 
+function regionFactor(zoneId: string): number {
+  if (zoneId === 'ti_village') return 0.03;
+  return 1;
+}
+
+function regionOffset(zoneId: string, type: string): number {
+  if (type === 'water' || zoneId === 'harbor') return -1.5;
+  if (zoneId === 'elven_ruins' || zoneId === 'cave_of_souls') return 2;
+  return 0;
+}
+
 export function sampleHeight(
   x: number,
   z: number,
   config: TerrainConfig = TERRAIN_CONFIG
 ): number {
-  const { seed, size, segments, heightScale } = config;
+  const { seed, segments, heightScale } = config;
+  const size = config.size;
   const half = size / 2;
   const col = ((x + half) / size) * segments;
   const row = ((z + half) / size) * segments;
   const nx = col / segments;
   const nz = row / segments;
-  return (
+  const base =
     (noise2D(seed, nx * 8, nz * 8) * 0.6 +
       noise2D(seed + 1, nx * 16, nz * 16) * 0.3 +
       noise2D(seed + 2, nx * 32, nz * 32) * 0.1) *
-    heightScale
-  );
+    heightScale;
+  const { zoneId, type } = getZoneAt(x, z);
+  return base * regionFactor(zoneId) + regionOffset(zoneId, type);
 }
 
 export function snapEntityY(x: number, z: number, config?: TerrainConfig): number {
