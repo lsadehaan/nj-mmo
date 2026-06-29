@@ -30,6 +30,15 @@ export interface GameStatePlayer {
   level: number;
   hp: number;
   mp: number;
+  classId: number;
+  sex: number;
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wit: number;
+  men: number;
+  avatarModel: string;
   powerStrikeCooldownEndMs: number;
   powerStrikeCooldownRemainingMs: number;
   healingPotionCooldownEndMs: number;
@@ -128,7 +137,7 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle' },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, classId: 0, sex: 0, str: 40, dex: 30, con: 43, int: 21, wit: 11, men: 25, avatarModel: '/models/characters/Knight.glb', powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle' },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -251,6 +260,15 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
   state.player.level = player.level;
   state.player.hp = player.hp;
   state.player.mp = player.mp;
+  if (player.classId !== undefined) state.player.classId = player.classId;
+  if (player.sex !== undefined) state.player.sex = player.sex;
+  if (player.str !== undefined) state.player.str = player.str;
+  if (player.dex !== undefined) state.player.dex = player.dex;
+  if (player.con !== undefined) state.player.con = player.con;
+  if (player.int !== undefined) state.player.int = player.int;
+  if (player.wit !== undefined) state.player.wit = player.wit;
+  if (player.men !== undefined) state.player.men = player.men;
+  if (player.avatarModel !== undefined) state.player.avatarModel = player.avatarModel;
   state.player.powerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
   state.player.healingPotionCooldownEndMs = player.healingPotionCooldownEndMs ?? 0;
   state.player.powerStrikeCooldownRemainingMs = computePowerStrikeCooldownRemainingMs(

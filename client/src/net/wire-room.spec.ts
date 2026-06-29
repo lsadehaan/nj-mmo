@@ -442,3 +442,159 @@ describe('wireRoom player combat sync', () => {
     expect(mockGame.triggerNpcGreet).toHaveBeenCalledWith(30001, expect.any(Object), expect.any(Number));
   });
 });
+
+describe('wireRoom class identity', () => {
+  beforeEach(() => {
+    initGameState();
+    mockOnAdd.mockReset();
+    mockOnChange.mockReset();
+    mockOnRemove.mockReset();
+    mockListen.mockReset();
+    mockSyncLocalPlayer.mockReset();
+    mockSyncPlayerVfx.mockReset();
+    vi.resetModules();
+  });
+
+  it('CHAR19-33: syncs classId, sex, and str to __GAME_STATE__.player', async () => {
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void)
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          handlerOrProperty(
+            {
+              x: 1,
+              y: 2,
+              z: 3,
+              classId: 18,
+              sex: 0,
+              str: 36,
+              dex: 35,
+              con: 36,
+              int: 23,
+              wit: 14,
+              men: 26,
+              xp: 0,
+              level: 1,
+              hp: 89,
+              maxHp: 89,
+              mp: 30,
+              maxMp: 30,
+              adena: 1000,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    const room = {
+      sessionId: 'local-session',
+      state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+      onMessage: vi.fn(),
+      send: vi.fn(),
+    };
+    wireRoom(room as never, mockGame as never);
+
+    const { player } = (await import('../test-hook')).getGameState();
+    expect(player.classId).toBe(18);
+    expect(player.str).toBe(36);
+  });
+
+  it('CHAR19-34: classId 10 exposes Mage avatar model in __GAME_STATE__', async () => {
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void)
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          handlerOrProperty(
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+              classId: 10,
+              sex: 0,
+              str: 22,
+              xp: 0,
+              level: 1,
+              hp: 101,
+              maxHp: 101,
+              mp: 40,
+              maxMp: 40,
+              adena: 1000,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send: vi.fn(),
+      } as never,
+      mockGame as never
+    );
+
+    const { player } = (await import('../test-hook')).getGameState();
+    expect(player.avatarModel).toBe('/models/characters/Mage.glb');
+  });
+
+  it('CHAR19-35: forwards classId to syncLocalPlayer', async () => {
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void)
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          handlerOrProperty(
+            {
+              x: 5,
+              y: 6,
+              z: 7,
+              classId: 31,
+              sex: 1,
+              xp: 0,
+              level: 1,
+              hp: 94,
+              maxHp: 94,
+              mp: 30,
+              maxMp: 30,
+              adena: 1000,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send: vi.fn(),
+      } as never,
+      mockGame as never
+    );
+
+    expect(mockSyncLocalPlayer).toHaveBeenCalledWith(5, 6, 7, 0, 0, 0, 31, 1);
+  });
+});
