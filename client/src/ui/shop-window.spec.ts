@@ -1,12 +1,32 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   KATERINA_NPC_ID,
+  LECTOR_NPC_ID,
+  JACKSON_NPC_ID,
+  SILVIA_NPC_ID,
   KATERINA_SHOP_ITEMS,
+  LECTOR_SHOP_ITEMS,
+  JACKSON_SHOP_ITEMS,
+  SILVIA_SHOP_ITEMS,
   createShopRowIcon,
   mountShopWindow,
   renderShopWindow,
 } from './shop-window';
 import { FALLBACK_ICON } from './icon-manifest';
+
+const defaultHandlers = { sendBuy: vi.fn(), sendSell: vi.fn() };
+
+function renderKaterinaShop(overrides: Partial<Parameters<typeof renderShopWindow>[0]> = {}) {
+  renderShopWindow({
+    npcId: KATERINA_NPC_ID,
+    merchantName: 'Katerina',
+    adena: 1000,
+    itemCounts: {},
+    visible: true,
+    handlers: defaultHandlers,
+    ...overrides,
+  });
+}
 
 describe('shop-window DOM', () => {
   beforeEach(() => {
@@ -19,12 +39,7 @@ describe('shop-window DOM', () => {
 
   it('lists Healing Potion, Soulshot, and Wooden Arrow with buy prices 103, 8, 2', () => {
     mountShopWindow();
-    renderShopWindow({
-      adena: 1000,
-      itemCounts: {},
-      visible: true,
-      handlers: { sendBuy: vi.fn(), sendSell: vi.fn() },
-    });
+    renderKaterinaShop();
 
     const shop = document.getElementById('shop-window');
     expect(shop).not.toBeNull();
@@ -44,14 +59,46 @@ describe('shop-window DOM', () => {
     ]);
   });
 
-  it('renders item icons for catalog rows 1060, 1835, and 17', () => {
+  it('lists Jackson armor subset buy prices 169, 105, 8 (TINPC-24)', () => {
     mountShopWindow();
     renderShopWindow({
+      npcId: JACKSON_NPC_ID,
+      merchantName: 'Jackson',
       adena: 1000,
       itemCounts: {},
       visible: true,
-      handlers: { sendBuy: vi.fn(), sendSell: vi.fn() },
+      handlers: defaultHandlers,
     });
+
+    const prices = [...document.querySelectorAll('#shop-window [data-shop-item-id]')].map((row) =>
+      Number(row.querySelector('[data-buy-price]')?.textContent)
+    );
+    expect(prices).toEqual([169, 105, 8]);
+    expect(document.querySelector('#shop-window [data-role="title"]')?.textContent).toBe(
+      'Jackson — Shop'
+    );
+  });
+
+  it('lists Silvia accessory subset buy prices 37, 56, 75 (TINPC-25)', () => {
+    mountShopWindow();
+    renderShopWindow({
+      npcId: SILVIA_NPC_ID,
+      merchantName: 'Silvia',
+      adena: 1000,
+      itemCounts: {},
+      visible: true,
+      handlers: defaultHandlers,
+    });
+
+    const prices = [...document.querySelectorAll('#shop-window [data-shop-item-id]')].map((row) =>
+      Number(row.querySelector('[data-buy-price]')?.textContent)
+    );
+    expect(prices).toEqual([37, 56, 75]);
+  });
+
+  it('renders item icons for catalog rows 1060, 1835, and 17', () => {
+    mountShopWindow();
+    renderKaterinaShop();
 
     for (const item of KATERINA_SHOP_ITEMS) {
       const row = document.querySelector(`[data-shop-item-id="${item.itemId}"]`);
@@ -67,12 +114,7 @@ describe('shop-window DOM', () => {
 
   it('renders Adena icon beside adena amount', () => {
     mountShopWindow();
-    renderShopWindow({
-      adena: 500,
-      itemCounts: {},
-      visible: true,
-      handlers: { sendBuy: vi.fn(), sendSell: vi.fn() },
-    });
+    renderKaterinaShop({ adena: 500 });
 
     const adenaIcon = document.querySelector(
       '#shop-window img[data-icon-item-id="57"]'
@@ -91,12 +133,7 @@ describe('shop-window DOM', () => {
 
   it('displays adena from server-synced game state', () => {
     mountShopWindow();
-    renderShopWindow({
-      adena: 897,
-      itemCounts: { 1060: 1 },
-      visible: true,
-      handlers: { sendBuy: vi.fn(), sendSell: vi.fn() },
-    });
+    renderKaterinaShop({ adena: 897, itemCounts: { 1060: 1 } });
 
     const adenaEl = document.querySelector('#shop-window [data-adena]');
     expect(adenaEl?.textContent).toBe('897');
@@ -107,6 +144,8 @@ describe('shop-window DOM', () => {
     const sendSell = vi.fn();
     mountShopWindow();
     renderShopWindow({
+      npcId: KATERINA_NPC_ID,
+      merchantName: 'Katerina',
       adena: 1000,
       itemCounts: {},
       visible: true,
@@ -127,8 +166,30 @@ describe('shop-window DOM', () => {
     expect(sendSell).not.toHaveBeenCalled();
   });
 
-  it('exports seeded merchant catalog matching Katerina buylist subset', () => {
+  it('exports seeded merchant catalog matching Katerina buylist subset (TINPC-30)', () => {
     expect(KATERINA_SHOP_ITEMS.map((item) => item.itemId)).toEqual([1060, 1835, 17]);
     expect(KATERINA_SHOP_ITEMS.map((item) => item.buyPrice)).toEqual([103, 8, 2]);
+    expect(LECTOR_SHOP_ITEMS.map((item) => item.buyPrice)).toEqual([883, 883, 883]);
+    expect(JACKSON_SHOP_ITEMS.map((item) => item.buyPrice)).toEqual([169, 105, 8]);
+    expect(SILVIA_SHOP_ITEMS.map((item) => item.buyPrice)).toEqual([37, 56, 75]);
+  });
+
+  it('Lector buy button sends npcId 30001 (TINPC-22 client path)', () => {
+    const sendBuy = vi.fn();
+    mountShopWindow();
+    renderShopWindow({
+      npcId: LECTOR_NPC_ID,
+      merchantName: 'Lector',
+      adena: 1000,
+      itemCounts: {},
+      visible: true,
+      handlers: { sendBuy, sendSell: vi.fn() },
+    });
+
+    const buyBtn = document.querySelector(
+      '#shop-window [data-shop-item-id="1"] [data-action="buy"]'
+    ) as HTMLButtonElement | null;
+    buyBtn?.click();
+    expect(sendBuy).toHaveBeenCalledWith({ npcId: LECTOR_NPC_ID, itemId: 1, quantity: 1 });
   });
 });
