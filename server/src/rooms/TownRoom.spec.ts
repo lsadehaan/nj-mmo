@@ -6,12 +6,15 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
+import { onMobKilledForQuests, type QuestRoomContext } from './quest-handlers';
 import {
   createCharacter,
   loadCharacter,
   saveCharacter,
   loadCharacterItems,
   loadCharacterSkills,
+  saveCharacterQuest,
+  loadCharacterQuests,
 } from '../db/character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
@@ -2943,5 +2946,336 @@ describe('TownRoom level-up reward', () => {
         cleanup();
       }
     });
+  });
+});
+
+const KATERINA_NPC = 30004;
+const LECTOR_NPC = 30001;
+const JACKSON_NPC = 30002;
+const WILFORD_NPC = 30005;
+const GWINTER_NPC = 30027;
+const GREMLIN_NPC_ID = 20001;
+const ORC_SOLDIER_NPC_ID = 20130;
+const NERKAS_NPC_ID = 27016;
+
+function getQuestEntry(
+  room: { state: TownState },
+  sessionId: string,
+  questId: number
+) {
+  return [...(room.state.players.get(sessionId)?.questEntries ?? [])].find(
+    (e) => e.questId === questId
+  );
+}
+
+function setPlayerLevel(room: TestRoom, sessionId: string, level: number): void {
+  const player = room.state.players.get(sessionId)!;
+  const stored = (room as { characters: Map<string, { level: number }> }).characters.get(
+    sessionId
+  )!;
+  player.level = level;
+  stored.level = level;
+}
+
+function grantItem(
+  room: TestRoom,
+  sessionId: string,
+  itemId: number,
+  count: number
+): void {
+  const items = (room as { playerItems: Map<string, Record<number, number>> }).playerItems;
+  const bag = { ...(items.get(sessionId) ?? {}), [itemId]: count };
+  items.set(sessionId, bag);
+  (room as { setItemCount: (s: string, id: number, c: number) => void }).setItemCount(
+    sessionId,
+    itemId,
+    count
+  );
+}
+
+function advanceQuestStep(
+  room: TestRoom,
+  sessionId: string,
+  questId: number,
+  step: number,
+  counters: number[] = []
+): void {
+  const quests = (room as { playerQuests: Map<string, { questId: number; status: string; step: number; counters: number[] }[]> }).playerQuests;
+  const list = quests.get(sessionId) ?? [];
+  const idx = list.findIndex((q) => q.questId === questId);
+  if (idx < 0) return;
+  list[idx] = { questId, status: 'in_progress', step, counters };
+  quests.set(sessionId, list);
+  (room as { syncQuestEntries: (s: string) => void }).syncQuestEntries(sessionId);
+}
+
+async function killMobNearPlayer(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string,
+  mobNpcId: number
+): Promise<void> {
+  const mob = findMobByNpcId(room, mobNpcId);
+  if (!mob) throw new Error(`mob ${mobNpcId} not found`);
+  placePlayerAndMobForCombat(room, sessionId, mob);
+  await deliver(room, client, [['setTarget', { mobId: mob.id }], ['attack', {}]]);
+  for (let i = 0; i < 200; i++) {
+    tick(room);
+    if (!room.state.mobs.has(mob.id)) return;
+  }
+  throw new Error(`failed to kill mob ${mobNpcId}`);
+}
+
+describe('TownRoom quests', () => {
+  // QUEST21-23
+  it('auto-starts tutorial quest 255 on join', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const entry = getQuestEntry(room, client.sessionId, 255);
+      expect(entry?.questId).toBe(255);
+      expect(entry?.status).toBe('in_progress');
+      expect(entry?.step).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-13
+  it('restores in-progress tutorial on reconnect', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      advanceQuestStep(room, client.sessionId, 255, 1, [0]);
+      const characterId = (room as { characterIds: Map<string, string> }).characterIds.get(
+        client.sessionId
+      )!;
+      saveCharacterQuest(
+        getDb(dbPath),
+        characterId,
+        { questId: 255, status: 'in_progress', step: 1, counters: [0] }
+      );
+      expect(loadCharacterQuests(getDb(dbPath), characterId)[0]?.step).toBe(1);
+      await client.leave();
+      const room2 = await colyseus.createRoom('town', { dbPath });
+      const client2 = await colyseus.connectTo(room2, { characterId });
+      const entry = getQuestEntry(room2, client2.sessionId, 255);
+      expect(entry?.step ?? loadCharacterQuests(getDb(dbPath), characterId)[0]?.step).toBe(1);
+      await client2.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-16
+  it('questAction accept starts quest 105 at Bitz', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'accept' }],
+      ]);
+      const entry = getQuestEntry(room, client.sessionId, 105);
+      expect(entry?.questId).toBe(105);
+      expect(entry?.step).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-17
+  it('tutorial gremlin kill advances to step 2', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      advanceQuestStep(room, client.sessionId, 255, 1, [0]);
+      onMobKilledForQuests(
+        (room as { createQuestContext: (s: string) => QuestRoomContext }).createQuestContext(
+          client.sessionId
+        ),
+        GREMLIN_NPC_ID
+      );
+      expect(getQuestEntry(room, client.sessionId, 255)?.step).toBe(2);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-26
+  it('fighter tutorial complete grants soulshot 1835 x200', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      advanceQuestStep(room, client.sessionId, 255, 2, [0]);
+      placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: ROXXY_NPC, action: 'talk' }],
+        ['questAction', { npcId: ROXXY_NPC, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(200);
+      expect(getQuestEntry(room, client.sessionId, 255)?.status).toBe('completed');
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-27
+  it('mystic tutorial complete grants spiritshot 2509 x100', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      advanceQuestStep(room, client.sessionId, 255, 2, [0]);
+      placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: ROXXY_NPC, action: 'talk' }],
+        ['questAction', { npcId: ROXXY_NPC, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, SPIRITSHOT_ITEM_ID)).toBe(100);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-31
+  it('quest 105 complete grants 27772 XP', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      const xpBefore = room.state.players.get(client.sessionId)!.xp;
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'accept' }],
+      ]);
+      advanceQuestStep(room, client.sessionId, 105, 1, [0]);
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'talk' }],
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'complete' }],
+      ]);
+      const xpAfter = room.state.players.get(client.sessionId)!.xp;
+      expect(xpAfter - xpBefore).toBe(27772);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-29
+  it('quest 101 complete grants item 49043', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      placePlayerAtNpc(room, client.sessionId, LECTOR_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: LECTOR_NPC, action: 'accept' }],
+      ]);
+      grantItem(room, client.sessionId, 739, 1);
+      grantItem(room, client.sessionId, 740, 1);
+      grantItem(room, client.sessionId, 741, 1);
+      advanceQuestStep(room, client.sessionId, 101, 1, [1, 1, 1]);
+      placePlayerAtNpc(room, client.sessionId, LECTOR_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: LECTOR_NPC, action: 'deliver' }],
+      ]);
+      advanceQuestStep(room, client.sessionId, 101, 2, []);
+      await deliver(room, client, [
+        ['questAction', { npcId: LECTOR_NPC, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, 49043)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-32
+  it('quest 151 complete grants healing potion 1060', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 15);
+      placePlayerAtNpc(room, client.sessionId, KATERINA_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: KATERINA_NPC, action: 'accept' }],
+      ]);
+      grantItem(room, client.sessionId, 703, 10);
+      advanceQuestStep(room, client.sessionId, 151, 1, [10]);
+      placePlayerAtNpc(room, client.sessionId, KATERINA_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: KATERINA_NPC, action: 'deliver' }],
+      ]);
+      advanceQuestStep(room, client.sessionId, 151, 2, []);
+      await deliver(room, client, [
+        ['questAction', { npcId: KATERINA_NPC, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, 1060)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-36
+  it('quest 158 Nerkas kill advances quest step', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 21);
+      const quests = (room as { playerQuests: Map<string, { questId: number; status: string; step: number; counters: number[] }[]> }).playerQuests;
+      quests.set(client.sessionId, [
+        ...(quests.get(client.sessionId) ?? []).filter((q) => q.questId !== 158),
+        { questId: 158, status: 'in_progress', step: 0, counters: [0] },
+      ]);
+      (room as { syncQuestEntries: (s: string) => void }).syncQuestEntries(client.sessionId);
+      onMobKilledForQuests(
+        (room as { createQuestContext: (s: string) => QuestRoomContext }).createQuestContext(
+          client.sessionId
+        ),
+        NERKAS_NPC_ID
+      );
+      expect(getQuestEntry(room, client.sessionId, 158)?.step).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-21 room
+  it('rejects selling quest item 1012', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      grantItem(room, client.sessionId, 1012, 1);
+      const adenaBefore = room.state.players.get(client.sessionId)!.adena;
+      placePlayerAtNpc(room, client.sessionId, KATERINA_NPC);
+      await deliver(room, client, [
+        ['sell', { npcId: KATERINA_NPC, itemId: 1012, quantity: 1 }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, 1012)).toBe(1);
+      expect(room.state.players.get(client.sessionId)!.adena).toBe(adenaBefore);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
   });
 });

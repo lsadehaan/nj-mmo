@@ -90,11 +90,13 @@ import { isStarterClassId, isValidSex } from './starter-classes';
 import {
   buildQuestDialog,
   ensureAutoStartQuests,
+  getQuestEntriesForNpc,
   handleQuestAction,
   onMobKilledForQuests,
   syncQuestEntriesToPlayer,
   type QuestRoomContext,
 } from './quest-handlers';
+import { canStartQuest } from '@nj/game-core';
 
 const BITZ_NPC_ID = 30026;
 const GWINTER_NPC_ID = 30027;
@@ -102,6 +104,10 @@ const BAULRO_NPC_ID = 30033;
 const SOULSHOT_ITEM_ID = 1835;
 const SPIRITSHOT_ITEM_ID = 2509;
 const TRAINER_NPC_IDS = new Set([BITZ_NPC_ID, GWINTER_NPC_ID, BAULRO_NPC_ID]);
+
+function questCompletedIds(entries: QuestRuntimeState[]): Set<number> {
+  return new Set(entries.filter((e) => e.status === 'completed').map((e) => e.questId));
+}
 
 export interface TownJoinOptions {
   characterId?: string;
@@ -568,7 +574,21 @@ export class TownRoom extends Room<{ state: TownState }> {
       combat.openTrainerNpcId = npcId;
     }
     const client = this.clients.find((c) => c.sessionId === sessionId);
-    const questDialog = buildQuestDialog(this.createQuestContext(sessionId), npcId);
+    const ctx = this.createQuestContext(sessionId);
+    const questsAtNpc = getQuestEntriesForNpc(ctx, npcId);
+    const hasNewQuest = questsAtNpc.some(
+      ({ def, state }) => !state && canStartQuest(def, ctx.player.level, questCompletedIds(ctx.questEntries))
+    );
+    if (meta.type === 'Merchant' && hasNewQuest) {
+      client?.send('interactResult', {
+        npcId,
+        type: meta.type,
+        name: meta.name,
+        questAvailable: true,
+      });
+      return;
+    }
+    const questDialog = buildQuestDialog(ctx, npcId);
     if (questDialog) {
       client?.send('questDialog', { npcId, ...questDialog });
       return;
