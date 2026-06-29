@@ -12,10 +12,27 @@ ElderWolf.glb — Ultimate Monsters Big/Dino.gltf (distinct quadruped from Wolf.
 GiantToad.glb — Ultimate Monsters Big/Frog.gltf
 Orc.glb — Ultimate Monsters Big/Orc.gltf (humanoid biped; NOT Blob Orc used by Goblin)
 
+Phase 22 — Complete TI bestiary:
+OrcSoldier.glb — Ultimate Monsters Big/Tribal.gltf
+OrcArcher.glb — Ultimate Monsters Big/Ninja.gltf
+GoblinScout.glb — Ultimate Monsters Blob/Ninja.gltf
+Werewolf.glb — Ultimate Monsters Blob/Yeti.gltf
+WerewolfHunter.glb — Ultimate Monsters Big/Yeti.gltf
+OrcWarrior.glb — Ultimate Monsters Big/Orc_Skull.gltf
+OrcLieutenant.glb — Ultimate Monsters Big/Demon.gltf
+OrcCaptain.glb — Ultimate Monsters Big/BlueDemon.gltf
+WerewolfChieftain.glb — Ultimate Monsters Big/MushroomKing.gltf
+StoneGolem.glb — Ultimate Monsters Flying/Goleling.gltf
+Crasher.glb — Ultimate Monsters Blob/Cactoro.gltf
+GiantSpider.glb — Ultimate Monsters Flying/Squidle.gltf
+GiantFangSpider.glb — Ultimate Monsters Flying/Armabee.gltf
+GiantBladeSpider.glb — Ultimate Monsters Flying/Armabee_Evolved.gltf
+
 Clip maps: creature-manifest.ts
   Blob mobs: ULTIMATE_MONSTER_CLIP_MAP (Idle, Walk, Bite_Front, Death)
   Animals: QUATERNIUS_WOLF_CLIP_MAP / QUATERNIUS_DEER_CLIP_MAP
   Big monsters: ULTIMATE_BIG_MONSTER_CLIP_MAP (Idle, Walk, Punch, Death)
+  Flying monsters: QUATERNIUS_FLYING_CLIP_MAP (Flying_Idle, Fast_Flying, Punch, Death)
 
 Pre-launch: swap CC0 stand-ins for licensed L2-authentic assets where required (AD-004).
 
