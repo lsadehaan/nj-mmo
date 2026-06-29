@@ -1200,7 +1200,9 @@ describe('TownRoom Power Strike', () => {
 describe('TownRoom NPC shop and peace zone', () => {
   const KATERINA = 30004;
   const ROXXY = 30006;
+  const LECTOR = 30001;
   const POTION = 1060;
+  const SHORT_SWORD = 1;
 
   it('boots with 7 NPCs in state.npcs from seed', async () => {
     const { dbPath, cleanup } = seededCombatDb();
@@ -1209,8 +1211,48 @@ describe('TownRoom NPC shop and peace zone', () => {
       expect(room.state.npcs.size).toBe(7);
       expect(findNpcByNpcId(room, KATERINA)).toMatchObject({ npcId: KATERINA });
       expect(findNpcByNpcId(room, ROXXY)).toMatchObject({ npcId: ROXXY });
-      expect(findNpcByNpcId(room, 30001)).toMatchObject({ npcId: 30001 });
+      expect(findNpcByNpcId(room, LECTOR)).toMatchObject({ npcId: LECTOR });
       await room.disconnect();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('buy 1× Short Sword at Lector drops adena 1000→117 (TINPC-22)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const player = room.state.players.get(client.sessionId)!;
+      placePlayerAtNpc(room, client.sessionId, LECTOR);
+
+      await deliver(room, client, [
+        ['buy', { npcId: LECTOR, itemId: SHORT_SWORD, quantity: 1 }],
+      ]);
+
+      expect(player.adena).toBe(117);
+      expect(getPlayerItemCount(room, client.sessionId, SHORT_SWORD)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects Lector buy from 3.1 m away (TINPC-23)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      placePlayerNearNpcOffset(room, client.sessionId, LECTOR, 3.1);
+
+      await deliver(room, client, [
+        ['buy', { npcId: LECTOR, itemId: SHORT_SWORD, quantity: 1 }],
+      ]);
+
+      expect(player.adena).toBe(1000);
+      expect(getPlayerItemCount(room, client.sessionId, SHORT_SWORD)).toBe(0);
+      await client.leave();
     } finally {
       cleanup();
     }
