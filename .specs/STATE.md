@@ -151,11 +151,17 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 20.**
+**Loop status: RUNNING — next unchecked phase: Phase 21.**
 
-**Next step:** **Phase 20 — Skills & combat depth** (`.specs/ROADMAP.md`). Planner
-sub-agent writes `.specs/features/phase-20-skills-combat/` — skill learning at trainers,
-generalized skill resolver, soulshots, magic cast path, minimal buff/debuff system.
+**Next step:** **Phase 21 — Quests & tutorial** (`.specs/ROADMAP.md`). Planner sub-agent
+writes `.specs/features/phase-21-quests/` — TI starter quest chain, quest engine, quest log UI.
+
+**Phase 20 — Skills & combat depth: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
+`.specs/features/phase-20-skills-combat/validation.md` records PASS: 52/52 ACs traced (4 non-blocking
+partials), discrimination sensor 4/4 killed, gate green (659 tests). TI skill subset seeded;
+learnSkill at trainers; generalized resolver; soulshots/spiritshots; magic cast + interrupt;
+Might/Curse Weakness effects; dynamic hotbar + cast bar. Fix: mAtk gating for magic-only + gap tests.
+ROADMAP Phase 20 flipped to `[x]`.
 
 **Phase 19 — Character creation & classes: COMPLETE (Verifier PASS, 2026-06-29).**
 `.specs/features/phase-19-character-creation/validation.md` records PASS (0 fix iterations):

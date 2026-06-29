@@ -597,7 +597,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 20 — Skills & combat depth `[ ]`
+## Phase 20 — Skills & combat depth `[x]`
 
 > Done when: each starter class has a learnable skill subset (not just Power Strike);
 > MP/cooldown/reuse validated server-side; soulshots consumed for damage bonus;
