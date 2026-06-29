@@ -3,6 +3,7 @@ import {
   ROXXY_NPC_ID,
   WILFORD_NPC_ID,
   BITZ_NPC_ID,
+  BAULRO_NPC_ID,
   mountNpcDialog,
   renderNpcDialog,
 } from './npc-dialog';
@@ -73,25 +74,48 @@ describe('npc-dialog DOM', () => {
     expect(sendNpcAction).not.toHaveBeenCalled();
   });
 
-  it('shows trainer title and disabled class-change action (TINPC-28)', () => {
+  it('shows trainer learn buttons for Bitz fighter skills (SKILL20-20)', () => {
+    const sendLearnSkill = vi.fn();
     mountNpcDialog();
     renderNpcDialog({
       npcId: BITZ_NPC_ID,
       name: 'Bitz',
       variant: 'trainer',
       visible: true,
-      handlers: { sendNpcAction: vi.fn() },
+      learnableSkillIds: [3],
+      handlers: { sendNpcAction: vi.fn(), sendLearnSkill },
     });
 
     const dialog = document.getElementById('npc-dialog');
     expect(dialog?.querySelector('[data-role="title"]')?.textContent).toBe(
       'Bitz — Grand Master'
     );
-    const changeClass = dialog?.querySelector(
-      '[data-action="changeClass"]'
-    ) as HTMLButtonElement | null;
-    expect(changeClass?.disabled).toBe(true);
-    expect(changeClass?.textContent).toContain('Coming soon');
+    const learnBtn = dialog?.querySelector('[data-action="learn-3"]') as HTMLButtonElement | null;
+    expect(learnBtn).not.toBeNull();
+    expect(learnBtn?.disabled).toBe(false);
+    learnBtn?.click();
+    expect(sendLearnSkill).toHaveBeenCalledWith({ skillId: 3 });
+  });
+
+  it('shows folk trainer learn buttons for Baulro mystic skills (SKILL20-51)', () => {
+    const sendLearnSkill = vi.fn();
+    mountNpcDialog();
+    renderNpcDialog({
+      npcId: BAULRO_NPC_ID,
+      name: 'Baulro',
+      variant: 'folkTrainer',
+      visible: true,
+      learnableSkillIds: [1068, 1164],
+      handlers: { sendNpcAction: vi.fn(), sendLearnSkill },
+    });
+
+    const dialog = document.getElementById('npc-dialog');
+    expect(dialog?.querySelector('[data-role="title"]')?.textContent).toBe(
+      'Baulro — Folk Trainer'
+    );
+    const mightBtn = dialog?.querySelector('[data-action="learn-1068"]') as HTMLButtonElement | null;
+    mightBtn?.click();
+    expect(sendLearnSkill).toHaveBeenCalledWith({ skillId: 1068 });
   });
 
   it('heal button sends npcAction heal intent', () => {

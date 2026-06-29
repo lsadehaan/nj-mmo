@@ -1,11 +1,14 @@
 export const ROXXY_NPC_ID = 30006;
 export const WILFORD_NPC_ID = 30005;
 export const BITZ_NPC_ID = 30026;
+export const GWINTER_NPC_ID = 30027;
+export const BAULRO_NPC_ID = 30033;
 
-export type NpcDialogVariant = 'helper' | 'warehouse' | 'trainer';
+export type NpcDialogVariant = 'helper' | 'warehouse' | 'trainer' | 'folkTrainer';
 
 export interface NpcDialogHandlers {
   sendNpcAction: (payload: { npcId: number; action: 'heal' | 'starterKit' }) => void;
+  sendLearnSkill?: (payload: { skillId: number }) => void;
 }
 
 export interface NpcDialogRenderOptions {
@@ -13,6 +16,7 @@ export interface NpcDialogRenderOptions {
   name: string;
   variant: NpcDialogVariant;
   visible: boolean;
+  learnableSkillIds?: number[];
   handlers: NpcDialogHandlers;
 }
 
@@ -22,6 +26,7 @@ const VARIANT_TITLES: Record<NpcDialogVariant, string> = {
   helper: 'Newbie Helper',
   warehouse: 'Warehouse Keeper',
   trainer: 'Grand Master',
+  folkTrainer: 'Folk Trainer',
 };
 
 export function mountNpcDialog(): HTMLElement {
@@ -119,11 +124,17 @@ export function renderNpcDialog(options: NpcDialogRenderOptions): void {
       disabled: true,
       disabledLabel: 'Coming soon',
     });
-  } else if (options.variant === 'trainer') {
-    appendActionButton(actions, 'Change Class', 'changeClass', {
-      disabled: true,
-      disabledLabel: 'Coming soon',
-    });
+  } else if (options.variant === 'trainer' || options.variant === 'folkTrainer') {
+    const learnable = options.learnableSkillIds ?? [];
+    if (learnable.length === 0) {
+      appendActionButton(actions, 'No skills to learn', 'none', { disabled: true });
+    } else {
+      for (const skillId of learnable) {
+        appendActionButton(actions, `Learn skill ${skillId}`, `learn-${skillId}`, {
+          onClick: () => options.handlers.sendLearnSkill?.({ skillId }),
+        });
+      }
+    }
   }
 
   const closeBtn = panel.querySelector('[data-action="close"]');
@@ -152,6 +163,9 @@ export function resolveNpcDialogVariant(
 ): NpcDialogVariant | null {
   if (type === 'Warehouse' || npcId === WILFORD_NPC_ID) return 'warehouse';
   if (type === 'VillageMasterFighter' || npcId === BITZ_NPC_ID) return 'trainer';
+  if (type === 'Folk' || npcId === GWINTER_NPC_ID || npcId === BAULRO_NPC_ID) {
+    return 'folkTrainer';
+  }
   if (type === 'Teleporter' || npcId === ROXXY_NPC_ID) return 'helper';
   return null;
 }
