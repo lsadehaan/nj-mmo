@@ -3,6 +3,8 @@ import {
   horizontalDistance,
   isInPeaceZone,
   isWalkable,
+  isInRangedAttackBand,
+  shouldRangedMobAdvance,
   type SeededRng,
 } from '@nj/game-core';
 import type { MobRuntime } from './spawn-manager';
@@ -18,14 +20,45 @@ export interface MobAiPlayer {
   z: number;
 }
 
+export function findClanAssistTargets(
+  source: MobRuntime,
+  peers: MobRuntime[],
+  clanHelpRangeWorld: number
+): MobRuntime[] {
+  if (!source.clan || !source.targetSessionId) return [];
+  if (source.clan !== 'WEREWOLF') return [];
+  return peers.filter(
+    (p) =>
+      p.id !== source.id &&
+      p.hp > 0 &&
+      p.clan === source.clan &&
+      !p.targetSessionId &&
+      horizontalDistance(source.x, source.z, p.x, p.z) <= clanHelpRangeWorld
+  );
+}
+
+export function applyClanAssist(
+  source: MobRuntime,
+  peers: MobRuntime[],
+  clanHelpRangeWorld: number
+): void {
+  if (!source.targetSessionId) return;
+  for (const peer of findClanAssistTargets(source, peers, clanHelpRangeWorld)) {
+    peer.targetSessionId = source.targetSessionId;
+  }
+}
+
 export function tickMobAi(
   mob: MobRuntime,
   players: MobAiPlayer[],
   dt: number,
   rng: SeededRng,
-  nowMs: number
+  nowMs: number,
+  peers: MobRuntime[] = []
 ): void {
   if (mob.hp <= 0) return;
+
+  const hadTarget = mob.targetSessionId;
 
   if (!mob.targetSessionId) {
     if (mob.isAggressive) {
@@ -35,6 +68,10 @@ export function tickMobAi(
     }
   }
 
+  if (!hadTarget && mob.targetSessionId) {
+    applyClanAssist(mob, peers, mob.clanHelpRangeWorld);
+  }
+
   if (mob.targetSessionId) {
     const target = players.find((p) => p.sessionId === mob.targetSessionId);
     if (!target) {
@@ -42,6 +79,20 @@ export function tickMobAi(
     } else if (isInPeaceZone(target.x, target.z)) {
       mob.targetSessionId = null;
     } else {
+      const dist = horizontalDistance(mob.x, mob.z, target.x, target.z);
+      if (
+        mob.aiType === 'ARCHER' &&
+        isInRangedAttackBand(dist, mob.attackRangeWorld, mob.preferredAttackRangeWorld)
+      ) {
+        return;
+      }
+      if (
+        mob.aiType === 'ARCHER' &&
+        !shouldRangedMobAdvance(dist, mob.attackRangeWorld, mob.preferredAttackRangeWorld) &&
+        dist >= mob.attackRangeWorld
+      ) {
+        return;
+      }
       moveToward(mob, target.x, target.z, CHASE_SPEED, dt);
       return;
     }

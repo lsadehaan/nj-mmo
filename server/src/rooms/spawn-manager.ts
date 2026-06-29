@@ -29,6 +29,10 @@ export interface MobRuntime {
   isAggressive: boolean;
   exp: number;
   respawnSec: number;
+  aiType: string | null;
+  clan: string | null;
+  clanHelpRangeWorld: number;
+  preferredAttackRangeWorld: number;
   spawnX: number;
   spawnZ: number;
   targetSessionId: string | null;
@@ -93,6 +97,12 @@ export function initializeMobs(
       isAggressive: template.isAggressive,
       exp: template.exp,
       respawnSec: spawn.respawnSec,
+      aiType: template.aiType ?? null,
+      clan: template.clan ?? null,
+      clanHelpRangeWorld: l2RangeToWorld(template.clanHelpRange ?? 0),
+      preferredAttackRangeWorld: l2RangeToWorld(
+        template.preferredAttackRange ?? template.attackRange
+      ),
       spawnX: spawn.x,
       spawnZ: spawn.z,
       targetSessionId: null,

@@ -6,6 +6,7 @@ import {
   calcClassBaseMAtk,
   applyShotMultiplier,
   calculateAttackIntervalMs,
+  horizontalDistance,
   isInMeleeRange,
   isInPeaceZone,
   grantXp,
@@ -432,9 +433,12 @@ export function resolveMobAttack(params: {
     return { damage: 0 };
   }
 
-  if (
-    !isInMeleeRange(mob.x, mob.z, targetX, targetZ, mob.attackRangeWorld)
-  ) {
+  const dist = horizontalDistance(mob.x, mob.z, targetX, targetZ);
+  if (mob.aiType === 'ARCHER') {
+    if (dist < mob.attackRangeWorld || dist > mob.preferredAttackRangeWorld) {
+      return { damage: 0 };
+    }
+  } else if (!isInMeleeRange(mob.x, mob.z, targetX, targetZ, mob.attackRangeWorld)) {
     return { damage: 0 };
   }
 

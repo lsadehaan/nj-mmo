@@ -946,9 +946,11 @@ export class TownRoom extends Room<{ state: TownState }> {
       z: player.z,
     }));
 
+    const mobPeers = [...this.mobRuntime.values()];
+
     for (const runtime of this.mobRuntime.values()) {
       if (runtime.hp <= 0) continue;
-      tickMobAi(runtime, aiPlayers, dt, this.combatRng, now);
+      tickMobAi(runtime, aiPlayers, dt, this.combatRng, now, mobPeers);
       runtime.y = snapEntityY(runtime.x, runtime.z);
       const mobState = this.state.mobs.get(runtime.id);
       if (mobState) syncMobState(mobState, runtime);
