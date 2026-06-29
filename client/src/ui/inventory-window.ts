@@ -1,9 +1,13 @@
 import { createIconImg } from './icon-img';
+import { HEALING_POTION_ITEM_ID } from '@nj/game-core';
 
 export const SQUIRES_SWORD_ITEM_ID = 2369;
 
 /** MVP weapon ids eligible for Equip — server validates ownership and type (AD-001). */
 const WEAPON_ITEM_IDS = new Set<number>([SQUIRES_SWORD_ITEM_ID]);
+
+/** MVP consumable ids with inventory Use action — server validates on useItem intent. */
+const CONSUMABLE_ITEM_IDS = new Set<number>([HEALING_POTION_ITEM_ID]);
 
 const ITEM_DISPLAY_NAMES: Record<number, string> = {
   13: 'Short Bow',
@@ -27,12 +31,14 @@ const ITEM_DISPLAY_NAMES: Record<number, string> = {
 
 export interface InventorySendHandlers {
   sendEquip: (payload: { itemId: number }) => void;
+  sendUseItem: (payload: { itemId: number }) => void;
 }
 
 export interface InventoryRenderOptions {
   itemCounts: Record<number, number>;
   /** 0 = none (schema sentinel). */
   equippedWeaponItemId: number;
+  healingPotionCooldownRemainingMs: number;
   visible: boolean;
   handlers: InventorySendHandlers;
 }
@@ -152,6 +158,18 @@ export function renderInventoryWindow(options: InventoryRenderOptions): void {
         options.handlers.sendEquip({ itemId });
       });
       row.appendChild(equipBtn);
+    }
+
+    if (CONSUMABLE_ITEM_IDS.has(itemId)) {
+      const useBtn = document.createElement('button');
+      useBtn.type = 'button';
+      useBtn.dataset['action'] = 'use';
+      useBtn.textContent = 'Use';
+      useBtn.disabled = options.healingPotionCooldownRemainingMs > 0;
+      useBtn.addEventListener('click', () => {
+        options.handlers.sendUseItem({ itemId });
+      });
+      row.appendChild(useBtn);
     }
 
     list.appendChild(row);

@@ -6,6 +6,24 @@ import {
   renderInventoryWindow,
 } from './inventory-window';
 import { FALLBACK_ICON } from './icon-manifest';
+import { HEALING_POTION_ITEM_ID } from '@nj/game-core';
+
+function defaultHandlers() {
+  return { sendEquip: vi.fn(), sendUseItem: vi.fn() };
+}
+
+function defaultOptions(
+  overrides: Partial<Parameters<typeof renderInventoryWindow>[0]> = {}
+) {
+  return {
+    itemCounts: {},
+    equippedWeaponItemId: 0,
+    healingPotionCooldownRemainingMs: 0,
+    visible: true,
+    handlers: defaultHandlers(),
+    ...overrides,
+  };
+}
 
 describe('inventory-window DOM', () => {
   beforeEach(() => {
@@ -24,12 +42,9 @@ describe('inventory-window DOM', () => {
 
   it('lists owned item stacks with counts from server-synced state', () => {
     mountInventoryWindow();
-    renderInventoryWindow({
-      itemCounts: { 1060: 3, 2369: 1 },
-      equippedWeaponItemId: 0,
-      visible: true,
-      handlers: { sendEquip: vi.fn() },
-    });
+    renderInventoryWindow(
+      defaultOptions({ itemCounts: { 1060: 3, 2369: 1 }, handlers: defaultHandlers() })
+    );
 
     const rows = document.querySelectorAll('#inventory-window [data-inventory-item-id]');
     expect(rows.length).toBe(2);
@@ -44,12 +59,9 @@ describe('inventory-window DOM', () => {
 
   it('renders mapped item icons for Healing Potion and Squire\'s Sword rows', () => {
     mountInventoryWindow();
-    renderInventoryWindow({
-      itemCounts: { 1060: 1, 2369: 1 },
-      equippedWeaponItemId: 0,
-      visible: true,
-      handlers: { sendEquip: vi.fn() },
-    });
+    renderInventoryWindow(
+      defaultOptions({ itemCounts: { 1060: 1, 2369: 1 }, handlers: defaultHandlers() })
+    );
 
     const potionImg = document.querySelector(
       '#inventory-window [data-inventory-item-id="1060"] img[data-icon-item-id="1060"]'
@@ -69,12 +81,7 @@ describe('inventory-window DOM', () => {
 
   it('shows fallback icon for unmapped loot item ids', () => {
     mountInventoryWindow();
-    renderInventoryWindow({
-      itemCounts: { 99999: 2 },
-      equippedWeaponItemId: 0,
-      visible: true,
-      handlers: { sendEquip: vi.fn() },
-    });
+    renderInventoryWindow(defaultOptions({ itemCounts: { 99999: 2 } }));
 
     const img = document.querySelector(
       '#inventory-window [data-inventory-item-id="99999"] img[data-icon-item-id="99999"]'
@@ -86,12 +93,7 @@ describe('inventory-window DOM', () => {
 
   it('shows Equip action for Squire\'s Sword weapon row', () => {
     mountInventoryWindow();
-    renderInventoryWindow({
-      itemCounts: { 2369: 1 },
-      equippedWeaponItemId: 0,
-      visible: true,
-      handlers: { sendEquip: vi.fn() },
-    });
+    renderInventoryWindow(defaultOptions({ itemCounts: { 2369: 1 } }));
 
     const equipBtn = document.querySelector(
       `#inventory-window [data-inventory-item-id="${SQUIRES_SWORD_ITEM_ID}"] [data-action="equip"]`
@@ -102,12 +104,7 @@ describe('inventory-window DOM', () => {
 
   it('does not show Equip for consumable Healing Potion', () => {
     mountInventoryWindow();
-    renderInventoryWindow({
-      itemCounts: { 1060: 3 },
-      equippedWeaponItemId: 0,
-      visible: true,
-      handlers: { sendEquip: vi.fn() },
-    });
+    renderInventoryWindow(defaultOptions({ itemCounts: { 1060: 3 } }));
 
     const equipBtn = document.querySelector(
       '#inventory-window [data-inventory-item-id="1060"] [data-action="equip"]'
@@ -117,12 +114,7 @@ describe('inventory-window DOM', () => {
 
   it('shows Magic Ring loot icon when item 116 is in inventory', () => {
     mountInventoryWindow();
-    renderInventoryWindow({
-      itemCounts: { 116: 1 },
-      equippedWeaponItemId: 0,
-      visible: true,
-      handlers: { sendEquip: vi.fn() },
-    });
+    renderInventoryWindow(defaultOptions({ itemCounts: { 116: 1 } }));
 
     const img = document.querySelector(
       '#inventory-window [data-inventory-item-id="116"] img[data-icon-item-id="116"]'
@@ -133,14 +125,65 @@ describe('inventory-window DOM', () => {
 
   it('shows equipped weapon label when Squire\'s Sword is equipped', () => {
     mountInventoryWindow();
-    renderInventoryWindow({
-      itemCounts: { 2369: 1 },
-      equippedWeaponItemId: SQUIRES_SWORD_ITEM_ID,
-      visible: true,
-      handlers: { sendEquip: vi.fn() },
-    });
+    renderInventoryWindow(
+      defaultOptions({
+        itemCounts: { 2369: 1 },
+        equippedWeaponItemId: SQUIRES_SWORD_ITEM_ID,
+      })
+    );
 
     const equipped = document.querySelector('#inventory-window [data-equipped-weapon]');
     expect(equipped?.textContent).toMatch(/Squire's Sword/i);
+  });
+
+  it('shows Use action for Healing Potion row when count > 0', () => {
+    mountInventoryWindow();
+    renderInventoryWindow(defaultOptions({ itemCounts: { [HEALING_POTION_ITEM_ID]: 2 } }));
+
+    const useBtn = document.querySelector(
+      `#inventory-window [data-inventory-item-id="${HEALING_POTION_ITEM_ID}"] [data-action="use"]`
+    );
+    expect(useBtn).not.toBeNull();
+    expect(useBtn?.textContent).toMatch(/use/i);
+  });
+
+  it('does not show Use action for Squire\'s Sword weapon row', () => {
+    mountInventoryWindow();
+    renderInventoryWindow(defaultOptions({ itemCounts: { [SQUIRES_SWORD_ITEM_ID]: 1 } }));
+
+    const useBtn = document.querySelector(
+      `#inventory-window [data-inventory-item-id="${SQUIRES_SWORD_ITEM_ID}"] [data-action="use"]`
+    );
+    expect(useBtn).toBeNull();
+  });
+
+  it('calls sendUseItem when Use is clicked on Healing Potion', () => {
+    mountInventoryWindow();
+    const handlers = defaultHandlers();
+    renderInventoryWindow(
+      defaultOptions({ itemCounts: { [HEALING_POTION_ITEM_ID]: 1 }, handlers })
+    );
+
+    const useBtn = document.querySelector(
+      `#inventory-window [data-inventory-item-id="${HEALING_POTION_ITEM_ID}"] [data-action="use"]`
+    ) as HTMLButtonElement;
+    useBtn.click();
+
+    expect(handlers.sendUseItem).toHaveBeenCalledWith({ itemId: HEALING_POTION_ITEM_ID });
+  });
+
+  it('disables Use when healing potion cooldown is active', () => {
+    mountInventoryWindow();
+    renderInventoryWindow(
+      defaultOptions({
+        itemCounts: { [HEALING_POTION_ITEM_ID]: 1 },
+        healingPotionCooldownRemainingMs: 5_000,
+      })
+    );
+
+    const useBtn = document.querySelector(
+      `#inventory-window [data-inventory-item-id="${HEALING_POTION_ITEM_ID}"] [data-action="use"]`
+    ) as HTMLButtonElement;
+    expect(useBtn.disabled).toBe(true);
   });
 });
