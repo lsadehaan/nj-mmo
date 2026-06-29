@@ -1,22 +1,22 @@
 import type { NewMerchantItem } from '../../db/schema';
 import { xmlParser, parseNumber } from './xml-utils';
 
-const KATERINA_NPC_ID = 30004;
-
-const SHOP_ITEM_IDS = [1060, 1835, 17] as const;
-
-const ITEM_NAMES: Record<(typeof SHOP_ITEM_IDS)[number], string> = {
-  1060: 'Healing Potion',
-  1835: 'Soulshot',
-  17: 'Wooden Arrow',
-};
+export interface MerchantBuylistConfig {
+  npcId: number;
+  itemIds: readonly number[];
+  itemNames: Record<number, string>;
+}
 
 interface BuylistItemNode {
   '@_id': string;
   '@_price': string;
 }
 
-export function parseMerchantBuylist(xml: string, npcId = KATERINA_NPC_ID): NewMerchantItem[] {
+export function parseMerchantBuylist(
+  xml: string,
+  config: MerchantBuylistConfig
+): NewMerchantItem[] {
+  const { npcId, itemIds, itemNames } = config;
   const doc = xmlParser.parse(xml) as { list?: { item?: BuylistItemNode | BuylistItemNode[] } };
   const nodes = doc.list?.item;
   if (!nodes) {
@@ -24,7 +24,7 @@ export function parseMerchantBuylist(xml: string, npcId = KATERINA_NPC_ID): NewM
   }
 
   const itemList = Array.isArray(nodes) ? nodes : [nodes];
-  const idSet = new Set(SHOP_ITEM_IDS.map(String));
+  const idSet = new Set(itemIds.map(String));
   const results: NewMerchantItem[] = [];
 
   for (const node of itemList) {
@@ -32,7 +32,7 @@ export function parseMerchantBuylist(xml: string, npcId = KATERINA_NPC_ID): NewM
     if (!idSet.has(String(itemId))) continue;
 
     const buyPrice = parseNumber(itemId, 'price', node['@_price']);
-    const name = ITEM_NAMES[itemId as (typeof SHOP_ITEM_IDS)[number]];
+    const name = itemNames[itemId];
     if (!name) {
       throw new Error(`Missing display name for shop item ${itemId}`);
     }
@@ -46,7 +46,7 @@ export function parseMerchantBuylist(xml: string, npcId = KATERINA_NPC_ID): NewM
     });
   }
 
-  for (const want of SHOP_ITEM_IDS) {
+  for (const want of itemIds) {
     if (!results.some((r) => r.itemId === want)) {
       throw new Error(`Shop item ${want} not found in buylist XML`);
     }

@@ -55,6 +55,70 @@ describe('merchant item seeding', () => {
     expect(soulshot).toMatchObject({ buyPrice: 8, sellPrice: 4 });
     expect(arrow).toMatchObject({ buyPrice: 2, sellPrice: 1 });
   });
+
+  it('seeds Lector weapon items 1, 4, 13 with Classic prices (TINPC-08)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const shortSword = db
+      .select()
+      .from(merchantItems)
+      .where(eq(merchantItems.npcId, 30001))
+      .all()
+      .find((r) => r.itemId === 1);
+    const club = db
+      .select()
+      .from(merchantItems)
+      .where(eq(merchantItems.npcId, 30001))
+      .all()
+      .find((r) => r.itemId === 4);
+    const bow = db
+      .select()
+      .from(merchantItems)
+      .where(eq(merchantItems.npcId, 30001))
+      .all()
+      .find((r) => r.itemId === 13);
+    expect(shortSword).toMatchObject({ buyPrice: 883, sellPrice: 441 });
+    expect(club).toMatchObject({ buyPrice: 883, sellPrice: 441 });
+    expect(bow).toMatchObject({ buyPrice: 883, sellPrice: 441 });
+  });
+
+  it('seeds Jackson armor items 21, 28, 1121 with anchor prices (TINPC-09)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const rows = db.select().from(merchantItems).where(eq(merchantItems.npcId, 30002)).all();
+    expect(rows.find((r) => r.itemId === 21)).toMatchObject({ buyPrice: 169, sellPrice: 84 });
+    expect(rows.find((r) => r.itemId === 28)).toMatchObject({ buyPrice: 105, sellPrice: 52 });
+    expect(rows.find((r) => r.itemId === 1121)).toMatchObject({ buyPrice: 8, sellPrice: 4 });
+  });
+
+  it('seeds Silvia accessory items 116, 112, 118 with anchor prices (TINPC-10)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const rows = db.select().from(merchantItems).where(eq(merchantItems.npcId, 30003)).all();
+    expect(rows.find((r) => r.itemId === 116)).toMatchObject({ buyPrice: 37, sellPrice: 18 });
+    expect(rows.find((r) => r.itemId === 112)).toMatchObject({ buyPrice: 56, sellPrice: 28 });
+    expect(rows.find((r) => r.itemId === 118)).toMatchObject({ buyPrice: 75, sellPrice: 37 });
+  });
+
+  it('seed is idempotent for merchant rows (TINPC-14)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const first = getDb(dbPath)
+      .select()
+      .from(merchantItems)
+      .all()
+      .map(({ id: _id, ...row }) => row);
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const second = getDb(dbPath)
+      .select()
+      .from(merchantItems)
+      .all()
+      .map(({ id: _id, ...row }) => row);
+    expect(second).toEqual(first);
+  });
 });
 
 describe('NPC spawn seeding', () => {
@@ -70,6 +134,27 @@ describe('NPC spawn seeding', () => {
     cleanup = () => rmSync(dir, { recursive: true, force: true });
     return dbPath;
   }
+
+  const SPAWN_TABLE = [
+    { npcId: 30001, x: -14, z: -2 },
+    { npcId: 30002, x: -16, z: 4 },
+    { npcId: 30003, x: -8, z: 2 },
+    { npcId: 30004, x: -6, z: -8 },
+    { npcId: 30005, x: 16, z: 0 },
+    { npcId: 30006, x: 4, z: 10 },
+    { npcId: 30026, x: 2, z: -4 },
+  ] as const;
+
+  it('seeds seven npc_spawns rows matching anchor table (TINPC-11)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const rows = getDb(dbPath).select().from(npcSpawns).all();
+    expect(rows).toHaveLength(7);
+    for (const anchor of SPAWN_TABLE) {
+      const row = rows.find((r) => r.npcId === anchor.npcId);
+      expect(row).toMatchObject({ x: anchor.x, z: anchor.z });
+    }
+  });
 
   it('seeds Katerina (30004) at local x=-6, z=-8', () => {
     const dbPath = tempDbPath();
@@ -91,5 +176,22 @@ describe('NPC spawn seeding', () => {
       .where(eq(npcSpawns.npcId, 30006))
       .get();
     expect(row).toMatchObject({ npcId: 30006, x: 4, z: 10 });
+  });
+
+  it('seed is idempotent for npc spawn rows (TINPC-14)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const first = getDb(dbPath)
+      .select()
+      .from(npcSpawns)
+      .all()
+      .map(({ id: _id, ...row }) => row);
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const second = getDb(dbPath)
+      .select()
+      .from(npcSpawns)
+      .all()
+      .map(({ id: _id, ...row }) => row);
+    expect(second).toEqual(first);
   });
 });

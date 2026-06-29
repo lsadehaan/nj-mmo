@@ -1202,13 +1202,14 @@ describe('TownRoom NPC shop and peace zone', () => {
   const ROXXY = 30006;
   const POTION = 1060;
 
-  it('boots with 2 NPCs in state.npcs from seed', async () => {
+  it('boots with 7 NPCs in state.npcs from seed', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath });
-      expect(room.state.npcs.size).toBe(2);
+      expect(room.state.npcs.size).toBe(7);
       expect(findNpcByNpcId(room, KATERINA)).toMatchObject({ npcId: KATERINA });
       expect(findNpcByNpcId(room, ROXXY)).toMatchObject({ npcId: ROXXY });
+      expect(findNpcByNpcId(room, 30001)).toMatchObject({ npcId: 30001 });
       await room.disconnect();
     } finally {
       cleanup();
