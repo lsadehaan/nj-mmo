@@ -12,6 +12,9 @@ import {
   mobSpawns,
   merchantItems,
   npcSpawns,
+  questObjectives,
+  questRewards,
+  quests,
 } from '../db/schema';
 import { seedClassTemplates } from './seeders/class-templates.seeder';
 import { seedMonsters } from './seeders/monsters.seeder';
@@ -24,6 +27,7 @@ import { seedMobSpawns } from './seeders/spawns.seeder';
 import { seedMerchantItems } from './seeders/merchant-items.seeder';
 import { seedNpcSpawns } from './seeders/npc-spawns.seeder';
 import { seedItems } from './seeders/items.seeder';
+import { seedQuests } from './seeders/quests.seeder';
 import { FIXTURE_DATA_DIR, resolveDataDir } from './paths';
 
 export interface SeedOptions {
@@ -43,6 +47,7 @@ export interface SeedReport {
   mobSpawns: number;
   merchantItems: number;
   npcSpawns: number;
+  quests: number;
 }
 
 export function runSeed(options: SeedOptions): SeedReport {
@@ -53,6 +58,9 @@ export function runSeed(options: SeedOptions): SeedReport {
     tx.delete(classLevelVitals).run();
     tx.delete(classTemplates).run();
     tx.delete(classSkillTree).run();
+    tx.delete(questObjectives).run();
+    tx.delete(questRewards).run();
+    tx.delete(quests).run();
     tx.delete(mobSpawns).run();
     tx.delete(mobDrops).run();
     tx.delete(merchantItems).run();
@@ -75,6 +83,7 @@ export function runSeed(options: SeedOptions): SeedReport {
       classSkillTree: seedClassSkillTree(tx as unknown as AppDatabase, dataDir),
       experience: seedExperience(tx as unknown as AppDatabase, dataDir),
       items: seedItems(tx as unknown as AppDatabase, dataDir),
+      quests: seedQuests(tx as unknown as AppDatabase, dataDir),
     };
 
     return report;

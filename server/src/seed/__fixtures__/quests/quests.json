@@ -1,0 +1,363 @@
+{
+  "quests": [
+    {
+      "questId": 255,
+      "name": "Tutorial",
+      "minLevel": 1,
+      "stubGiverNpcId": 30006,
+      "autoStart": true,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30006, "count": 1, "description": "Talk to Roxxy" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "KILL", "mobNpcId": 20001, "count": 1, "description": "Kill a Gremlin" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30006, "count": 1, "description": "Return to Roxxy" }
+          ]
+        }
+      ],
+      "rewards": [
+        { "itemId": 1835, "itemCount": 200, "rewardClass": "fighter" },
+        { "itemId": 2509, "itemCount": 100, "rewardClass": "mystic" }
+      ]
+    },
+    {
+      "questId": 101,
+      "name": "Sword of Solidarity",
+      "minLevel": 10,
+      "stubGiverNpcId": 30001,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "COLLECT", "mobNpcId": 20361, "itemId": 739, "count": 1, "description": "Collect Broken Sword Handle" },
+            { "kind": "COLLECT", "mobNpcId": 20362, "itemId": 740, "count": 1, "description": "Collect Broken Blade Bottom" },
+            { "kind": "COLLECT", "mobNpcId": 20361, "itemId": 741, "count": 1, "description": "Collect Broken Blade Top" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30001, "itemId": 739, "count": 1, "description": "Deliver parts to Lector" },
+            { "kind": "DELIVER", "npcId": 30001, "itemId": 740, "count": 1, "description": "Deliver parts to Lector" },
+            { "kind": "DELIVER", "npcId": 30001, "itemId": 741, "count": 1, "description": "Deliver parts to Lector" }
+          ]
+        }
+      ],
+      "rewards": [{ "xp": 25747, "itemId": 49043, "itemCount": 1 }]
+    },
+    {
+      "questId": 104,
+      "name": "Spirit of Mirrors",
+      "minLevel": 10,
+      "stubGiverNpcId": 30002,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "KILL", "mobNpcId": 20121, "count": 1, "description": "Kill Young Red Keltir (mirror 1)" },
+            { "kind": "KILL", "mobNpcId": 20432, "count": 1, "description": "Kill Young Red Keltir (mirror 2)" },
+            { "kind": "KILL", "mobNpcId": 20442, "count": 1, "description": "Kill Young Red Keltir (mirror 3)" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30002, "count": 1, "description": "Return to Jackson" }
+          ]
+        }
+      ],
+      "rewards": [{ "xp": 17599 }]
+    },
+    {
+      "questId": 105,
+      "name": "Skirmish With Orcs",
+      "minLevel": 10,
+      "stubGiverNpcId": 30026,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "KILL_COUNT", "mobNpcId": 20130, "count": 10, "description": "Kill 10 Orc Soldiers" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30026, "count": 1, "description": "Report to Bitz" }
+          ]
+        }
+      ],
+      "rewards": [{ "xp": 27772, "itemId": 728, "itemCount": 1 }]
+    },
+    {
+      "questId": 151,
+      "name": "Cure For Fever",
+      "minLevel": 15,
+      "stubGiverNpcId": 30004,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "COLLECT", "mobNpcId": 20103, "itemId": 703, "count": 10, "description": "Collect 10 Poison Sacs" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30004, "itemId": 703, "count": 10, "description": "Deliver to Katerina" }
+          ]
+        }
+      ],
+      "rewards": [{ "itemId": 1060, "itemCount": 1 }]
+    },
+    {
+      "questId": 152,
+      "name": "Shards of Golem",
+      "minLevel": 10,
+      "stubGiverNpcId": 30027,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "COLLECT", "mobNpcId": 20016, "itemId": 1012, "count": 1, "description": "Collect Golem Shard" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30027, "itemId": 1012, "count": 1, "description": "Deliver to Gwinter" }
+          ]
+        }
+      ],
+      "rewards": [{ "itemId": 1100, "itemCount": 1 }]
+    },
+    {
+      "questId": 153,
+      "name": "Deliver Goods",
+      "minLevel": 2,
+      "stubGiverNpcId": 30002,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30002, "count": 1, "description": "Talk to Jackson" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30001, "itemId": 6353, "count": 1, "description": "Deliver to Lector" },
+            { "kind": "DELIVER", "npcId": 30003, "itemId": 6354, "count": 1, "description": "Deliver to Silvia" },
+            { "kind": "DELIVER", "npcId": 30026, "itemId": 6355, "count": 1, "description": "Deliver to Bitz" }
+          ]
+        }
+      ],
+      "rewards": [{ "itemId": 1060, "itemCount": 1 }]
+    },
+    {
+      "questId": 154,
+      "name": "Sacrifice to the Sea",
+      "minLevel": 2,
+      "stubGiverNpcId": 30003,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "COLLECT", "mobNpcId": 20120, "itemId": 1013, "count": 3, "description": "Collect 3 sacred items" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30003, "itemId": 1013, "count": 3, "description": "Deliver to Silvia" }
+          ]
+        }
+      ],
+      "rewards": [{ "adena": 500 }]
+    },
+    {
+      "questId": 155,
+      "name": "Find Sir Windawood",
+      "minLevel": 3,
+      "stubGiverNpcId": 30005,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30005, "count": 1, "description": "Talk to Wilford" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30005, "count": 1, "description": "Find Sir Windawood" }
+          ]
+        }
+      ],
+      "rewards": [{ "itemId": 49036, "itemCount": 1 }]
+    },
+    {
+      "questId": 156,
+      "name": "Millennium Love",
+      "minLevel": 15,
+      "stubGiverNpcId": 30006,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30006, "count": 1, "description": "Talk to Roxxy" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30006, "itemId": 1014, "count": 1, "description": "Deliver letter to Roxxy" }
+          ]
+        }
+      ],
+      "rewards": [{ "xp": 3000 }]
+    },
+    {
+      "questId": 157,
+      "name": "Recover Smuggled Goods",
+      "minLevel": 5,
+      "stubGiverNpcId": 30005,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "COLLECT", "mobNpcId": 20003, "itemId": 1015, "count": 4, "description": "Recover 4 stolen goods" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30005, "itemId": 1015, "count": 4, "description": "Return goods to Wilford" }
+          ]
+        }
+      ],
+      "rewards": [{ "itemId": 1060, "itemCount": 1 }]
+    },
+    {
+      "questId": 158,
+      "name": "Seed of Evil",
+      "minLevel": 21,
+      "stubGiverNpcId": 30033,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "KILL", "mobNpcId": 27016, "count": 1, "description": "Kill Nerkas" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30033, "count": 1, "description": "Report to Baulro" }
+          ]
+        }
+      ],
+      "rewards": [{ "itemId": 49037, "itemCount": 1 }]
+    },
+    {
+      "questId": 159,
+      "name": "Protect the Water Source",
+      "minLevel": 12,
+      "stubGiverNpcId": 30001,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "KILL_COUNT", "mobNpcId": 20007, "count": 5, "description": "Kill 5 monsters" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30001, "count": 1, "description": "Report to Lector" }
+          ]
+        }
+      ],
+      "rewards": [{ "xp": 15000 }]
+    },
+    {
+      "questId": 160,
+      "name": "Nerupa's Request",
+      "minLevel": 3,
+      "stubGiverNpcId": 30001,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30001, "count": 1, "description": "Talk to Lector" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30001, "count": 1, "description": "Complete request" }
+          ]
+        }
+      ],
+      "rewards": [{ "itemId": 1060, "itemCount": 1 }]
+    },
+    {
+      "questId": 106,
+      "name": "Forgotten Truth",
+      "minLevel": 10,
+      "stubGiverNpcId": 30033,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "KILL", "mobNpcId": 20014, "count": 1, "description": "Kill target mob" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30033, "count": 1, "description": "Report to Baulro" }
+          ]
+        }
+      ],
+      "rewards": [{ "xp": 18000 }]
+    },
+    {
+      "questId": 107,
+      "name": "Merciless Punishment",
+      "minLevel": 10,
+      "stubGiverNpcId": 30026,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "KILL_COUNT", "mobNpcId": 20006, "count": 10, "description": "Kill 10 monsters" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "TALK", "npcId": 30026, "count": 1, "description": "Report to Bitz" }
+          ]
+        }
+      ],
+      "rewards": [{ "xp": 20000 }]
+    },
+    {
+      "questId": 108,
+      "name": "Jumble Tumble Diamond Fuss",
+      "minLevel": 10,
+      "stubGiverNpcId": 30002,
+      "steps": [
+        {
+          "objectives": [
+            { "kind": "COLLECT", "mobNpcId": 20544, "itemId": 1016, "count": 5, "description": "Collect gems" }
+          ]
+        },
+        {
+          "objectives": [
+            { "kind": "DELIVER", "npcId": 30002, "itemId": 1016, "count": 5, "description": "Deliver to Jackson" }
+          ]
+        }
+      ],
+      "rewards": [{ "adena": 1000 }]
+    }
+  ],
+  "questItems": [
+    { "itemId": 739, "name": "Broken Sword Handle", "type": "etc", "isQuestItem": true },
+    { "itemId": 740, "name": "Broken Blade Bottom", "type": "etc", "isQuestItem": true },
+    { "itemId": 741, "name": "Broken Blade Top", "type": "etc", "isQuestItem": true },
+    { "itemId": 703, "name": "Poison Sac", "type": "etc", "isQuestItem": true },
+    { "itemId": 1012, "name": "Golem Shard", "type": "etc", "isQuestItem": true },
+    { "itemId": 1013, "name": "Sacred Item", "type": "etc", "isQuestItem": true },
+    { "itemId": 1014, "name": "Love Letter", "type": "etc", "isQuestItem": true },
+    { "itemId": 1015, "name": "Stolen Goods", "type": "etc", "isQuestItem": true },
+    { "itemId": 1016, "name": "Gem Fragment", "type": "etc", "isQuestItem": true },
+    { "itemId": 6353, "name": "Delivery Crate A", "type": "etc", "isQuestItem": true },
+    { "itemId": 6354, "name": "Delivery Crate B", "type": "etc", "isQuestItem": true },
+    { "itemId": 6355, "name": "Delivery Crate C", "type": "etc", "isQuestItem": true },
+    { "itemId": 49043, "name": "Sword of Solidarity", "type": "weapon", "isQuestItem": false },
+    { "itemId": 728, "name": "Red Potion", "type": "consumable", "isQuestItem": false },
+    { "itemId": 1100, "name": "Wooden Breastplate", "type": "etc", "isQuestItem": false },
+    { "itemId": 49036, "name": "Haste Potion", "type": "consumable", "isQuestItem": false },
+    { "itemId": 49037, "name": "Clay Tablet", "type": "etc", "isQuestItem": false }
+  ]
+}
