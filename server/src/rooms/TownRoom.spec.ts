@@ -861,6 +861,129 @@ describe('TownRoom combat', () => {
     }
   });
 
+  it('Stone Golem sets ATTACK on hit resolution (BEST22-43)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const golem = findMobByNpcId(room, 20016)!;
+      placePlayerAndMobForCombat(room, client.sessionId, golem);
+      const mobState = room.state.mobs.get(golem.id)!;
+      const runtime = room['mobRuntime'].get(golem.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+      tick(room);
+      expect(mobState.action).toBe(EntityAction.Attack);
+      expect(mobState.actionSeq).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('emits Orc Warrior DIE before removal (BEST22-44)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const warrior = findMobByNpcId(room, 20093)!;
+      placePlayerAndMobForCombat(room, client.sessionId, warrior);
+      const mobId = warrior.id;
+      let dieObservedBeforeDelete = false;
+      const mobMap = room.state.mobs;
+      const originalDelete = mobMap.delete.bind(mobMap);
+      vi.spyOn(mobMap, 'delete').mockImplementation((id: string) => {
+        if (id === mobId) {
+          const state = mobMap.get(id);
+          dieObservedBeforeDelete =
+            state?.action === EntityAction.Die && (state?.actionSeq ?? 0) > 0;
+        }
+        return originalDelete(id);
+      });
+      await deliver(room, client, [['setTarget', { mobId }]]);
+      while (room.state.mobs.has(mobId)) {
+        room['playerCombat'].get(client.sessionId)!.nextAttackAtMs = 0;
+        await deliverAndTick(room, client, [['attack', {}]]);
+      }
+      expect(dieObservedBeforeDelete).toBe(true);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Orc Archer damages player at 6 m without closing to melee (BEST22-47)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const archer = findMobByNpcId(room, 20006)!;
+      relocateMob(room, archer.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 6, OUT_OF_PEACE.z);
+      const runtime = room['mobRuntime'].get(archer.id)!;
+      runtime.targetSessionId = client.sessionId;
+      const player = room.state.players.get(client.sessionId)!;
+      const hpBefore = player.hp;
+
+      for (let i = 0; i < 60; i++) {
+        runtime.nextAttackAtMs = 0;
+        tick(room);
+        if (player.hp < hpBefore) break;
+      }
+
+      expect(player.hp).toBeLessThan(hpBefore);
+      const endDist = Math.hypot(player.x - runtime.x, player.z - runtime.z);
+      expect(endDist).toBeGreaterThan(4);
+      expect(endDist).toBeLessThan(8.5);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('passive Werewolf acquires target when damaged (BEST22-48)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const wolf = findMobByNpcId(room, 20132)!;
+      placePlayerAndMobForCombat(room, client.sessionId, wolf);
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: wolf.id }],
+        ['attack', {}],
+      ]);
+      tick(room);
+      expect(room['mobRuntime'].get(wolf.id)!.targetSessionId).toBe(client.sessionId);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Werewolf pack social assist within 30 m (BEST22-49)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const wolves = [...room.state.mobs.values()].filter((m) => m.npcId === 20132);
+      expect(wolves.length).toBeGreaterThanOrEqual(2);
+      const wolfA = wolves[0]!;
+      const wolfB = wolves[1]!;
+      relocateMob(room, wolfA.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      relocateMob(room, wolfB.id, OUT_OF_PEACE.x + 10, OUT_OF_PEACE.z);
+      placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: wolfA.id }],
+        ['attack', {}],
+      ]);
+      tick(room);
+      expect(room['mobRuntime'].get(wolfB.id)!.targetSessionId).toBe(client.sessionId);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('CHAR19-18: Human Fighter naked melee deals 8 damage to Gremlin', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
