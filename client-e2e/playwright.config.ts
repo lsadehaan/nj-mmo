@@ -20,6 +20,9 @@ export default defineConfig({
       url: 'http://localhost:2567/health',
       reuseExistingServer: !process.env['CI'],
       timeout: 120_000,
+      env: {
+        NJ_E2E: '1',
+      },
     },
     {
       // Serve a prebuilt client (static) rather than the dev server: the dev
@@ -30,6 +33,9 @@ export default defineConfig({
       url: 'http://localhost:4200',
       reuseExistingServer: !process.env['CI'],
       timeout: 120_000,
+      env: {
+        VITE_NJ_E2E: 'true',
+      },
     },
   ],
   projects: [

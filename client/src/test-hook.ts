@@ -122,6 +122,9 @@ declare global {
     __useItem__?: (itemId: number) => void;
     __openInventory__?: () => void;
     __consentLeave__?: () => Promise<void>;
+    __e2eTeleport__?: (x: number, z: number) => void;
+    __e2eDamage__?: (amount: number) => void;
+    __e2eFreezeMob__?: (mobId: string) => void;
   }
 }
 

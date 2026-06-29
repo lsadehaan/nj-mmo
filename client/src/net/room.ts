@@ -350,6 +350,19 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   window.__useItem__ = (itemId) => {
     room.send('useItem', { itemId });
   };
+
+  if (import.meta.env.VITE_NJ_E2E === 'true') {
+    window.__e2eTeleport__ = (x, z) => {
+      room.send('e2eTeleport', { x, z });
+    };
+    window.__e2eDamage__ = (amount) => {
+      room.send('e2eDamage', { amount });
+    };
+    window.__e2eFreezeMob__ = (mobId) => {
+      room.send('e2eFreezeMob', { mobId });
+    };
+  }
+
   window.__openInventory__ = () => {
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
     if (local) {
