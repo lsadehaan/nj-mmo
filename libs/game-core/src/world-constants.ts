@@ -1,10 +1,11 @@
-import { snapEntityY, TERRAIN_SEED } from './terrain';
+import { snapEntityY, TERRAIN_SEED, TERRAIN_CONFIG } from './terrain';
 
-export { TERRAIN_SEED };
+export { TERRAIN_SEED, TERRAIN_CONFIG };
 
-/** Axis-aligned world bounds (terrain size 200, 5-unit margin). */
-export const WORLD_MIN = -95;
-export const WORLD_MAX = 95;
+/** Expanded TI world — 640 m terrain with 5 m margin. */
+export const TERRAIN_SIZE = 640;
+export const WORLD_MIN = -315;
+export const WORLD_MAX = 315;
 
 export const SPAWN_X = 0;
 export const SPAWN_Z = 0;

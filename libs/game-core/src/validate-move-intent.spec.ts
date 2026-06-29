@@ -28,4 +28,9 @@ describe('isValidMoveIntent', () => {
     expect(isValidMoveIntent(0, WORLD_MIN - 1)).toBe(false);
     expect(isValidMoveIntent(0, WORLD_MAX + 1)).toBe(false);
   });
+
+  it('accepts in-bounds intent at edge minus margin (TIW23-06)', () => {
+    expect(isValidMoveIntent(300, 0)).toBe(true);
+    expect(isValidMoveIntent(320, 0)).toBe(false);
+  });
 });
