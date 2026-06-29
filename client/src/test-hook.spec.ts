@@ -72,6 +72,7 @@ describe('test-hook multiplayer state', () => {
         hp: 41,
         maxHp: 41,
         action: 'idle' as const,
+        actionSeq: 0,
       },
     ];
     setMobs(input);
@@ -94,6 +95,7 @@ describe('test-hook multiplayer state', () => {
         hp: 41,
         maxHp: 41,
         action: 'attack',
+        actionSeq: 1,
       },
     ]);
     expect(window.__GAME_STATE__.mobs[0].action).toBe('attack');

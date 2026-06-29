@@ -56,9 +56,12 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
   test.setTimeout(120_000);
   await page.addInitScript(() => {
     localStorage.removeItem('nj.characterId');
-    (window as unknown as { __mobClipFlags?: { attack: boolean; die: boolean } }).__mobClipFlags = {
+    (window as unknown as {
+      __mobClipFlags?: { attack: boolean; die: boolean; lastActionSeq: number };
+    }).__mobClipFlags = {
       attack: false,
       die: false,
+      lastActionSeq: 0,
     };
   });
   await gotoGame(page, testInfo);
@@ -93,12 +96,20 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
     .poll(
       async () =>
         page.evaluate((mobId) => {
-          const flags = (window as unknown as { __mobClipFlags?: { attack: boolean; die: boolean } })
-            .__mobClipFlags!;
+          const flags = (window as unknown as {
+            __mobClipFlags?: { attack: boolean; die: boolean; lastActionSeq: number };
+          }).__mobClipFlags!;
           const state = window.__GAME_STATE__;
           const mob = state.mobs.find((m) => m.id === mobId);
-          if (mob?.action === 'attack') flags.attack = true;
-          if (mob?.action === 'die') flags.die = true;
+          if (mob) {
+            if (mob.action === 'attack') flags.attack = true;
+            if (mob.action === 'die') flags.die = true;
+            if (mob.actionSeq > flags.lastActionSeq) {
+              flags.lastActionSeq = mob.actionSeq;
+              if (mob.action === 'attack') flags.attack = true;
+              if (mob.action === 'die') flags.die = true;
+            }
+          }
 
           if (!mob) {
             return flags.attack && flags.die;

@@ -52,6 +52,7 @@ export interface GameStateMob {
   hp: number;
   maxHp: number;
   action: AnimationClip;
+  actionSeq: number;
 }
 
 export interface OtherPlayer {

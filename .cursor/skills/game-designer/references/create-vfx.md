@@ -1,6 +1,6 @@
 # Recipe: Create a VFX (skill / hit / death / level-up / target ring)
 
-VFX are **transient** visuals — a Power Strike flash, a melee impact, a death dissolve, a level-up burst, a target-selection ring, a loot marker. They have no skeleton and no mixer. The rule that makes them correct: **a VFX is the cosmetic body of an authoritative event.** The decision that the event happened is *server truth* (a render-only `action`/`actionSeq`, an HP change, a death, a level change) — never a client-side guess from timing or proximity. Read `../SKILL.md` (asset taxonomy + golden rules) first.
+VFX are **transient** visuals — a Power Strike flash, a melee impact, a death dissolve, a level-up burst, a target-selection ring, a loot marker. They have no skeleton and no mixer. The rule that makes them correct: **a VFX is the cosmetic body of an authoritative event.** The decision that the event happened is _server truth_ (a render-only `action`/`actionSeq`, an HP change, a death, a level change) — never a client-side guess from timing or proximity. Read `../SKILL.md` (asset taxonomy + golden rules) first.
 
 The current placeholder is `client/src/scene/skill-flash.ts` (a sphere + plane); `skill-flash.spec.ts` shows the testing pattern (assert a flash mesh is added on trigger). Use it as the shape to follow.
 
@@ -10,14 +10,14 @@ The current placeholder is `client/src/scene/skill-flash.ts` (a sphere + plane);
 
 Map the effect to the exact server-owned signal it visualizes. Never fire from a client guess.
 
-| Effect | Authoritative trigger |
-| ------ | --------------------- |
-| Skill effect (Power Strike) | `action === Cast` (the render-only signal, AD-015) |
-| Melee hit / impact | server-applied damage / target HP decrease in room state |
-| Death | target `hp` reaches 0 (server truth) |
-| Level-up burst | player `level` increases in state |
-| Target selection ring | the client's selected target id (cosmetic UI selection — the one case that is allowed to be client-local) |
-| Loot drop marker | a server-broadcast drop/loot entity (only if/when one exists) |
+| Effect                      | Authoritative trigger                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Skill effect (Power Strike) | `action === Cast` (the render-only signal, AD-015)                                                        |
+| Melee hit / impact          | server-applied damage / target HP decrease in room state                                                  |
+| Death                       | target `hp` reaches 0 (server truth)                                                                      |
+| Level-up burst              | player `level` increases in state                                                                         |
+| Target selection ring       | the client's selected target id (cosmetic UI selection — the one case that is allowed to be client-local) |
+| Loot drop marker            | a server-broadcast drop/loot entity (only if/when one exists)                                             |
 
 **Done when:** you can name the state field or event that fires the effect, and it is server-owned (except the purely-cosmetic selection ring).
 
@@ -75,4 +75,4 @@ Capture a frame **mid-effect** (in-game screenshot, or trigger it in the lab) an
 - ❌ Never disposing geometry/materials → a memory leak that grows every fight.
 - ❌ Allocating a fresh effect for high-frequency events instead of pooling.
 - ❌ Blocking or gating gameplay on a VFX finishing.
-- ❌ Treating a pixel screenshot as the *only* test — pair the eye check with the spawn/cleanup unit test.
+- ❌ Treating a pixel screenshot as the _only_ test — pair the eye check with the spawn/cleanup unit test.

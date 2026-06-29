@@ -147,6 +147,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         hp: state.hp,
         maxHp: state.maxHp,
         action: hook?.action ?? 'idle',
+        actionSeq: state.actionSeq ?? hook?.actionSeq ?? 0,
       };
     });
     for (const [id, hook] of hookById) {

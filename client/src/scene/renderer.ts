@@ -384,6 +384,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     hp: number;
     maxHp: number;
     action: AnimationClip;
+    actionSeq: number;
   }> => {
     return [...mobSnapshots.entries()].map(([id, snapshot]) => ({
       id,
@@ -394,6 +395,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
       hp: snapshot.hp,
       maxHp: snapshot.maxHp,
       action: hookClipForSnapshot(id, snapshot),
+      actionSeq: snapshot.actionSeq ?? 0,
     }));
   };
 
@@ -467,6 +469,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
             }
             return (clipFromServerAction(snapshot) ?? tickClip ?? 'idle') as AnimationClip;
           })(),
+          actionSeq: snapshot.actionSeq ?? 0,
         }))
       );
     }
