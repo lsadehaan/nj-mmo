@@ -19,6 +19,7 @@ export * from './combat/crit-evasion';
 export * from './effects/active-effects';
 export * from './combat/attack-timing';
 export * from './combat/combat-range';
+export * from './combat/ranged-mob-ai';
 export * from './experience';
 export * from './level-up-reward';
 export * from './player-death';
