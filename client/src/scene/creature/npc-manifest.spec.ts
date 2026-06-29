@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   getNpcEntry,
   KATERINA_CLIP_MAP,
+  KAYKIT_NPC_CLIP_MAP,
   ROXXY_CLIP_MAP,
+  WILFORD_CLIP_MAP,
+  TI_NPC_MANIFEST_IDS,
 } from './npc-manifest';
 import { KAYKIT_CLIP_MAP } from './mesh-character';
 
@@ -27,19 +30,43 @@ describe('npc-manifest', () => {
     expect(entry?.feetOffsetY).toBeGreaterThanOrEqual(0);
   });
 
-  it('returns null for unknown npcId', () => {
-    expect(getNpcEntry(99999)).toBeNull();
+  it('returns entries for five new TI NPC ids (TINPC-15)', () => {
+    for (const npcId of [30001, 30002, 30003, 30005, 30026]) {
+      const entry = getNpcEntry(npcId);
+      expect(entry).not.toBeNull();
+      expect(entry?.model).toMatch(/^\/models\/npcs\/.+\.glb$/);
+      expect(entry?.displayName.length).toBeGreaterThan(0);
+      expect(entry?.scale).toBeGreaterThan(0);
+    }
   });
 
-  it('maps vocabulary keys to real KayKit and Quaternius track names', () => {
+  it('uses unique model paths for all seven TI NPCs (TINPC-17)', () => {
+    const paths = TI_NPC_MANIFEST_IDS.map((id) => getNpcEntry(id)?.model);
+    expect(new Set(paths).size).toBe(7);
+  });
+
+  it('maps vocabulary keys to real track names for all manifest clip maps (TINPC-18)', () => {
+    const maps = [
+      KATERINA_CLIP_MAP,
+      KAYKIT_NPC_CLIP_MAP,
+      ROXXY_CLIP_MAP,
+      WILFORD_CLIP_MAP,
+    ];
+    for (const map of maps) {
+      expect(Object.keys(map).sort()).toEqual(
+        ['attack', 'cast', 'die', 'idle', 'move'].sort()
+      );
+      for (const track of Object.values(map)) {
+        expect(track.length).toBeGreaterThan(0);
+      }
+    }
     expect(KATERINA_CLIP_MAP.idle).toBe(KAYKIT_CLIP_MAP.idle);
     expect(KATERINA_CLIP_MAP.cast).toBe('Interact');
     expect(ROXXY_CLIP_MAP.idle).toBe('CharacterArmature|Idle');
     expect(ROXXY_CLIP_MAP.cast).toBe('CharacterArmature|Interact');
-    for (const map of [KATERINA_CLIP_MAP, ROXXY_CLIP_MAP]) {
-      expect(Object.keys(map).sort()).toEqual(
-        ['attack', 'cast', 'die', 'idle', 'move'].sort()
-      );
-    }
+  });
+
+  it('returns null for unknown npcId', () => {
+    expect(getNpcEntry(99999)).toBeNull();
   });
 });
