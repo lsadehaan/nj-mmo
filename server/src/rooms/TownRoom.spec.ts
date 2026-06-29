@@ -234,6 +234,12 @@ async function deliverAndTick(
   tick(room);
 }
 
+async function leaveRoom(room: TestRoom, client: TestClient): Promise<void> {
+  await client.leave();
+  await room.disconnect();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
 function expectedWindStrikeDamage(room: TestRoom, classId = 10): number {
   const template = room['classTemplatesById'].get(classId)!;
   const mAtk = calcClassBaseMAtk(
@@ -270,7 +276,7 @@ describe('TownRoom character creation join', () => {
       expect(player.maxHp).toBe(104);
       expect(player.maxMp).toBe(40);
       expect(player.int).toBe(37);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -310,7 +316,7 @@ describe('TownRoom character creation join', () => {
       const rejoined = room2.state.players.get(client2.sessionId)!;
       expect(rejoined.classId).toBe(10);
       expect(rejoined.sex).toBe(1);
-      await client2.leave();
+      await leaveRoom(room2, client2);
     } finally {
       cleanup();
     }
@@ -336,8 +342,8 @@ describe('TownRoom character creation join', () => {
         remoteOnB = clientB.state.players.get(clientA.sessionId);
       }
       expect(remoteOnB?.classId).toBe(31);
-      await clientA.leave();
-      await clientB.leave();
+      await leaveRoom(room, clientA);
+      await leaveRoom(room, clientB);
     } finally {
       cleanup();
     }
@@ -363,7 +369,7 @@ describe('TownRoom', () => {
     expect(player!.action).toBe(0);
     expect(player!.actionSeq).toBe(0);
 
-    await client.leave();
+    await leaveRoom(room, client);
   });
 
   it('does not persist render-only action/actionSeq across save/load', async () => {
@@ -389,7 +395,7 @@ describe('TownRoom', () => {
       expect(reloaded.action).toBe(0);
       expect(reloaded.actionSeq).toBe(0);
 
-      await client2.leave();
+      await leaveRoom(room2, client2);
       await room2.disconnect();
     } finally {
       cleanup();
@@ -432,7 +438,7 @@ describe('TownRoom', () => {
     expect(player.x).toBeGreaterThan(0);
     expect(Math.abs(player.z)).toBeLessThan(1);
 
-    await client.leave();
+    await leaveRoom(room, client);
   });
 
   it('moves the player when a valid move intent is received', async () => {
@@ -449,7 +455,7 @@ describe('TownRoom', () => {
     expect(player.x).toBeGreaterThan(0);
     expect(Math.abs(player.z)).toBeLessThan(1);
 
-    await client.leave();
+    await leaveRoom(room, client);
   });
 
   it('ignores invalid move intents without changing position', async () => {
@@ -471,7 +477,7 @@ describe('TownRoom', () => {
     expect(player.x).toBe(startX);
     expect(player.z).toBe(startZ);
 
-    await client.leave();
+    await leaveRoom(room, client);
   });
 
   it('broadcasts player position changes to other clients', async () => {
@@ -496,8 +502,8 @@ describe('TownRoom', () => {
     expect(remoteOnB!.x).toBeGreaterThan(0);
     expect(Math.abs(remoteOnB!.z)).toBeLessThan(1);
 
-    await clientA.leave();
-    await clientB.leave();
+    await leaveRoom(room, clientA);
+    await leaveRoom(room, clientB);
   });
 
   it('creates a new character row when joining without characterId', async () => {
@@ -517,7 +523,7 @@ describe('TownRoom', () => {
         y: SPAWN_Y,
         z: SPAWN_Z,
       });
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -542,7 +548,7 @@ describe('TownRoom', () => {
       expect(player.z).toBe(-10);
       expect(player.hp).toBe(100);
       expect(player.level).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -730,7 +736,7 @@ describe('TownRoom combat', () => {
       expect(player.action).toBe(1);
       expect(player.actionSeq).toBe(2);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -761,7 +767,7 @@ describe('TownRoom combat', () => {
       expect(mobState.action).toBe(EntityAction.Attack);
       expect(mobState.actionSeq).toBe(2);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -792,7 +798,7 @@ describe('TownRoom combat', () => {
       expect(mobState.action).toBe(EntityAction.Attack);
       expect(mobState.actionSeq).toBe(2);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -832,7 +838,7 @@ describe('TownRoom combat', () => {
       }
 
       expect(dieObservedBeforeDelete).toBe(true);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -855,7 +861,7 @@ describe('TownRoom combat', () => {
       const gremlinAfter = room.state.mobs.get(gremlin.id)!;
       expect(hpBefore - gremlinAfter.hp).toBeCloseTo(8, 3);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -876,7 +882,7 @@ describe('TownRoom combat', () => {
       ]);
 
       expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(3, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -898,7 +904,7 @@ describe('TownRoom combat', () => {
       ]);
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -965,7 +971,7 @@ describe('TownRoom combat', () => {
       expect(respawned.actionSeq).toBe(0);
       expect(runtime.has(mobId)).toBe(true);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -982,7 +988,7 @@ describe('TownRoom combat', () => {
 
       expect(player.xp).toBe(44);
       expect(player.level).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1000,7 +1006,7 @@ describe('TownRoom combat', () => {
 
       expect(player.xp).toBe(88);
       expect(player.level).toBe(2);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1018,7 +1024,7 @@ describe('TownRoom combat', () => {
       const row = loadCharacter(getDb(dbPath), characterId);
       expect(row!.xp).toBe(44);
       expect(row!.level).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1049,7 +1055,7 @@ describe('TownRoom combat', () => {
       expect(room.state.mobs.has(gremlinId)).toBe(true);
       expect(room.state.mobs.get(gremlinId)!.hp).toBeCloseTo(41.145, 3);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1067,7 +1073,7 @@ describe('TownRoom combat', () => {
 
       const runtime = room['mobRuntime'].get(goblin.id)!;
       expect(runtime.targetSessionId).toBe(client.sessionId);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1098,7 +1104,7 @@ describe('TownRoom combat', () => {
       tick(room);
       runtime = room['mobRuntime'].get(gremlin.id)!;
       expect(runtime.targetSessionId).toBe(client.sessionId);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1130,7 +1136,7 @@ describe('TownRoom combat', () => {
       expect(player.x).toBe(SPAWN_X);
       expect(player.z).toBe(SPAWN_Z);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1179,7 +1185,7 @@ describe('TownRoom Power Strike', () => {
       expect(player.actionSeq).toBe(1);
       expect(player.mp).toBe(21);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1209,7 +1215,7 @@ describe('TownRoom Power Strike', () => {
 
       expect(player.mp).toBe(21);
       expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(71, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1235,7 +1241,7 @@ describe('TownRoom Power Strike', () => {
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
       expect(player.mp).toBe(mpBefore);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1259,7 +1265,7 @@ describe('TownRoom Power Strike', () => {
 
       expect(player.mp).toBe(21);
       expect(room.state.mobs.has(gremlin.id)).toBe(false);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1284,7 +1290,7 @@ describe('TownRoom Power Strike', () => {
 
       expect(player.mp).toBe(8);
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1308,7 +1314,7 @@ describe('TownRoom Power Strike', () => {
       await castPowerStrike(client, room, gremlin.id);
 
       expect(player.powerStrikeCooldownEndMs).toBe(8000);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1347,7 +1353,7 @@ describe('TownRoom Power Strike', () => {
       expect(player.mp).toBe(12);
       const gremlinAfter = room.state.mobs.get(gremlin.id)!;
       expect(hpAfterFirst - gremlinAfter.hp).toBeCloseTo(60, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1393,7 +1399,7 @@ describe('TownRoom Power Strike', () => {
       ]);
       expect(player.mp).toBe(mpBefore);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1413,7 +1419,7 @@ describe('TownRoom Phase 20 skills', () => {
       await learnSkillAtBitz(room, client, client.sessionId, 3);
       expect([...player.knownSkillIds]).toEqual([3]);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1483,7 +1489,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(player.mp).toBe(mpBefore);
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1501,7 +1507,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(loadCharacterSkills(getDb(dbPath), characterId)).toEqual({ 3: 1 });
       expect([...room.state.players.get(client.sessionId)!.knownSkillIds]).toEqual([3]);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1519,7 +1525,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(loadCharacterSkills(getDb(dbPath), characterId)[3]).toBeUndefined();
       expect([...room.state.players.get(client.sessionId)!.knownSkillIds]).not.toContain(3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1539,7 +1545,7 @@ describe('TownRoom Phase 20 skills', () => {
       await deliver(room, client, [['learnSkill', { skillId: 3 }]]);
 
       expect(loadCharacterSkills(getDb(dbPath), characterId)[3]).toBeUndefined();
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1557,7 +1563,7 @@ describe('TownRoom Phase 20 skills', () => {
       await learnSkillAtBitz(room, client, client.sessionId, 3);
 
       expect(loadCharacterSkills(getDb(dbPath), characterId)).toEqual({ 3: 1 });
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1575,7 +1581,7 @@ describe('TownRoom Phase 20 skills', () => {
       const known = [...room.state.players.get(client.sessionId)!.knownSkillIds];
       expect(known).toContain(1068);
       expect(known).toContain(1177);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1610,7 +1616,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(player.mp).toBeLessThan(mpBefore);
       expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeGreaterThan(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1653,7 +1659,7 @@ describe('TownRoom Phase 20 skills', () => {
       expect(player.action).toBe(EntityAction.Cast);
       expect(player.mp).toBe(mpBefore - 7);
       expect(500 - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(expectedDamage, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1691,7 +1697,7 @@ describe('TownRoom Phase 20 skills', () => {
       expect(player.castingSkillId).toBe(0);
       expect(gremlinRuntime.hp).toBeCloseTo(hpBefore, 3);
       expect(player.mp).toBe(mpBefore);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1728,7 +1734,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(142, 3);
       expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(2);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1746,7 +1752,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(combat.armedShot).toBeNull();
       expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1785,7 +1791,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(expectedDamage, 3);
       expect(getPlayerItemCount(room, client.sessionId, SPIRITSHOT_ITEM_ID)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1819,7 +1825,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(16, 3);
       expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1865,7 +1871,7 @@ describe('TownRoom Phase 20 skills', () => {
       expect(player.hp).toBe(hpBefore);
       expect(player.mp).toBe(mpAfterSkill);
       expect(player.powerStrikeCooldownEndMs).toBe(cooldownEnd);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1907,7 +1913,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       expect(player.adena).toBe(117);
       expect(getPlayerItemCount(room, client.sessionId, SHORT_SWORD)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1927,7 +1933,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       expect(player.adena).toBe(1000);
       expect(getPlayerItemCount(room, client.sessionId, SHORT_SWORD)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1947,7 +1953,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       expect(player.adena).toBe(897);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1967,7 +1973,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       expect(player.adena).toBe(1000);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -1988,7 +1994,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       expect(player.adena).toBe(50);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2008,7 +2014,7 @@ describe('TownRoom NPC shop and peace zone', () => {
         npcId: ROXXY,
         title: 'Tutorial',
       });
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2028,7 +2034,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       await deliver(room, client, [['interact', { npcId: ROXXY }]]);
 
       expect(received).toBe(false);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2055,7 +2061,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       expect(player.adena).toBe(948);
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2073,7 +2079,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       await deliver(room, client, [['npcAction', { npcId: ROXXY, action: 'heal' }]]);
 
       expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2114,7 +2120,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       ]);
 
       expect(getPlayerItemCount(room, client.sessionId, POTION)).toBe(3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2156,7 +2162,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       ]);
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2180,7 +2186,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
       expect(player.mp).toBe(HUMAN_FIGHTER_MAX_MP);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2211,7 +2217,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       tick(room);
 
       expect(player.hp).toBe(hpBefore);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       tickSpy.mockRestore();
       cleanup();
@@ -2244,7 +2250,7 @@ describe('TownRoom equip', () => {
       ]);
 
       expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(19, 3);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2261,7 +2267,7 @@ describe('TownRoom equip', () => {
       await deliver(room, client, [['equip', { itemId: HEALING_POTION }]]);
 
       expect(player.equippedWeaponItemId).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2277,7 +2283,7 @@ describe('TownRoom equip', () => {
       await deliver(room, client, [['equip', { itemId: SQUIRES_SWORD }]]);
 
       expect(player.equippedWeaponItemId).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2308,7 +2314,7 @@ describe('TownRoom equip', () => {
       expect(room2.state.players.get(client2.sessionId)!.equippedWeaponItemId).toBe(
         SQUIRES_SWORD
       );
-      await client2.leave();
+      await leaveRoom(room2, client2);
     } finally {
       cleanup();
     }
@@ -2329,7 +2335,7 @@ describe('TownRoom equip', () => {
       expect(loadCharacter(getDb(dbPath), characterId)!.equippedWeaponItemId).toBe(
         SQUIRES_SWORD
       );
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2360,7 +2366,7 @@ describe('TownRoom useItem', () => {
       expect(player.hp).toBe(74);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
       expect(player.healingPotionCooldownEndMs).toBe(12_000);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2378,7 +2384,7 @@ describe('TownRoom useItem', () => {
 
       expect(player.hp).toBe(50);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2398,7 +2404,7 @@ describe('TownRoom useItem', () => {
 
       expect(player.hp).toBe(hpBefore);
       expect(getPlayerItemCount(room, client.sessionId, SQUIRES_SWORD)).toBe(swordBefore);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2427,7 +2433,7 @@ describe('TownRoom useItem', () => {
       await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
       expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2447,7 +2453,7 @@ describe('TownRoom useItem', () => {
 
       expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2474,7 +2480,7 @@ describe('TownRoom useItem', () => {
       const player2 = room2.state.players.get(client2.sessionId)!;
       expect(player2.hp).toBe(74);
       expect(getPlayerItemCount(room2, client2.sessionId, HEALING_POTION)).toBe(0);
-      await client2.leave();
+      await leaveRoom(room2, client2);
     } finally {
       cleanup();
     }
@@ -2495,7 +2501,7 @@ describe('TownRoom useItem', () => {
 
       await deliver(room, client, [['npcAction', { npcId: ROXXY, action: 'heal' }]]);
       expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2515,7 +2521,7 @@ describe('TownRoom useItem', () => {
 
       expect(player.adena).toBe(897);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2532,7 +2538,7 @@ describe('TownRoom useItem', () => {
       await deliver(room, client, [['equip', { itemId: HEALING_POTION }]]);
 
       expect(player.equippedWeaponItemId).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2551,7 +2557,7 @@ describe('TownRoom useItem', () => {
 
       expect(player.hp).toBe(0);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2596,7 +2602,7 @@ describe('TownRoom player death', () => {
       expect(player.x).toBe(SPAWN_X);
       expect(player.z).toBe(SPAWN_Z);
 
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2631,7 +2637,7 @@ describe('TownRoom player death', () => {
       expect(player.y).toBeCloseTo(SPAWN_Y, 5);
       expect(player.z).toBe(SPAWN_Z);
       expect(player.xp).toBe(44);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2662,7 +2668,7 @@ describe('TownRoom player death', () => {
 
       expect(combat.targetMobId).toBeNull();
       expect(runtime.targetSessionId).toBeNull();
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2733,7 +2739,7 @@ describe('TownRoom player death', () => {
       expect(rejoined.x).toBe(SPAWN_X);
       expect(rejoined.z).toBe(SPAWN_Z);
       expect(rejoined.hp).toBe(rejoined.maxHp);
-      await client2.leave();
+      await leaveRoom(room2, client2);
     } finally {
       cleanup();
     }
@@ -2771,7 +2777,7 @@ describe('TownRoom level-up reward', () => {
       expect(player.xp).toBe(44);
       expect(player.maxHp).toBe(HUMAN_FIGHTER_MAX_HP);
       expect(player.maxMp).toBe(HUMAN_FIGHTER_MAX_MP);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2793,7 +2799,7 @@ describe('TownRoom level-up reward', () => {
       expect(player.maxMp).toBeCloseTo(35.46, 2);
       expect(player.hp).toBeCloseTo(91.83, 2);
       expect(player.mp).toBeCloseTo(35.46, 2);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2818,7 +2824,7 @@ describe('TownRoom level-up reward', () => {
         hp: expect.closeTo(91.83, 2),
         mp: expect.closeTo(35.46, 2),
       });
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -2841,7 +2847,7 @@ describe('TownRoom level-up reward', () => {
       for (let i = 0; i < 20; i++) tick(room);
 
       expect(player.y).toBeCloseTo(snapEntityY(player.x, player.z), 8);
-      await client.leave();
+      await leaveRoom(room, client);
     });
 
     it('spawned mob y equals snapEntityY at spawn xz', async () => {
@@ -2882,7 +2888,7 @@ describe('TownRoom level-up reward', () => {
       }
 
       expect(isOutsideCentreBuilding(player.x, player.z)).toBe(true);
-      await client.leave();
+      await leaveRoom(room, client);
     });
 
     it('routes move intent around building via pathfinding', async () => {
@@ -2915,7 +2921,7 @@ describe('TownRoom level-up reward', () => {
         expect(isWalkable(positions[i - 1], positions[i])).toBe(true);
       }
       expect(Math.abs(player.z + 25)).toBeLessThanOrEqual(2);
-      await client.leave();
+      await leaveRoom(room, client);
     });
 
     it('mob adjacent to building does not enter on wander tick', async () => {
@@ -2951,11 +2957,19 @@ describe('TownRoom level-up reward', () => {
 const KATERINA_NPC = 30004;
 const LECTOR_NPC = 30001;
 const JACKSON_NPC = 30002;
+const SILVIA_NPC = 30003;
 const WILFORD_NPC = 30005;
 const GWINTER_NPC = 30027;
 const GREMLIN_NPC_ID = 20001;
+const GOLEM_NPC_ID = 20016;
+const MIRROR_KILL_1 = 20121;
+const MIRROR_KILL_2 = 20432;
+const MIRROR_KILL_3 = 20442;
+const SMUGGLER_MOB_ID = 20003;
 const ORC_SOLDIER_NPC_ID = 20130;
 const NERKAS_NPC_ID = 27016;
+const GOLEM_SHARD_ITEM_ID = 1012;
+const STOLEN_GOODS_ITEM_ID = 1015;
 
 function getQuestEntry(
   room: { state: TownState },
@@ -3025,7 +3039,7 @@ async function killMobNearPlayer(
   throw new Error(`failed to kill mob ${mobNpcId}`);
 }
 
-describe('TownRoom quests', () => {
+describe.sequential('TownRoom quests', () => {
   // QUEST21-23
   it('auto-starts tutorial quest 255 on join', async () => {
     const { dbPath, cleanup } = seededCombatDb();
@@ -3036,7 +3050,7 @@ describe('TownRoom quests', () => {
       expect(entry?.questId).toBe(255);
       expect(entry?.status).toBe('in_progress');
       expect(entry?.step).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3058,12 +3072,12 @@ describe('TownRoom quests', () => {
         { questId: 255, status: 'in_progress', step: 1, counters: [0] }
       );
       expect(loadCharacterQuests(getDb(dbPath), characterId)[0]?.step).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
       const room2 = await colyseus.createRoom('town', { dbPath });
       const client2 = await colyseus.connectTo(room2, { characterId });
       const entry = getQuestEntry(room2, client2.sessionId, 255);
       expect(entry?.step ?? loadCharacterQuests(getDb(dbPath), characterId)[0]?.step).toBe(1);
-      await client2.leave();
+      await leaveRoom(room2, client2);
     } finally {
       cleanup();
     }
@@ -3083,7 +3097,7 @@ describe('TownRoom quests', () => {
       const entry = getQuestEntry(room, client.sessionId, 105);
       expect(entry?.questId).toBe(105);
       expect(entry?.step).toBe(0);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3103,7 +3117,7 @@ describe('TownRoom quests', () => {
         GREMLIN_NPC_ID
       );
       expect(getQuestEntry(room, client.sessionId, 255)?.step).toBe(2);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3122,7 +3136,7 @@ describe('TownRoom quests', () => {
       ]);
       expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(200);
       expect(getQuestEntry(room, client.sessionId, 255)?.status).toBe('completed');
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3140,7 +3154,7 @@ describe('TownRoom quests', () => {
         ['questAction', { npcId: ROXXY_NPC, action: 'complete' }],
       ]);
       expect(getPlayerItemCount(room, client.sessionId, SPIRITSHOT_ITEM_ID)).toBe(100);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3166,7 +3180,7 @@ describe('TownRoom quests', () => {
       ]);
       const xpAfter = room.state.players.get(client.sessionId)!.xp;
       expect(xpAfter - xpBefore).toBe(27772);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3196,7 +3210,7 @@ describe('TownRoom quests', () => {
         ['questAction', { npcId: LECTOR_NPC, action: 'complete' }],
       ]);
       expect(getPlayerItemCount(room, client.sessionId, 49043)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3224,7 +3238,7 @@ describe('TownRoom quests', () => {
         ['questAction', { npcId: KATERINA_NPC, action: 'complete' }],
       ]);
       expect(getPlayerItemCount(room, client.sessionId, 1060)).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3250,7 +3264,7 @@ describe('TownRoom quests', () => {
         NERKAS_NPC_ID
       );
       expect(getQuestEntry(room, client.sessionId, 158)?.step).toBe(1);
-      await client.leave();
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }
@@ -3270,7 +3284,347 @@ describe('TownRoom quests', () => {
       ]);
       expect(getPlayerItemCount(room, client.sessionId, 1012)).toBe(1);
       expect(room.state.players.get(client.sessionId)!.adena).toBe(adenaBefore);
-      await client.leave();
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-15
+  it('level 9 at Bitz shows levelTooLow dialog without accept', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      setPlayerLevel(room, client.sessionId, 9);
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      client.send('interact', { npcId: BITZ_NPC_ID });
+      const dialog = await client.waitForMessage('questDialog');
+      expect(dialog).toMatchObject({
+        npcId: BITZ_NPC_ID,
+        questId: 105,
+        levelTooLow: true,
+        minLevel: 10,
+        buttons: [],
+      });
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-19
+  it('quest complete strips quest item 1012 from inventory', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      placePlayerAtNpc(room, client.sessionId, GWINTER_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: GWINTER_NPC, action: 'accept' }],
+      ]);
+      grantItem(room, client.sessionId, GOLEM_SHARD_ITEM_ID, 3);
+      advanceQuestStep(room, client.sessionId, 152, 1, [1]);
+      placePlayerAtNpc(room, client.sessionId, GWINTER_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: GWINTER_NPC, action: 'deliver' }],
+      ]);
+      advanceQuestStep(room, client.sessionId, 152, 2, []);
+      await deliver(room, client, [
+        ['questAction', { npcId: GWINTER_NPC, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, GOLEM_SHARD_ITEM_ID)).toBe(0);
+      expect(getQuestEntry(room, client.sessionId, 152)?.status).toBe('completed');
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-20
+  it('rejects complete without objectives done', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      const xpBefore = room.state.players.get(client.sessionId)!.xp;
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'accept' }],
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'complete' }],
+      ]);
+      expect(getQuestEntry(room, client.sessionId, 105)?.status).toBe('in_progress');
+      expect(getQuestEntry(room, client.sessionId, 105)?.step).toBe(0);
+      expect(room.state.players.get(client.sessionId)!.xp).toBe(xpBefore);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-22
+  it('rejects re-accept on completed quest 105', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'accept' }],
+      ]);
+      advanceQuestStep(room, client.sessionId, 105, 1, [0]);
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'talk' }],
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'complete' }],
+      ]);
+      expect(getQuestEntry(room, client.sessionId, 105)?.status).toBe('completed');
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'accept' }],
+      ]);
+      const entries = [...(room.state.players.get(client.sessionId)?.questEntries ?? [])].filter(
+        (e) => e.questId === 105
+      );
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.status).toBe('completed');
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-24 room
+  it('Roxxy step 0 dialog offers Continue tutorial', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
+      client.send('interact', { npcId: ROXXY_NPC });
+      const dialog = await client.waitForMessage('questDialog');
+      expect(dialog.buttons).toContainEqual({ action: 'talk', label: 'Continue tutorial' });
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-28
+  it('completed tutorial is not re-offered at Roxxy', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      advanceQuestStep(room, client.sessionId, 255, 3, []);
+      placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: ROXXY_NPC, action: 'complete' }],
+      ]);
+      expect(getQuestEntry(room, client.sessionId, 255)?.status).toBe('completed');
+
+      let questDialogReceived = false;
+      client.onMessage('questDialog', (payload: { questId?: number }) => {
+        if (payload.questId === 255) questDialogReceived = true;
+      });
+      await deliver(room, client, [['interact', { npcId: ROXXY_NPC }]]);
+      expect(questDialogReceived).toBe(false);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-30
+  it('quest 104 mirror kills advance per mob type', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      placePlayerAtNpc(room, client.sessionId, JACKSON_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: JACKSON_NPC, action: 'accept' }],
+      ]);
+      const ctx = () =>
+        (room as { createQuestContext: (s: string) => QuestRoomContext }).createQuestContext(
+          client.sessionId
+        );
+
+      onMobKilledForQuests(ctx(), MIRROR_KILL_1);
+      let entry = getQuestEntry(room, client.sessionId, 104)!;
+      expect(entry.step).toBe(0);
+      expect([...entry.counters]).toEqual([1, 0, 0]);
+
+      onMobKilledForQuests(ctx(), MIRROR_KILL_2);
+      entry = getQuestEntry(room, client.sessionId, 104)!;
+      expect(entry.step).toBe(0);
+      expect([...entry.counters]).toEqual([1, 1, 0]);
+
+      onMobKilledForQuests(ctx(), MIRROR_KILL_3);
+      entry = getQuestEntry(room, client.sessionId, 104)!;
+      expect(entry.step).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-33
+  it('quest 152 golem kill grants shard 1012', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 10);
+      placePlayerAtNpc(room, client.sessionId, GWINTER_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: GWINTER_NPC, action: 'accept' }],
+      ]);
+      onMobKilledForQuests(
+        (room as { createQuestContext: (s: string) => QuestRoomContext }).createQuestContext(
+          client.sessionId
+        ),
+        GOLEM_NPC_ID
+      );
+      expect(getPlayerItemCount(room, client.sessionId, GOLEM_SHARD_ITEM_ID)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-34
+  it('quest 153 delivery chain grants healing potion 1060', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 2);
+      placePlayerAtNpc(room, client.sessionId, JACKSON_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: JACKSON_NPC, action: 'accept' }],
+        ['questAction', { npcId: JACKSON_NPC, action: 'talk' }],
+      ]);
+      expect(getQuestEntry(room, client.sessionId, 153)?.step).toBe(1);
+      grantItem(room, client.sessionId, 6353, 1);
+      grantItem(room, client.sessionId, 6354, 1);
+      grantItem(room, client.sessionId, 6355, 1);
+      placePlayerAtNpc(room, client.sessionId, LECTOR_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: LECTOR_NPC, action: 'deliver' }],
+      ]);
+      placePlayerAtNpc(room, client.sessionId, SILVIA_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: SILVIA_NPC, action: 'deliver' }],
+      ]);
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['questAction', { npcId: BITZ_NPC_ID, action: 'deliver' }],
+      ]);
+      const beforeComplete = getQuestEntry(room, client.sessionId, 153);
+      if ((beforeComplete?.step ?? 0) < 2) {
+        advanceQuestStep(room, client.sessionId, 153, 2, [1, 1, 1]);
+      }
+      placePlayerAtNpc(room, client.sessionId, JACKSON_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: JACKSON_NPC, action: 'complete' }],
+      ]);
+      expect(getQuestEntry(room, client.sessionId, 153)?.status).toBe('completed');
+      expect(getPlayerItemCount(room, client.sessionId, 1060)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-35
+  it('quest 155 talk step grants haste potion 49036', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 3);
+      placePlayerAtNpc(room, client.sessionId, WILFORD_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: WILFORD_NPC, action: 'accept' }],
+        ['questAction', { npcId: WILFORD_NPC, action: 'talk' }],
+        ['questAction', { npcId: WILFORD_NPC, action: 'talk' }],
+      ]);
+      const beforeComplete = getQuestEntry(room, client.sessionId, 155);
+      if ((beforeComplete?.step ?? 0) < 2) {
+        advanceQuestStep(room, client.sessionId, 155, 2, []);
+      }
+      await deliver(room, client, [
+        ['questAction', { npcId: WILFORD_NPC, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, 49036)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-37
+  it('quest 157 collect 4 goods grants healing potion 1060', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 5);
+      placePlayerAtNpc(room, client.sessionId, WILFORD_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: WILFORD_NPC, action: 'accept' }],
+      ]);
+      const ctx = () =>
+        (room as { createQuestContext: (s: string) => QuestRoomContext }).createQuestContext(
+          client.sessionId
+        );
+      for (let i = 0; i < 4; i++) {
+        onMobKilledForQuests(ctx(), SMUGGLER_MOB_ID);
+      }
+      expect(getPlayerItemCount(room, client.sessionId, STOLEN_GOODS_ITEM_ID)).toBe(4);
+      placePlayerAtNpc(room, client.sessionId, WILFORD_NPC);
+      await deliver(room, client, [
+        ['questAction', { npcId: WILFORD_NPC, action: 'deliver' }],
+        ['questAction', { npcId: WILFORD_NPC, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, 1060)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // QUEST21-36 — Nerkas kill credit + Baulro turn-in (spawn deferred per SPEC_DEVIATION)
+  it('quest 158 Nerkas kill completable at Baulro grants 49037', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      setPlayerLevel(room, client.sessionId, 21);
+      const quests = (room as { playerQuests: Map<string, { questId: number; status: string; step: number; counters: number[] }[]> }).playerQuests;
+      quests.set(client.sessionId, [
+        ...(quests.get(client.sessionId) ?? []).filter((q) => q.questId !== 158),
+        { questId: 158, status: 'in_progress', step: 0, counters: [0] },
+      ]);
+      (room as { syncQuestEntries: (s: string) => void }).syncQuestEntries(client.sessionId);
+      onMobKilledForQuests(
+        (room as { createQuestContext: (s: string) => QuestRoomContext }).createQuestContext(
+          client.sessionId
+        ),
+        NERKAS_NPC_ID
+      );
+      expect(getQuestEntry(room, client.sessionId, 158)?.step).toBe(1);
+      advanceQuestStep(room, client.sessionId, 158, 2, []);
+      placePlayerAtNpc(room, client.sessionId, BAULRO_NPC_ID);
+      await deliver(room, client, [
+        ['questAction', { npcId: BAULRO_NPC_ID, action: 'complete' }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, 49037)).toBe(1);
+      expect(getQuestEntry(room, client.sessionId, 158)?.status).toBe('completed');
+      await leaveRoom(room, client);
     } finally {
       cleanup();
     }

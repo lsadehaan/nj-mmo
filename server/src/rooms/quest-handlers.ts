@@ -85,18 +85,53 @@ export function ensureAutoStartQuests(ctx: QuestRoomContext): void {
   ctx.syncQuestEntries();
 }
 
+function pickQuestAtNpc(
+  questsAtNpc: { def: QuestDefinition; state?: QuestRuntimeState }[],
+  ctx: QuestRoomContext
+): { def: QuestDefinition; state?: QuestRuntimeState } | undefined {
+  if (questsAtNpc.length === 0) return undefined;
+  const done = completedIds(ctx.questEntries);
+
+  const inProgress = questsAtNpc
+    .filter(({ state }) => state?.status === 'in_progress')
+    .sort((a, b) => a.def.questId - b.def.questId);
+  if (inProgress.length > 0) return inProgress[0];
+
+  const canStart = questsAtNpc
+    .filter(({ def, state }) => !state && canStartQuest(def, ctx.player.level, done))
+    .sort((a, b) => b.def.minLevel - a.def.minLevel || a.def.questId - b.def.questId);
+  if (canStart.length > 0) return canStart[0];
+
+  const tooLow = questsAtNpc
+    .filter(({ def, state }) => !state && ctx.player.level < def.minLevel)
+    .sort((a, b) => a.def.minLevel - b.def.minLevel || a.def.questId - b.def.questId);
+  return tooLow[0];
+}
+
 export function getQuestEntriesForNpc(
   ctx: QuestRoomContext,
   npcId: number
 ): { def: QuestDefinition; state?: QuestRuntimeState }[] {
   const done = completedIds(ctx.questEntries);
   const results: { def: QuestDefinition; state?: QuestRuntimeState }[] = [];
+
   for (const def of ctx.questDefs.values()) {
-    if (def.stubGiverNpcId !== npcId) continue;
     const state = findEntry(ctx.questEntries, def.questId);
     if (state?.status === 'completed') continue;
-    if (!state && !canStartQuest(def, ctx.player.level, done)) continue;
-    results.push({ def, state });
+
+    if (def.stubGiverNpcId === npcId) {
+      if (!state && done.has(def.questId)) continue;
+      results.push({ def, state });
+      continue;
+    }
+
+    if (state?.status === 'in_progress' && state.step < def.steps.length) {
+      const step = def.steps[state.step];
+      const hasObjective = step?.objectives.some(
+        (o) => (o.kind === 'TALK' || o.kind === 'DELIVER') && o.npcId === npcId
+      );
+      if (hasObjective) results.push({ def, state });
+    }
   }
   return results;
 }
@@ -108,7 +143,10 @@ export function buildQuestDialog(
   const questsAtNpc = getQuestEntriesForNpc(ctx, npcId);
   if (questsAtNpc.length === 0) return null;
 
-  const { def, state } = questsAtNpc[0]!;
+  const picked = pickQuestAtNpc(questsAtNpc, ctx);
+  if (!picked) return null;
+
+  const { def, state } = picked;
   const done = completedIds(ctx.questEntries);
 
   if (!state) {
@@ -171,7 +209,10 @@ export function handleQuestAction(
   const questsAtNpc = getQuestEntriesForNpc(ctx, npcId);
   if (questsAtNpc.length === 0) return false;
 
-  const { def } = questsAtNpc[0]!;
+  const picked = pickQuestAtNpc(questsAtNpc, ctx);
+  if (!picked) return false;
+
+  const { def } = picked;
   const idx = ctx.questEntries.findIndex((e) => e.questId === def.questId);
   const done = completedIds(ctx.questEntries);
 

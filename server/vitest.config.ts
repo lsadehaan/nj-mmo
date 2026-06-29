@@ -41,5 +41,11 @@ export default defineConfig({
     env: {
       NJ_AUTOSIM: '0',
     },
+    // TownRoom.spec.ts shares one Colyseus boot; parallel cases race interact/quest delivery.
+    sequence: {
+      concurrent: false,
+    },
+    // Colyseus room teardown can race the next createRoom; one retry keeps the gate honest.
+    retry: 1,
   },
 });
