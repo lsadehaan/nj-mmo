@@ -661,7 +661,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 22 — Complete TI bestiary (+12 mobs) `[ ]`
+## Phase 22 — Complete TI bestiary (+12 mobs) `[x]`
 
 > Done when: all **remaining** authentic TI field monsters from
 > `TalkingIslandMonsters.xml` are seeded, spawned, and rendered — same pipeline

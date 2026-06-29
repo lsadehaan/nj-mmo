@@ -151,10 +151,16 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 22.**
+**Loop status: RUNNING — next unchecked phase: Phase 23.**
 
-**Next step:** **Phase 22 — Complete TI bestiary (+12 mobs)** (`.specs/ROADMAP.md`). Planner
-sub-agent writes `.specs/features/phase-22-ti-bestiary/`.
+**Next step:** **Phase 23 — Full Talking Island world & zones** (`.specs/ROADMAP.md`). Planner
+sub-agent writes `.specs/features/phase-23-ti-world/`.
+
+**Phase 22 — Complete TI bestiary: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
+`.specs/features/phase-22-ti-bestiary/validation.md` records PASS: 55/55 ACs (4 non-blocking
+fixture drift notes), sensor 3/3 killed, gate 565 tests + visual 44/44. 14 new mobs seeded
+(23 total TI_MOB_IDS); Orc Archer ranged AI; werewolf clan assist; 14 GLBs + manifest. Fix:
+Phase 22 LICENSE attributions `9726d57`. ROADMAP Phase 22 flipped to `[x]`.
 
 **Phase 21 — Quests & tutorial: COMPLETE (Verifier PASS, fix iteration 2, 2026-06-29).**
 `.specs/features/phase-21-quests/validation.md` records PASS: 48/48 ACs traced (AC 36 Nerkas
