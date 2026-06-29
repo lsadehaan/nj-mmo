@@ -35,7 +35,7 @@ describe('parseMonsters', () => {
       respawnSec: 27,
       aiType: null,
       clan: null,
-      clanHelpRange: null,
+      clanHelpRange: 300,
       preferredAttackRange: 80,
     });
   });

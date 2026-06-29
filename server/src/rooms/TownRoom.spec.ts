@@ -715,7 +715,7 @@ describe('TownRoom combat', () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
-      expect(room.state.mobs.size).toBe(23);
+      expect(room.state.mobs.size).toBe(60);
       await room.disconnect();
     } finally {
       cleanup();

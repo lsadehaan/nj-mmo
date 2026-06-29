@@ -164,6 +164,104 @@ describe('monster seeding', () => {
     });
   });
 
+  it('seeds Goblin Scout (20326) with authentic values (BEST22-05)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20326)).get();
+    expect(row).toMatchObject({
+      name: 'Goblin Scout',
+      level: 8,
+      hp: 131.031,
+      isAggressive: false,
+    });
+  });
+
+  it('seeds Werewolf Hunter (20343) with authentic values (BEST22-07)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20343)).get();
+    expect(row).toMatchObject({
+      name: 'Werewolf Hunter',
+      level: 10,
+      hp: 172.176,
+      isAggressive: true,
+    });
+  });
+
+  it('seeds Orc Warrior (20093) with authentic values (BEST22-08)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20093)).get();
+    expect(row).toMatchObject({
+      name: 'Orc Warrior',
+      level: 10,
+      exp: 441,
+      isAggressive: true,
+    });
+  });
+
+  it('seeds Orc Lieutenant (20096) with authentic values (BEST22-09)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20096)).get();
+    expect(row).toMatchObject({ name: 'Orc Lieutenant', level: 11, exp: 482 });
+  });
+
+  it('seeds Orc Captain (20098) with authentic values (BEST22-10)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20098)).get();
+    expect(row).toMatchObject({ name: 'Orc Captain', level: 12, exp: 530 });
+  });
+
+  it('seeds Werewolf Chieftain (20342) with authentic values (BEST22-11)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20342)).get();
+    expect(row).toMatchObject({ name: 'Werewolf Chieftain', level: 12, hp: 81.77492 });
+    expect(row?.pAtk).toBeCloseTo(25.295666, 4);
+  });
+
+  it('seeds Stone Golem (20016) with authentic values (BEST22-12)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20016)).get();
+    expect(row).toMatchObject({
+      name: 'Stone Golem',
+      level: 13,
+      race: 'CONSTRUCT',
+      hp: 87.93267,
+    });
+  });
+
+  it('seeds Crasher (20101) with authentic values (BEST22-13)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20101)).get();
+    expect(row).toMatchObject({ name: 'Crasher', level: 14, race: 'CONSTRUCT' });
+  });
+
+  it('seeds Giant Spider (20103) with authentic values (BEST22-14)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20103)).get();
+    expect(row).toMatchObject({ name: 'Giant Spider', level: 15 });
+  });
+
+  it('seeds Giant Fang Spider (20106) with authentic values (BEST22-15)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20106)).get();
+    expect(row).toMatchObject({ name: 'Giant Fang Spider', level: 16 });
+  });
+
+  it('seeds Giant Blade Spider (20108) with authentic values (BEST22-16)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20108)).get();
+    expect(row).toMatchObject({ name: 'Giant Blade Spider', level: 17 });
+  });
+
   it('seeds 23 monsters total (BEST22-02)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });

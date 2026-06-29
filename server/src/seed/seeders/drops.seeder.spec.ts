@@ -52,6 +52,38 @@ describe('mob drop seeding', () => {
     const row = getDb(dbPath).select().from(mobDrops).where(and(eq(mobDrops.npcId, 20130), eq(mobDrops.itemId, 1122))).get();
     expect(row).toMatchObject({ itemId: 1122, chance: 3.845, minCount: 1, maxCount: 1 });
   });
+
+  const PHASE22_ADENA_ANCHORS: [number, number, number][] = [
+    [20131, 20, 48],
+    [20006, 25, 61],
+    [20326, 25, 61],
+    [20132, 31, 73],
+    [20343, 37, 88],
+    [20093, 37, 88],
+    [20096, 41, 97],
+    [20098, 45, 106],
+    [20342, 39, 92],
+    [20016, 49, 115],
+    [20101, 53, 124],
+    [20103, 57, 133],
+    [20106, 61, 142],
+    [20108, 65, 151],
+  ];
+
+  it.each(PHASE22_ADENA_ANCHORS)(
+    'seeds adena drop anchor for npcId %i (BEST22-17)',
+    (npcId, minCount, maxCount) => {
+      const dbPath = tempDbPath();
+      runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+      const row = getDb(dbPath)
+        .select()
+        .from(mobDrops)
+        .where(and(eq(mobDrops.npcId, npcId), eq(mobDrops.itemId, 57)))
+        .get();
+      expect(row).toMatchObject({ itemId: 57, chance: 70, minCount, maxCount });
+    }
+  );
+
   it('seeds multiple drop rows for mobs with dropLists', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });

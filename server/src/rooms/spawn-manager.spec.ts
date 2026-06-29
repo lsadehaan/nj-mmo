@@ -27,8 +27,8 @@ describe('spawn-manager', () => {
     const state = new TownState();
     const runtime = initializeMobs(db, state);
 
-    expect(state.mobs.size).toBe(23);
-    expect(runtime.size).toBe(23);
+    expect(state.mobs.size).toBe(60);
+    expect(runtime.size).toBe(60);
   });
 
   it('sets npcId, position, and maxHp from monster template', () => {
