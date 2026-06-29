@@ -20,6 +20,10 @@ export const monsters = sqliteTable('monsters', {
   aggroRange: integer('aggro_range').notNull(),
   isAggressive: integer('is_aggressive', { mode: 'boolean' }).notNull(),
   respawnSec: integer('respawn_sec').notNull(),
+  aiType: text('ai_type'),
+  clan: text('clan'),
+  clanHelpRange: integer('clan_help_range'),
+  preferredAttackRange: integer('preferred_attack_range'),
 });
 
 export const mobDrops = sqliteTable('mob_drops', {

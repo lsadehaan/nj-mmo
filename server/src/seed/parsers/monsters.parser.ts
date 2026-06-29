@@ -17,12 +17,16 @@ interface NpcNode {
       '@_accuracy'?: string;
       '@_attackSpeed'?: string;
       '@_range'?: string;
+      '@_distance'?: string;
     };
     defence?: { '@_physical'?: string };
   };
   ai?: {
     '@_aggroRange'?: string;
     '@_isAggressive'?: string;
+    '@_type'?: string;
+    '@_clanHelpRange'?: string;
+    clanList?: { clan?: string | string[] };
   };
 }
 
@@ -54,6 +58,13 @@ export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
     requireAttr(id, 'attack.range', node.stats?.attack?.['@_range']);
     requireAttr(id, 'defence.physical', node.stats?.defence?.['@_physical']);
 
+    const attackRange = parseNumber(id, 'attack.range', node.stats?.attack?.['@_range']);
+    const preferredAttackRange = parsePreferredAttackRange(
+      id,
+      node.stats?.attack?.['@_distance'],
+      attackRange
+    );
+
     results.push({
       npcId: parseNumber(id, 'id', id),
       name: parseString(id, 'name', node['@_name']),
@@ -70,10 +81,14 @@ export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
       random: parseNumber(id, 'attack.random', node.stats?.attack?.['@_random']),
       critical: parseNumber(id, 'attack.critical', node.stats?.attack?.['@_critical']),
       accuracy: parseNumber(id, 'attack.accuracy', node.stats?.attack?.['@_accuracy']),
-      attackRange: parseNumber(id, 'attack.range', node.stats?.attack?.['@_range']),
+      attackRange,
       aggroRange: parseAggroRange(id, node.ai?.['@_aggroRange']),
       isAggressive: parseIsAggressive(node.ai),
       respawnSec: DEFAULT_RESPAWN_SEC,
+      aiType: parseAiType(node.ai),
+      clan: parseClan(node.ai),
+      clanHelpRange: parseClanHelpRange(id, node.ai?.['@_clanHelpRange']),
+      preferredAttackRange,
     });
   }
 
@@ -85,6 +100,34 @@ export function parseMonsters(xml: string, ids: number[]): NewMonster[] {
   }
 
   return results.sort((a, b) => (a.npcId ?? 0) - (b.npcId ?? 0));
+}
+
+function parsePreferredAttackRange(
+  id: string,
+  distanceRaw: string | undefined,
+  attackRange: number
+): number {
+  if (distanceRaw !== undefined && distanceRaw !== '') {
+    return parseNumber(id, 'attack.distance', distanceRaw);
+  }
+  return attackRange;
+}
+
+function parseAiType(ai: NpcNode['ai']): string | null {
+  const raw = ai?.['@_type'];
+  return raw && raw !== '' ? raw : null;
+}
+
+function parseClan(ai: NpcNode['ai']): string | null {
+  const clanNode = ai?.clanList?.clan;
+  if (!clanNode) return null;
+  if (Array.isArray(clanNode)) return clanNode[0] ?? null;
+  return clanNode;
+}
+
+function parseClanHelpRange(id: string, raw: string | undefined): number | null {
+  if (raw === undefined || raw === '') return null;
+  return parseNumber(id, 'ai.clanHelpRange', raw);
 }
 
 function parseAggroRange(id: string, raw: string | undefined): number {

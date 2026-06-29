@@ -164,10 +164,51 @@ describe('monster seeding', () => {
     });
   });
 
-  it('seeds nine monsters total', () => {
+  it('seeds 23 monsters total (BEST22-02)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
-    expect(getDb(dbPath).select().from(monsters).all()).toHaveLength(9);
+    expect(getDb(dbPath).select().from(monsters).all()).toHaveLength(23);
+  });
+
+  it('seeds Orc Soldier (20131) with authentic values (BEST22-03)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20131)).get();
+    expect(row).toMatchObject({
+      name: 'Orc Soldier',
+      level: 7,
+      exp: 308,
+      hp: 113.94,
+      isAggressive: false,
+      clan: 'ORC',
+    });
+  });
+
+  it('seeds Orc Archer (20006) with ARCHER aiType (BEST22-04)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20006)).get();
+    expect(row).toMatchObject({
+      name: 'Orc Archer',
+      level: 8,
+      aiType: 'ARCHER',
+      isAggressive: true,
+      aggroRange: 450,
+      preferredAttackRange: 80,
+    });
+  });
+
+  it('seeds Werewolf (20132) with WEREWOLF clan (BEST22-06)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(monsters).where(eq(monsters.npcId, 20132)).get();
+    expect(row).toMatchObject({
+      name: 'Werewolf',
+      level: 9,
+      clan: 'WEREWOLF',
+      clanHelpRange: 300,
+      isAggressive: false,
+    });
   });
 
   it('is idempotent when run twice', () => {
@@ -178,7 +219,7 @@ describe('monster seeding', () => {
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const second = getDb(dbPath).select().from(monsters).all();
 
-    expect(second).toHaveLength(9);
+    expect(second).toHaveLength(23);
     expect(second).toEqual(first);
   });
 });

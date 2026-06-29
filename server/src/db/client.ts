@@ -321,6 +321,10 @@ function migrateMonstersColumns(sqlite: Database.Database): void {
     ['aggro_range', 'INTEGER NOT NULL DEFAULT 0'],
     ['is_aggressive', 'INTEGER NOT NULL DEFAULT 0'],
     ['respawn_sec', 'INTEGER NOT NULL DEFAULT 27'],
+    ['ai_type', 'TEXT'],
+    ['clan', 'TEXT'],
+    ['clan_help_range', 'INTEGER'],
+    ['preferred_attack_range', 'INTEGER'],
   ];
   for (const [col, def] of adds) {
     if (!names.has(col)) {
