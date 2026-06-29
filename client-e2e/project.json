@@ -14,7 +14,14 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint"
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "node scripts/check-e2e-timeouts.mjs",
+          "eslint client-e2e"
+        ],
+        "parallel": false
+      }
     }
   }
 }
