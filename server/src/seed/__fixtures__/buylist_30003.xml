@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../xsd/buylist.xsd">
+	<item id="116" price="37" /> <!-- Magic Ring -->
+	<item id="112" price="56" /> <!-- Apprentice's Earring -->
+	<item id="118" price="75" /> <!-- Necklace of Magic -->
+</list>

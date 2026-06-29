@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../xsd/buylist.xsd">
+	<item id="21" price="169" /> <!-- Shirt -->
+	<item id="28" price="105" /> <!-- Pants -->
+	<item id="1121" price="8" /> <!-- Apprentice's Shoes -->
+</list>
