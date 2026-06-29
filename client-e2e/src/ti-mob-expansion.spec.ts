@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { gotoGame } from './game-page';
+import { approachMob } from './mob-combat';
 
 const NEW_TI_MOB_IDS = [20432, 20544, 20442, 20121, 20130] as const;
 /** TIMOB-29: Orc (aggressive, meets player in aggro range) or Elder Wolf. */
@@ -84,6 +85,15 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
     player: { x: window.__GAME_STATE__.player.x, z: window.__GAME_STATE__.player.z },
   }));
   const target = pickClipTestMob(mobs, player);
+
+  await approachMob(page, target.id, 3.4, 90_000);
+  await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
+  await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), target.id);
+  await page.waitForFunction(
+    (mobId) => window.__GAME_STATE__?.targetMobId === mobId,
+    target.id,
+    { timeout: 5_000 }
+  );
 
   await page.waitForFunction(
     () =>

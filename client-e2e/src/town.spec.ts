@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { isMobAttackableFromPeaceZone, peaceZoneAttackPosition } from './peace-zone';
 import { gotoGame } from './game-page';
 
 const KATERINA_NPC_ID = 30004;
@@ -44,41 +45,24 @@ async function walkTowardInPeaceZone(
     .toBe(true);
 }
 
-async function walkTowardPeaceZoneMob(
+function pickPeaceZoneCombatMob(
+  mobs: Array<{ id: string; x: number; z: number; hp?: number }>
+) {
+  const reachable = mobs.filter((mob) => isMobAttackableFromPeaceZone(mob) && (mob.hp ?? 0) > 0);
+  return (
+    reachable.find((entry) => entry.x === 22 && entry.z === -14) ??
+    reachable.find((entry) => entry.x === 22 && entry.z === -16) ??
+    reachable.find((entry) => entry.x > 20 && entry.z < 0) ??
+    reachable[0]
+  );
+}
+
+async function walkToPeaceZoneAttackRange(
   page: import('@playwright/test').Page,
-  mobId: string,
-  arriveWithin: number,
-  timeoutMs = 45_000
+  mob: { x: number; z: number }
 ): Promise<void> {
-  await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
-  await expect
-    .poll(
-      async () =>
-        page.evaluate(
-          ({ mobId, radius }) => {
-            const player = window.__GAME_STATE__.player;
-            const mob = window.__GAME_STATE__.mobs.find((entry) => entry.id === mobId);
-            if (!mob) return false;
-            const inPeaceZone =
-              player.x >= -20 &&
-              player.x <= 20 &&
-              player.z >= -20 &&
-              player.z <= 20;
-            const dist = Math.hypot(player.x - mob.x, player.z - mob.z);
-            if (dist <= radius && inPeaceZone) return true;
-            if (!inPeaceZone) return 'outside-peace-zone';
-            const dx = mob.x - player.x;
-            const dz = mob.z - player.z;
-            const len = Math.hypot(dx, dz) || 1;
-            const step = Math.max(1, Math.min(len - radius + 0.5, 6));
-            window.__sendMoveIntent__?.(player.x + (dx / len) * step, player.z + (dz / len) * step);
-            return false;
-          },
-          { mobId, radius: arriveWithin }
-        ),
-      { timeout: timeoutMs, intervals: [250, 500, 1000] }
-    )
-    .toBe(true);
+  const target = peaceZoneAttackPosition(mob);
+  await walkTowardInPeaceZone(page, target, 1.5);
 }
 
 test('environment props report mesh counts on game test hook after ready', async ({ page }, testInfo) => {
@@ -239,22 +223,18 @@ test('attack inside peace zone does not reduce mob HP or grant XP', async ({ pag
     timeout: 20_000,
   });
 
-  const mob = await page.evaluate(() => {
-    const mobs = window.__GAME_STATE__.mobs;
-  const preferred =
-    mobs.find((entry) => entry.x === 22 && entry.z === -14) ??
-    mobs.find((entry) => entry.x === 22 && entry.z === -16) ??
-    mobs.find((entry) => entry.x > 20 && entry.z < 0);
-  return preferred ?? mobs[0];
-  });
-
-  await walkTowardInPeaceZone(
-    page,
-    { x: 20, z: Math.max(-20, Math.min(20, mob.z)) },
-    2.5
+  const mobs = await page.evaluate(() =>
+    window.__GAME_STATE__.mobs.map((entry) => ({
+      id: entry.id,
+      x: entry.x,
+      z: entry.z,
+      hp: entry.hp,
+    }))
   );
+  const mob = pickPeaceZoneCombatMob(mobs);
+  if (!mob) throw new Error('No peace-zone-reachable mob for combat e2e');
 
-  await walkTowardPeaceZoneMob(page, mob.id, 3.5, 30_000);
+  await walkToPeaceZoneAttackRange(page, mob);
 
   const inPeaceZone = await page.evaluate(() => {
     const { x, z } = window.__GAME_STATE__.player;
@@ -310,22 +290,18 @@ test('Power Strike inside peace zone does not reduce mob HP or spend MP', async 
     timeout: 20_000,
   });
 
-  const mob = await page.evaluate(() => {
-    const mobs = window.__GAME_STATE__.mobs;
-  const preferred =
-    mobs.find((entry) => entry.x === 22 && entry.z === -14) ??
-    mobs.find((entry) => entry.x === 22 && entry.z === -16) ??
-    mobs.find((entry) => entry.x > 20 && entry.z < 0);
-  return preferred ?? mobs[0];
-  });
-
-  await walkTowardInPeaceZone(
-    page,
-    { x: 20, z: Math.max(-20, Math.min(20, mob.z)) },
-    2.5
+  const mobs = await page.evaluate(() =>
+    window.__GAME_STATE__.mobs.map((entry) => ({
+      id: entry.id,
+      x: entry.x,
+      z: entry.z,
+      hp: entry.hp,
+    }))
   );
+  const mob = pickPeaceZoneCombatMob(mobs);
+  if (!mob) throw new Error('No peace-zone-reachable mob for combat e2e');
 
-  await walkTowardPeaceZoneMob(page, mob.id, 3.5, 30_000);
+  await walkToPeaceZoneAttackRange(page, mob);
 
   const before = await page.evaluate((mobId) => {
     const state = window.__GAME_STATE__;

@@ -332,22 +332,6 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
 
   const listRemotePlayersForHook = (): OtherPlayerHookEntry[] => listRemotePlayers(remotePlayers);
 
-  const syncMob = (mob: {
-    id: string;
-    npcId: number;
-    x: number;
-    y: number;
-    z: number;
-    hp: number;
-    maxHp: number;
-    action?: number;
-    actionSeq?: number;
-  }): void => {
-    const visual = mobStateToVisual(mob);
-    mobSnapshots.set(mob.id, visual);
-    syncMobVisual(mobMeshes, mobInstances, visual, scene);
-  };
-
   const clipFromServerAction = (
     snapshot: ReturnType<typeof mobStateToVisual>
   ): AnimationClip | null => {
@@ -403,12 +387,53 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     }));
   };
 
+  const publishMobHookEntries = (): void => {
+    if (mobSnapshots.size > 0) {
+      setMobs(getMobHookEntries());
+    }
+  };
+
+  const syncMob = (mob: {
+    id: string;
+    npcId: number;
+    x: number;
+    y: number;
+    z: number;
+    hp: number;
+    maxHp: number;
+    action?: number;
+    actionSeq?: number;
+  }): void => {
+    const prev = mobSnapshots.get(mob.id);
+    const visual = mobStateToVisual(mob);
+    mobSnapshots.set(mob.id, visual);
+    syncMobVisual(mobMeshes, mobInstances, visual, scene);
+    if (
+      prev?.action !== visual.action ||
+      prev?.actionSeq !== visual.actionSeq ||
+      prev?.hp !== visual.hp
+    ) {
+      publishMobHookEntries();
+    }
+  };
+
   const removeMobById = (mobId: string): void => {
     const group = mobMeshes.get(mobId);
     if (group) {
       vfxManager.attachMobDissolve(mobId, group, performance.now());
     }
     const removed = removeMob(mobMeshes, mobInstances, mobId, scene);
+    if (!removed) {
+      const snap = mobSnapshots.get(mobId);
+      if (snap) {
+        mobSnapshots.set(mobId, {
+          ...snap,
+          action: EntityAction.Die,
+          actionSeq: (snap.actionSeq ?? 0) + 1,
+        });
+        publishMobHookEntries();
+      }
+    }
     if (removed) {
       mobSnapshots.delete(mobId);
     }
@@ -457,29 +482,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     }
 
     if (mobSnapshots.size > 0) {
-      setMobs(
-        [...mobSnapshots.entries()].map(([id, snapshot]) => ({
-          id,
-          npcId: snapshot.npcId,
-          x: snapshot.x,
-          y: snapshot.y,
-          z: snapshot.z,
-          hp: snapshot.hp,
-          maxHp: snapshot.maxHp,
-          action: (() => {
-            const serverClip = clipFromServerAction(snapshot);
-            if (serverClip === 'attack' || serverClip === 'die') {
-              return serverClip;
-            }
-            const tickClip = mobClips.get(id);
-            if (tickClip === 'attack' || tickClip === 'cast' || tickClip === 'die') {
-              return tickClip as AnimationClip;
-            }
-            return (serverClip ?? tickClip ?? 'idle') as AnimationClip;
-          })(),
-          actionSeq: snapshot.actionSeq ?? 0,
-        }))
-      );
+      publishMobHookEntries();
     }
 
     faceHpBarsToCamera(mobMeshes, camera);

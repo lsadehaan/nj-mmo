@@ -11,6 +11,35 @@ export function isOutsidePeaceZone(x: number, z: number): boolean {
   );
 }
 
+/** Nearest in-bounds point from which a mob on the peace-zone edge is in melee range. */
+export function peaceZoneAttackPosition(
+  mob: { x: number; z: number },
+  range = 3.4
+): { x: number; z: number } {
+  const clampedX = Math.max(PEACE_ZONE_MIN, Math.min(PEACE_ZONE_MAX, mob.x));
+  const clampedZ = Math.max(PEACE_ZONE_MIN, Math.min(PEACE_ZONE_MAX, mob.z));
+  const dist = Math.hypot(mob.x - clampedX, mob.z - clampedZ);
+  if (dist <= range) {
+    return { x: clampedX, z: clampedZ };
+  }
+  const dx = clampedX - mob.x;
+  const dz = clampedZ - mob.z;
+  const len = dist || 1;
+  return {
+    x: Math.max(PEACE_ZONE_MIN, Math.min(PEACE_ZONE_MAX, mob.x + (dx / len) * range * 0.95)),
+    z: Math.max(PEACE_ZONE_MIN, Math.min(PEACE_ZONE_MAX, mob.z + (dz / len) * range * 0.95)),
+  };
+}
+
+export function isMobAttackableFromPeaceZone(
+  mob: { x: number; z: number },
+  range = 3.4
+): boolean {
+  const pos = peaceZoneAttackPosition(mob, range);
+  if (isOutsidePeaceZone(pos.x, pos.z)) return false;
+  return Math.hypot(mob.x - pos.x, mob.z - pos.z) <= range;
+}
+
 export function pickNearestCombatMob(
   mobs: Array<{ id: string; x: number; z: number; hp?: number }>,
   player: { x: number; z: number }
