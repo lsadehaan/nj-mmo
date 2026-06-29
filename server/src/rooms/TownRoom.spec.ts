@@ -2002,12 +2002,11 @@ describe('TownRoom NPC shop and peace zone', () => {
       placePlayerAtNpc(room, client.sessionId, ROXXY);
 
       client.send('interact', { npcId: ROXXY });
-      const result = await client.waitForMessage('interactResult');
+      const result = await client.waitForMessage('questDialog');
 
       expect(result).toMatchObject({
         npcId: ROXXY,
-        name: 'Roxxy',
-        type: 'Teleporter',
+        title: 'Tutorial',
       });
       await client.leave();
     } finally {
@@ -3116,10 +3115,9 @@ describe('TownRoom quests', () => {
     try {
       const room = await colyseus.createRoom('town', { dbPath });
       const client = await joinWithClass(room, { classId: 0, sex: 0 });
-      advanceQuestStep(room, client.sessionId, 255, 2, [0]);
+      advanceQuestStep(room, client.sessionId, 255, 3, []);
       placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
       await deliver(room, client, [
-        ['questAction', { npcId: ROXXY_NPC, action: 'talk' }],
         ['questAction', { npcId: ROXXY_NPC, action: 'complete' }],
       ]);
       expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(200);
@@ -3136,10 +3134,9 @@ describe('TownRoom quests', () => {
     try {
       const room = await colyseus.createRoom('town', { dbPath });
       const client = await joinWithClass(room, { classId: 10, sex: 0 });
-      advanceQuestStep(room, client.sessionId, 255, 2, [0]);
+      advanceQuestStep(room, client.sessionId, 255, 3, []);
       placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
       await deliver(room, client, [
-        ['questAction', { npcId: ROXXY_NPC, action: 'talk' }],
         ['questAction', { npcId: ROXXY_NPC, action: 'complete' }],
       ]);
       expect(getPlayerItemCount(room, client.sessionId, SPIRITSHOT_ITEM_ID)).toBe(100);

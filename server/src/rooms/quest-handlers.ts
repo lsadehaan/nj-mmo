@@ -186,7 +186,7 @@ export function handleQuestAction(
   }
 
   if (idx < 0) return false;
-  let state = ctx.questEntries[idx]!;
+  const state = ctx.questEntries[idx]!;
 
   if (action === 'talk') {
     const next = advanceTalk(state, def, npcId);
