@@ -151,6 +151,20 @@
 
 ## Handoff
 
+**Phase 17 — Talking Island NPC expansion (+5): COMPLETE (Verifier PASS, 2026-06-28).**
+`.specs/features/phase-17-ti-npc-expansion/validation.md` records PASS: 35/35 ACs traced,
+4/4 discrimination sensors killed, gate green (server 210, client 232, game-core 101, visual
+30/30, e2e phase-17 2/2). Five new NPCs seeded: Lector (30001, weapons), Jackson (30002, armor),
+Silvia (30003, accessories), Wilford (30005, warehouse stub), Bitz (30026, trainer stub).
+npcId-keyed shop routing, distinct GLBs, TINPC-21 screenshots captured. Two pre-existing e2e
+flakes (power-strike, ti-mob-expansion) outside Phase 17 scope. ROADMAP Phase 17 flipped `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 18.**
+
+**Next step:** **Phase 18 — Consumable item use (Healing Potion)** (`.specs/ROADMAP.md`).
+Server `useItem` intent, HoT/instant heal anchored to skill 2031 (power 8 × ticks 3 = 24 HP),
+10 s reuse cooldown, inventory Use button, room-integration + e2e assertions.
+
 **Phase 16 — Talking Island mob expansion (+5): COMPLETE (Verifier PASS, 2026-06-28).**
 `.specs/features/phase-16-ti-mob-expansion/validation.md` records PASS: 30/32 ACs traced
 (TIMOB-28/29 e2e deferred), discrimination sensor 3/4 mutations killed (M2 survival noted as

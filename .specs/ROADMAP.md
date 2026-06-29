@@ -386,7 +386,7 @@ Each mob runs the same end-to-end path Phase 10 established — executed via
 
 ---
 
-## Phase 17 — Talking Island NPC expansion (+5) `[ ]`
+## Phase 17 — Talking Island NPC expansion (+5) `[x]`
 
 > Done when: five additional **canonical Talking Island town** NPCs are seeded,
 > placed in the village peace zone, rendered as distinct rigged human GLBs, and
