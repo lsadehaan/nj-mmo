@@ -6,7 +6,8 @@ import {
   createSeededRng,
   STARTER_COMBAT,
   effectivePAtk,
-  applyLevelUpReward,
+  calcClassBasePAtk,
+  applyClassLevelUpReward,
   resolvePlayerDeath,
   stepAlongPath,
   snapEntityY,
@@ -18,6 +19,7 @@ import {
   type DropRow,
   type ExperienceCurveRow,
   type SeededRng,
+  type ClassVitalsRow,
   EntityAction,
   HEALING_POTION_HEAL_AMOUNT,
   HEALING_POTION_ITEM_ID,
@@ -33,7 +35,11 @@ import {
   saveCharacterItems,
   type CharacterItemCounts,
 } from '../db/character-repository';
-import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, type Character, type MerchantItem, type Item } from '../db/schema';
+import {
+  loadClassTemplate,
+  loadClassVitalsCurve,
+} from '../db/class-template-repository';
+import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, classTemplates, type Character, type MerchantItem, type Item, type ClassTemplate } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
@@ -63,6 +69,15 @@ import {
 import { buyItem, sellItem } from './shop-transaction';
 import { validateEquip, applyEquip } from './equip-transaction';
 import { canInteract, applyHeal, applyStarterKit } from './npc-actions';
+import { isStarterClassId, isValidSex } from './starter-classes';
+
+export interface TownJoinOptions {
+  characterId?: string;
+  create?: {
+    classId: number;
+    sex: 0 | 1;
+  };
+}
 
 export interface TownRoomOptions {
   dbPath?: string;
@@ -120,9 +135,12 @@ export class TownRoom extends Room<{ state: TownState }> {
   private nowMs = () => Date.now();
   private playerItems = new Map<string, CharacterItemCounts>();
   private npcSpawnsById = new Map<number, { x: number; y: number; z: number }>();
+  private classTemplatesById = new Map<number, ClassTemplate>();
+  private classVitalsByClassId = new Map<number, ClassVitalsRow[]>();
 
   override onCreate(options: TownRoomOptions = {}): void {
     this.db = getDb(options.dbPath ?? DEFAULT_DB_PATH);
+    this.loadClassTemplateData();
     this.saveDebounceMs = options.saveDebounceMs ?? DEFAULT_SAVE_DEBOUNCE_MS;
     this.nowMs = options.nowMs ?? (() => Date.now());
     this.combatRng =
@@ -282,11 +300,22 @@ export class TownRoom extends Room<{ state: TownState }> {
     return this.playerItems.get(sessionId)?.[itemId] ?? 0;
   }
 
+  private getPlayerBasePAtk(player: PlayerState): number {
+    const template = this.classTemplatesById.get(player.classId);
+    if (!template) {
+      return STARTER_COMBAT.pAtk;
+    }
+    return calcClassBasePAtk(
+      { basePAtk: template.basePAtk, baseStr: template.baseStr },
+      player.level
+    );
+  }
+
   private getPlayerPAtk(player: PlayerState): number {
     const weaponId = player.equippedWeaponItemId || null;
     const weapon = weaponId ? this.itemsById.get(weaponId) : undefined;
     return effectivePAtk(
-      STARTER_COMBAT.pAtk,
+      this.getPlayerBasePAtk(player),
       weaponId,
       weapon?.pAtk ?? undefined
     );
@@ -435,7 +464,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     if (!player || !stored) return;
 
     if (action === 'heal') {
-      const result = applyHeal({ hp: player.hp });
+      const result = applyHeal({ hp: player.hp, maxHp: player.maxHp });
       if (!result.ok) return;
       player.hp = result.hp;
       stored.hp = result.hp;
@@ -453,6 +482,20 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.playerItems.set(sessionId, result.itemCounts);
     this.syncItemsToPlayerState(sessionId);
     this.scheduleDebouncedSave(sessionId);
+  }
+
+  private loadClassTemplateData(): void {
+    this.classTemplatesById.clear();
+    this.classVitalsByClassId.clear();
+    for (const row of this.db.select().from(classTemplates).all()) {
+      this.classTemplatesById.set(row.classId, row);
+      const curve = loadClassVitalsCurve(this.db, row.classId).map((v) => ({
+        level: v.level,
+        hp: v.hp,
+        mp: v.mp,
+      }));
+      this.classVitalsByClassId.set(row.classId, curve);
+    }
   }
 
   private loadCombatData(): void {
@@ -734,12 +777,25 @@ export class TownRoom extends Room<{ state: TownState }> {
     applyKillRewards(player, kill, this.experienceCurve, dropRows, this.combatRng);
 
     if (player.level > prevLevel) {
-      const rewarded = applyLevelUpReward(prevLevel, player.level, {
-        maxHp: player.maxHp,
-        maxMp: player.maxMp,
-        hp: player.hp,
-        mp: player.mp,
-      });
+      const curve = this.classVitalsByClassId.get(player.classId);
+      const rewarded = curve
+        ? applyClassLevelUpReward(
+            prevLevel,
+            player.level,
+            {
+              maxHp: player.maxHp,
+              maxMp: player.maxMp,
+              hp: player.hp,
+              mp: player.mp,
+            },
+            curve
+          )
+        : {
+            maxHp: player.maxHp,
+            maxMp: player.maxMp,
+            hp: player.hp,
+            mp: player.mp,
+          };
       player.maxHp = rewarded.maxHp;
       player.maxMp = rewarded.maxMp;
       player.hp = rewarded.hp;
@@ -791,10 +847,21 @@ export class TownRoom extends Room<{ state: TownState }> {
     }
   }
 
-  override onJoin(client: Client, options: { characterId?: string } = {}): void {
-    let character: Character;
+  override onJoin(client: Client, options: TownJoinOptions = {}): void {
+    let character: Character | undefined;
+
     if (options.characterId) {
-      character = loadCharacter(this.db, options.characterId) ?? createCharacter(this.db);
+      character = loadCharacter(this.db, options.characterId);
+      if (!character) {
+        client.leave(4004, 'character not found');
+        return;
+      }
+    } else if (options.create) {
+      if (!isStarterClassId(options.create.classId) || !isValidSex(options.create.sex)) {
+        client.leave(4000, 'invalid character create options');
+        return;
+      }
+      character = createCharacter(this.db, options.create);
     } else {
       character = createCharacter(this.db);
     }
@@ -803,7 +870,20 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.characters.set(client.sessionId, character);
     client.userData = { characterId: character.id };
 
+    const template = this.classTemplatesById.get(character.classId) ??
+      loadClassTemplate(this.db, character.classId);
+
     const player = new PlayerState();
+    player.classId = character.classId;
+    player.sex = character.sex;
+    if (template) {
+      player.str = template.baseStr;
+      player.dex = template.baseDex;
+      player.con = template.baseCon;
+      player.int = template.baseInt;
+      player.wit = template.baseWit;
+      player.men = template.baseMen;
+    }
     player.x = character.x;
     player.y = character.y;
     player.z = character.z;

@@ -7,6 +7,14 @@ export class PlayerState extends Schema {
   @type('number') x = 0;
   @type('number') y = 0;
   @type('number') z = 0;
+  @type('number') classId = 0;
+  @type('number') sex = 0;
+  @type('number') str = 40;
+  @type('number') dex = 30;
+  @type('number') con = 43;
+  @type('number') int = 21;
+  @type('number') wit = 11;
+  @type('number') men = 25;
   @type('number') hp = 100;
   @type('number') mp = 50;
   @type('number') maxHp = 100;
