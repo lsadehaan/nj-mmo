@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable } from '@nj/game-core';
+import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
 import {
@@ -11,6 +11,7 @@ import {
   loadCharacter,
   saveCharacter,
   loadCharacterItems,
+  loadCharacterSkills,
 } from '../db/character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
@@ -19,6 +20,12 @@ import type { MobRuntime } from './spawn-manager';
 import * as mobAi from './mob-ai';
 
 const OUT_OF_PEACE = { x: 30, z: -30 };
+const BITZ_NPC_ID = 30026;
+const BAULRO_NPC_ID = 30033;
+const SOULSHOT_ITEM_ID = 1835;
+const SPIRITSHOT_ITEM_ID = 2509;
+const SQUIRES_SWORD = 2369;
+const ROXXY_NPC = 30006;
 
 let colyseus: ColyseusTestServer;
 
@@ -150,8 +157,32 @@ async function learnSkillAtBitz(
 ): Promise<void> {
   placePlayerNear(room, sessionId, 2, -4);
   await deliver(room, client, [
-    ['interact', { npcId: 30026 }],
+    ['interact', { npcId: BITZ_NPC_ID }],
     ['learnSkill', { skillId }],
+  ]);
+}
+
+async function learnSkillAtBaulro(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string,
+  skillId: number
+): Promise<void> {
+  placePlayerNear(room, sessionId, 8, -8);
+  await deliver(room, client, [
+    ['interact', { npcId: BAULRO_NPC_ID }],
+    ['learnSkill', { skillId }],
+  ]);
+}
+
+async function claimStarterKit(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string
+): Promise<void> {
+  placePlayerAtNpc(room, sessionId, ROXXY_NPC);
+  await deliver(room, client, [
+    ['npcAction', { npcId: ROXXY_NPC, action: 'starterKit' }],
   ]);
 }
 
@@ -198,6 +229,20 @@ async function deliverAndTick(
 ): Promise<void> {
   await deliver(room, client, messages);
   tick(room);
+}
+
+function expectedWindStrikeDamage(room: TestRoom, classId = 10): number {
+  const template = room['classTemplatesById'].get(classId)!;
+  const mAtk = calcClassBaseMAtk(
+    { baseMAtk: template.baseMAtk ?? 6, baseInt: template.baseInt },
+    1
+  );
+  return calcMagicSkillDamage(
+    { mAtk },
+    { mDef: GREMLIN_COMBAT.pDef },
+    12,
+    { rngOffset: 0 }
+  );
 }
 
 async function joinWithClass(
@@ -1137,7 +1182,7 @@ describe('TownRoom Power Strike', () => {
     }
   });
 
-  it('useSkill in range deals 69 damage and reduces MP from 30 to 21', async () => {
+  it('useSkill in range deals 71 damage with sword and reduces MP from 30 to 21', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', {
@@ -1145,16 +1190,22 @@ describe('TownRoom Power Strike', () => {
         combatRng: zeroOffsetRng(),
       });
       const client = await colyseus.connectTo(room);
+      await claimStarterKit(room, client, client.sessionId);
+      await deliver(room, client, [['equip', { itemId: SQUIRES_SWORD }]]);
       await prepareFighterWithPowerStrike(room, client, client.sessionId);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
       placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
+      const hpBefore = gremlinRuntime.hp;
 
       await castPowerStrike(client, room, gremlin.id);
 
       expect(player.mp).toBe(21);
-      expect(room.state.mobs.has(gremlin.id)).toBe(false);
-      expect(player.xp).toBe(44);
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(71, 3);
       await client.leave();
     } finally {
       cleanup();
@@ -1339,6 +1390,478 @@ describe('TownRoom Power Strike', () => {
       ]);
       expect(player.mp).toBe(mpBefore);
 
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('TownRoom Phase 20 skills', () => {
+  // SKILL20-13
+  it('syncs knownSkillIds on join and after learnSkill at Bitz', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      expect([...player.knownSkillIds]).toEqual([]);
+
+      await learnSkillAtBitz(room, client, client.sessionId, 3);
+      expect([...player.knownSkillIds]).toEqual([3]);
+
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-14, 31, 41
+  it('rejects useSkill for unlearned skills without damage or MP spend', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const fighterClient = await colyseus.connectTo(room);
+      const fighter = room.state.players.get(fighterClient.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, fighterClient.sessionId, gremlin);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
+      const mpBefore = fighter.mp;
+
+      await deliverAndTick(room, fighterClient, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 3 }],
+      ]);
+      expect(fighter.mp).toBe(mpBefore);
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
+
+      const mysticClient = await joinWithClass(room, { classId: 10, sex: 0 });
+      const mystic = room.state.players.get(mysticClient.sessionId)!;
+      placePlayerAndMobForCombat(room, mysticClient.sessionId, gremlin);
+      const mysticMpBefore = mystic.mp;
+      const hpBeforeMystic = room.state.mobs.get(gremlin.id)!.hp;
+
+      await deliverAndTick(room, mysticClient, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 1068 }],
+      ]);
+      expect(mystic.mp).toBe(mysticMpBefore);
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBeforeMystic, 3);
+
+      await fighterClient.leave();
+      await mysticClient.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-31 (mystic without Wind Strike removed)
+  it('rejects useSkill 1177 when Wind Strike is not learned', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
+      const mpBefore = player.mp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 1177 }],
+      ]);
+
+      expect(player.mp).toBe(mpBefore);
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-15
+  it('learnSkill at Bitz persists Power Strike to character_skills', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const characterId = room['characterIds'].get(client.sessionId)!;
+
+      await learnSkillAtBitz(room, client, client.sessionId, 3);
+
+      expect(loadCharacterSkills(getDb(dbPath), characterId)).toEqual({ 3: 1 });
+      expect([...room.state.players.get(client.sessionId)!.knownSkillIds]).toEqual([3]);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-16
+  it('rejects learnSkill 3 for Human Mystic at Bitz', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      const characterId = room['characterIds'].get(client.sessionId)!;
+
+      await learnSkillAtBitz(room, client, client.sessionId, 3);
+
+      expect(loadCharacterSkills(getDb(dbPath), characterId)[3]).toBeUndefined();
+      expect([...room.state.players.get(client.sessionId)!.knownSkillIds]).not.toContain(3);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-17
+  it('rejects learnSkill when player is out of trainer range', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const characterId = room['characterIds'].get(client.sessionId)!;
+      placePlayerNear(room, client.sessionId, 2, -4);
+      await deliver(room, client, [['interact', { npcId: BITZ_NPC_ID }]]);
+      placePlayerNearNpcOffset(room, client.sessionId, BITZ_NPC_ID, 3.1);
+
+      await deliver(room, client, [['learnSkill', { skillId: 3 }]]);
+
+      expect(loadCharacterSkills(getDb(dbPath), characterId)[3]).toBeUndefined();
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-17 duplicate
+  it('rejects learnSkill when skill is already known', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const characterId = room['characterIds'].get(client.sessionId)!;
+
+      await learnSkillAtBitz(room, client, client.sessionId, 3);
+      await learnSkillAtBitz(room, client, client.sessionId, 3);
+
+      expect(loadCharacterSkills(getDb(dbPath), characterId)).toEqual({ 3: 1 });
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-18
+  it('learnSkill Might 1068 at Baulro adds to knownSkillIds', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+
+      await learnSkillAtBaulro(room, client, client.sessionId, 1068);
+
+      const known = [...room.state.players.get(client.sessionId)!.knownSkillIds];
+      expect(known).toContain(1068);
+      expect(known).toContain(1177);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-19
+  it('Orc Fighter learns Iron Punch 29 at Bitz and useSkill 29 is valid', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await joinWithClass(room, { classId: 44, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      await learnSkillAtBitz(room, client, client.sessionId, 29);
+      expect([...player.knownSkillIds]).toContain(29);
+
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
+      const hpBefore = gremlinRuntime.hp;
+      const mpBefore = player.mp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 29 }],
+      ]);
+
+      expect(player.mp).toBeLessThan(mpBefore);
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeGreaterThan(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-27, 32
+  it('Wind Strike sets castingSkillId until hitTime elapses then Cast action', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(1000);
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: clock.now,
+      });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
+      const mpBefore = player.mp;
+      const expectedDamage = expectedWindStrikeDamage(room);
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 1177 }],
+      ]);
+
+      expect(player.castingSkillId).toBe(1177);
+      expect(player.castEndMs).toBe(5000);
+      expect(player.mp).toBe(mpBefore);
+
+      clock.advance(4000);
+      tick(room);
+
+      expect(player.castingSkillId).toBe(0);
+      expect(player.action).toBe(EntityAction.Cast);
+      expect(player.mp).toBe(mpBefore - 7);
+      expect(500 - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(expectedDamage, 3);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-29
+  it('mob damage during Wind Strike cast cancels without mob damage or MP spend', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(1000);
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: clock.now,
+      });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      const hpBefore = gremlinRuntime.hp;
+      const mpBefore = player.mp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 1177 }],
+      ]);
+      expect(player.castingSkillId).toBe(1177);
+
+      gremlinRuntime.targetSessionId = client.sessionId;
+      gremlinRuntime.nextAttackAtMs = 0;
+      clock.advance(500);
+      tick(room);
+
+      expect(player.castingSkillId).toBe(0);
+      expect(gremlinRuntime.hp).toBeCloseTo(hpBefore, 3);
+      expect(player.mp).toBe(mpBefore);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-33
+  it('soulshot then Power Strike deals 142 and decrements stack', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      await claimStarterKit(room, client, client.sessionId);
+      await deliver(room, client, [['equip', { itemId: SQUIRES_SWORD }]]);
+      await prepareFighterWithPowerStrike(room, client, client.sessionId);
+      room['playerItems'].set(client.sessionId, { [SOULSHOT_ITEM_ID]: 3 });
+      room['syncItemsToPlayerState'](client.sessionId);
+
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
+      const hpBefore = gremlinRuntime.hp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useShot', { itemId: SOULSHOT_ITEM_ID }],
+        ['useSkill', { skillId: 3 }],
+      ]);
+
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(142, 3);
+      expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(2);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-34
+  it('rejects useShot when soulshot count is 0', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const combat = room['playerCombat'].get(client.sessionId)!;
+
+      await deliver(room, client, [['useShot', { itemId: SOULSHOT_ITEM_ID }]]);
+
+      expect(combat.armedShot).toBeNull();
+      expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-35
+  it('spiritshot then Wind Strike deals doubled template-anchored damage', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(1000);
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+        nowMs: clock.now,
+      });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      room['playerItems'].set(client.sessionId, { [SPIRITSHOT_ITEM_ID]: 2 });
+      room['syncItemsToPlayerState'](client.sessionId);
+
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
+      const hpBefore = gremlinRuntime.hp;
+      const expectedDamage = expectedWindStrikeDamage(room) * 2;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useShot', { itemId: SPIRITSHOT_ITEM_ID }],
+        ['useSkill', { skillId: 1177 }],
+      ]);
+      clock.advance(4000);
+      tick(room);
+
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(expectedDamage, 3);
+      expect(getPlayerItemCount(room, client.sessionId, SPIRITSHOT_ITEM_ID)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-36
+  it('armed soulshot doubles naked melee damage and consumes stack', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: zeroOffsetRng(),
+      });
+      const client = await colyseus.connectTo(room);
+      room['playerItems'].set(client.sessionId, { [SOULSHOT_ITEM_ID]: 1 });
+      room['syncItemsToPlayerState'](client.sessionId);
+
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
+      const hpBefore = gremlinRuntime.hp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useShot', { itemId: SOULSHOT_ITEM_ID }],
+        ['attack', {}],
+      ]);
+
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(16, 3);
+      expect(getPlayerItemCount(room, client.sessionId, SOULSHOT_ITEM_ID)).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  // SKILL20-43
+  it('mob miss leaves player HP, MP, and skill cooldown unchanged', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const missRng = {
+      nextFloat: () => 0.5,
+      nextInt: (min: number) => min,
+      nextDamageOffset: () => 0,
+    };
+    try {
+      const room = await colyseus.createRoom('town', {
+        dbPath,
+        combatRng: missRng,
+        nowMs: () => 1000,
+      });
+      const client = await colyseus.connectTo(room);
+      await prepareFighterWithPowerStrike(room, client, client.sessionId);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
+      gremlinRuntime.hp = 500;
+      gremlinRuntime.maxHp = 500;
+      room.state.mobs.get(gremlin.id)!.hp = 500;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['useSkill', { skillId: 3 }],
+      ]);
+      const mpAfterSkill = player.mp;
+      const cooldownEnd = player.powerStrikeCooldownEndMs;
+
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+      const hpBefore = player.hp;
+      tick(room);
+
+      expect(player.hp).toBe(hpBefore);
+      expect(player.mp).toBe(mpAfterSkill);
+      expect(player.powerStrikeCooldownEndMs).toBe(cooldownEnd);
       await client.leave();
     } finally {
       cleanup();
@@ -1694,20 +2217,7 @@ describe('TownRoom NPC shop and peace zone', () => {
   });
 });
 
-const ROXXY_NPC = 30006;
-const SQUIRES_SWORD = 2369;
 const HEALING_POTION = 1060;
-
-async function claimStarterKit(
-  room: TestRoom,
-  client: TestClient,
-  sessionId: string
-): Promise<void> {
-  placePlayerAtNpc(room, sessionId, ROXXY_NPC);
-  await deliver(room, client, [
-    ['npcAction', { npcId: ROXXY_NPC, action: 'starterKit' }],
-  ]);
-}
 
 describe('TownRoom equip', () => {
   it('CHAR19-36: equipping Squire\'s Sword then melee deals 19 damage to Gremlin', async () => {

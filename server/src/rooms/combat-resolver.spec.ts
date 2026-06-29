@@ -10,12 +10,15 @@ import {
 } from '@nj/game-core';
 import {
   createPlayerCombatState,
+  canUseSkill,
   resolvePlayerAttack,
   resolvePowerStrike,
+  resolveSkillUse,
   resolveMobAttack,
   applyKillRewards,
   type KillEvent,
 } from './combat-resolver';
+import type { Skill } from '../db/schema';
 import type { MobRuntime } from './spawn-manager';
 
 const OUT_OF_PEACE = { x: 30, z: -30 };
@@ -63,6 +66,24 @@ const POWER_STRIKE_SKILL = {
   mpConsumeL1: 9,
   reuseDelay: 3000,
   castRange: 40,
+};
+
+const POWER_STRIKE_DB_SKILL: Skill = {
+  skillId: 3,
+  name: 'Power Strike',
+  maxLevel: 9,
+  operateType: 'A1',
+  targetType: 'ENEMY',
+  castRange: 40,
+  reuseDelay: 3000,
+  mpConsumeL1: 9,
+  powerL1: 30,
+  hitTime: 1080,
+  isMagic: false,
+  effectKind: 'physical_damage',
+  abnormalTime: 0,
+  buffMultiplier: null,
+  debuffMultiplier: null,
 };
 
 const zeroRng = () => ({
@@ -254,6 +275,56 @@ describe('combat-resolver', () => {
     applyKillRewards({ level: 1, xp: 0 }, kill, TEST_CURVE, drops, rng);
 
     expect(kill.drops).toEqual([{ itemId: 57, count: 22 }]);
+  });
+
+  describe('canUseSkill', () => {
+    // SKILL20-14
+    it('rejects when skill is not in knownSkillIds', () => {
+      const combat = createPlayerCombatState();
+      const known = new Set<number>([3]);
+      expect(canUseSkill(combat, 3, known, 1000)).toBe(true);
+      expect(canUseSkill(combat, 1177, known, 1000)).toBe(false);
+    });
+
+    it('rejects when skill is on cooldown', () => {
+      const combat = createPlayerCombatState();
+      combat.skillCooldownEndMs[3] = 5000;
+      const known = new Set<number>([3]);
+      expect(canUseSkill(combat, 3, known, 4000)).toBe(false);
+      expect(canUseSkill(combat, 3, known, 5000)).toBe(true);
+    });
+  });
+
+  describe('resolveSkillUse', () => {
+    // SKILL20-26
+    it('physical skill sets per-skill cooldown and deals class sword anchor damage', () => {
+      const mob = gremlinMob({ hp: 500, maxHp: 500 });
+      const combat = createPlayerCombatState();
+      combat.targetMobId = mob.id;
+
+      const result = resolveSkillUse({
+        sessionId: 'p1',
+        playerX: mob.x,
+        playerZ: mob.z,
+        playerMp: 50,
+        playerMAtk: 8,
+        playerPAtk: 11,
+        playerCritRate: 4,
+        playerDex: 30,
+        combat,
+        mob,
+        skill: POWER_STRIKE_DB_SKILL,
+        nowMs: 1000,
+        rng: zeroRng(),
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.damage).toBe(71);
+      expect(result.mpCost).toBe(9);
+      expect(result.cooldownEndMs).toBe(4000);
+      expect(combat.skillCooldownEndMs[3]).toBe(4000);
+      expect(mob.hp).toBeCloseTo(500 - 71, 3);
+    });
   });
 
   describe('resolvePowerStrike', () => {

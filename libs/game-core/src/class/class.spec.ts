@@ -40,6 +40,18 @@ describe('class skill damage anchors', () => {
     );
     expect(damage).toBe(71);
   });
+
+  // SKILL20-23
+  it('Iron Punch L1 deals 72 with Orc naked pAtk 8 vs Gremlin', () => {
+    const damage = calcPhysicalSkillDamage(
+      { pAtk: 8, randomDamage: 10 },
+      { pDef: GREMLIN_COMBAT.pDef },
+      34,
+      { rngOffset: 0 }
+    );
+    expect(damage).toBe(Math.floor((77 * (8 + 34)) / GREMLIN_COMBAT.pDef));
+    expect(damage).toBe(72);
+  });
 });
 
 describe('class melee damage anchors', () => {
