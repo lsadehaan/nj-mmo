@@ -151,6 +151,21 @@
 
 ## Handoff
 
+**Phase 16 — Talking Island mob expansion (+5): COMPLETE (Verifier PASS, 2026-06-28).**
+`.specs/features/phase-16-ti-mob-expansion/validation.md` records PASS: 30/32 ACs traced
+(TIMOB-28/29 e2e deferred), discrimination sensor 3/4 mutations killed (M2 survival noted as
+lesson — fault coords ineffective vs peace-zone x-axis), gate green (server 198, client 220,
+game-core 87, visual 25/25). Five new TI mobs seeded with authentic Classic stats + drops:
+Elpy (20432), Elder Keltir (20544), Elder Wolf (20442), Giant Toad (20121), Orc (20130).
+Canonical 23 spawn rows; ring-progression ordering validated. ROADMAP Phase 16 flipped to `[x]`.
+
+**Loop status: RUNNING — next unchecked phase: Phase 17.**
+
+**Next step:** **Phase 17 — Talking Island NPC expansion (+5)** (`.specs/ROADMAP.md`).
+Five town NPCs: Lector (30001, Weapon Merchant), Jackson (30002, Armor Merchant),
+Silvia (30003, Accessory Merchant), Wilford (30005, Warehouse), Bitz (30026, Fighter Trainer).
+Seed + buylists + rigged GLBs + shop/dialog wiring + visual gate.
+
 **Phase 10 + Phase 15 — Asset fidelity fixes applied (2026-06-28).**
 `scripts/visual-gate.mjs` had reported 17 FAILs: all environment props were byte-identical
 copies of character/NPC GLBs (Mage→Building, Wolf→Tree, Keltir→Rock, Roxxy→Building,

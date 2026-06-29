@@ -303,7 +303,7 @@ Never run phases in parallel.
 
 ---
 
-## Phase 16 — Talking Island mob expansion (+5) `[ ]`
+## Phase 16 — Talking Island mob expansion (+5) `[x]`
 
 > Done when: five additional **authentic Talking Island** mobs (seed stats, drops,
 > spawns, rigged GLBs) are playable end-to-end — killable on the server, visible
