@@ -1,4 +1,8 @@
 export const ROXXY_NPC_ID = 30006;
+export const WILFORD_NPC_ID = 30005;
+export const BITZ_NPC_ID = 30026;
+
+export type NpcDialogVariant = 'helper' | 'warehouse' | 'trainer';
 
 export interface NpcDialogHandlers {
   sendNpcAction: (payload: { npcId: number; action: 'heal' | 'starterKit' }) => void;
@@ -7,11 +11,18 @@ export interface NpcDialogHandlers {
 export interface NpcDialogRenderOptions {
   npcId: number;
   name: string;
+  variant: NpcDialogVariant;
   visible: boolean;
   handlers: NpcDialogHandlers;
 }
 
 const ELEMENT_ID = 'npc-dialog';
+
+const VARIANT_TITLES: Record<NpcDialogVariant, string> = {
+  helper: 'Newbie Helper',
+  warehouse: 'Warehouse Keeper',
+  trainer: 'Grand Master',
+};
 
 export function mountNpcDialog(): HTMLElement {
   const existing = document.getElementById(ELEMENT_ID);
@@ -55,37 +66,65 @@ export function mountNpcDialog(): HTMLElement {
   return panel;
 }
 
+function appendActionButton(
+  actions: Element,
+  label: string,
+  actionKey: string,
+  options: { disabled?: boolean; disabledLabel?: string; onClick?: () => void }
+): void {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.dataset['action'] = actionKey;
+  btn.textContent = options.disabled ? `${label} (${options.disabledLabel ?? 'Coming soon'})` : label;
+  btn.style.display = 'block';
+  btn.style.marginBottom = '8px';
+  if (options.disabled) {
+    btn.disabled = true;
+  } else if (options.onClick) {
+    btn.addEventListener('click', options.onClick);
+  }
+  actions.appendChild(btn);
+}
+
 export function renderNpcDialog(options: NpcDialogRenderOptions): void {
   const panel = mountNpcDialog();
   panel.hidden = !options.visible;
 
   const title = panel.querySelector('[data-role="title"]');
-  if (title) title.textContent = `${options.name} — Newbie Helper`;
+  if (title) {
+    title.textContent = `${options.name} — ${VARIANT_TITLES[options.variant]}`;
+  }
 
   const actions = panel.querySelector('[data-role="actions"]');
   if (!actions) return;
   actions.innerHTML = '';
 
-  const healBtn = document.createElement('button');
-  healBtn.type = 'button';
-  healBtn.dataset['action'] = 'heal';
-  healBtn.textContent = 'Heal';
-  healBtn.style.display = 'block';
-  healBtn.style.marginBottom = '8px';
-  healBtn.addEventListener('click', () => {
-    options.handlers.sendNpcAction({ npcId: options.npcId, action: 'heal' });
-  });
-  actions.appendChild(healBtn);
-
-  const kitBtn = document.createElement('button');
-  kitBtn.type = 'button';
-  kitBtn.dataset['action'] = 'starterKit';
-  kitBtn.textContent = 'Starter Kit';
-  kitBtn.style.display = 'block';
-  kitBtn.addEventListener('click', () => {
-    options.handlers.sendNpcAction({ npcId: options.npcId, action: 'starterKit' });
-  });
-  actions.appendChild(kitBtn);
+  if (options.variant === 'helper') {
+    appendActionButton(actions, 'Heal', 'heal', {
+      onClick: () => {
+        options.handlers.sendNpcAction({ npcId: options.npcId, action: 'heal' });
+      },
+    });
+    appendActionButton(actions, 'Starter Kit', 'starterKit', {
+      onClick: () => {
+        options.handlers.sendNpcAction({ npcId: options.npcId, action: 'starterKit' });
+      },
+    });
+  } else if (options.variant === 'warehouse') {
+    appendActionButton(actions, 'Deposit', 'deposit', {
+      disabled: true,
+      disabledLabel: 'Coming soon',
+    });
+    appendActionButton(actions, 'Withdraw', 'withdraw', {
+      disabled: true,
+      disabledLabel: 'Coming soon',
+    });
+  } else if (options.variant === 'trainer') {
+    appendActionButton(actions, 'Change Class', 'changeClass', {
+      disabled: true,
+      disabledLabel: 'Coming soon',
+    });
+  }
 
   const closeBtn = panel.querySelector('[data-action="close"]');
   if (closeBtn && !closeBtn.hasAttribute('data-bound')) {
@@ -105,4 +144,14 @@ export function setNpcDialogVisible(visible: boolean): void {
 export function isNpcDialogVisible(): boolean {
   const panel = document.getElementById(ELEMENT_ID);
   return panel !== null && !panel.hidden;
+}
+
+export function resolveNpcDialogVariant(
+  npcId: number,
+  type: string
+): NpcDialogVariant | null {
+  if (type === 'Warehouse' || npcId === WILFORD_NPC_ID) return 'warehouse';
+  if (type === 'VillageMasterFighter' || npcId === BITZ_NPC_ID) return 'trainer';
+  if (type === 'Teleporter' || npcId === ROXXY_NPC_ID) return 'helper';
+  return null;
 }

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ROXXY_NPC_ID,
+  WILFORD_NPC_ID,
+  BITZ_NPC_ID,
   mountNpcDialog,
   renderNpcDialog,
 } from './npc-dialog';
@@ -19,6 +21,7 @@ describe('npc-dialog DOM', () => {
     renderNpcDialog({
       npcId: ROXXY_NPC_ID,
       name: 'Roxxy',
+      variant: 'helper',
       visible: true,
       handlers: { sendNpcAction: vi.fn() },
     });
@@ -30,12 +33,74 @@ describe('npc-dialog DOM', () => {
     expect(dialog?.querySelector('[data-action="starterKit"]')).not.toBeNull();
   });
 
+  it('shows warehouse title and disabled deposit/withdraw actions (TINPC-26)', () => {
+    mountNpcDialog();
+    renderNpcDialog({
+      npcId: WILFORD_NPC_ID,
+      name: 'Wilford',
+      variant: 'warehouse',
+      visible: true,
+      handlers: { sendNpcAction: vi.fn() },
+    });
+
+    const dialog = document.getElementById('npc-dialog');
+    expect(dialog?.querySelector('[data-role="title"]')?.textContent).toBe(
+      'Wilford — Warehouse Keeper'
+    );
+    const deposit = dialog?.querySelector('[data-action="deposit"]') as HTMLButtonElement | null;
+    const withdraw = dialog?.querySelector('[data-action="withdraw"]') as HTMLButtonElement | null;
+    expect(deposit?.disabled).toBe(true);
+    expect(withdraw?.disabled).toBe(true);
+    expect(deposit?.textContent).toContain('Coming soon');
+    expect(withdraw?.textContent).toContain('Coming soon');
+  });
+
+  it('disabled warehouse buttons do not wire click handlers (TINPC-27)', () => {
+    const sendNpcAction = vi.fn();
+    mountNpcDialog();
+    renderNpcDialog({
+      npcId: WILFORD_NPC_ID,
+      name: 'Wilford',
+      variant: 'warehouse',
+      visible: true,
+      handlers: { sendNpcAction },
+    });
+
+    const deposit = document.querySelector(
+      '#npc-dialog [data-action="deposit"]'
+    ) as HTMLButtonElement;
+    deposit?.click();
+    expect(sendNpcAction).not.toHaveBeenCalled();
+  });
+
+  it('shows trainer title and disabled class-change action (TINPC-28)', () => {
+    mountNpcDialog();
+    renderNpcDialog({
+      npcId: BITZ_NPC_ID,
+      name: 'Bitz',
+      variant: 'trainer',
+      visible: true,
+      handlers: { sendNpcAction: vi.fn() },
+    });
+
+    const dialog = document.getElementById('npc-dialog');
+    expect(dialog?.querySelector('[data-role="title"]')?.textContent).toBe(
+      'Bitz — Grand Master'
+    );
+    const changeClass = dialog?.querySelector(
+      '[data-action="changeClass"]'
+    ) as HTMLButtonElement | null;
+    expect(changeClass?.disabled).toBe(true);
+    expect(changeClass?.textContent).toContain('Coming soon');
+  });
+
   it('heal button sends npcAction heal intent', () => {
     const sendNpcAction = vi.fn();
     mountNpcDialog();
     renderNpcDialog({
       npcId: ROXXY_NPC_ID,
       name: 'Roxxy',
+      variant: 'helper',
       visible: true,
       handlers: { sendNpcAction },
     });
@@ -55,6 +120,7 @@ describe('npc-dialog DOM', () => {
     renderNpcDialog({
       npcId: ROXXY_NPC_ID,
       name: 'Roxxy',
+      variant: 'helper',
       visible: true,
       handlers: { sendNpcAction },
     });

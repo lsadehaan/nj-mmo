@@ -1,7 +1,15 @@
 import { horizontalDistance, NPC_INTERACT_RADIUS } from '@nj/game-core';
+import type { NpcDialogVariant } from './ui/npc-dialog';
+import {
+  resolveNpcDialogVariant,
+  ROXXY_NPC_ID,
+  WILFORD_NPC_ID,
+  BITZ_NPC_ID,
+} from './ui/npc-dialog';
 
 export const KATERINA_NPC_ID = 30004;
-export const ROXXY_NPC_ID = 30006;
+export { ROXXY_NPC_ID, WILFORD_NPC_ID, BITZ_NPC_ID };
+export const LECTOR_NPC_ID = 30001;
 
 export interface NpcPresence {
   npcId: number;
@@ -79,26 +87,27 @@ export function setInteractPromptVisible(visible: boolean): void {
   prompt.hidden = !visible;
 }
 
-export function isUtilityNpc(npcId: number, type: string): boolean {
-  return npcId === ROXXY_NPC_ID || type === 'Teleporter';
+export function isMerchantNpc(npcId: number, type: string): boolean {
+  return type === 'Merchant';
 }
 
-export function isMerchantNpc(npcId: number, type: string): boolean {
-  return npcId === KATERINA_NPC_ID || type === 'Merchant';
+export function resolveDialogVariant(npcId: number, type: string): NpcDialogVariant | null {
+  return resolveNpcDialogVariant(npcId, type);
 }
 
 export function openNpcUiForInteract(
   message: { npcId: number; type: string; name: string },
   handlers: {
-    openShop: () => void;
-    openDialog: (npcId: number, name: string) => void;
+    openShop: (npcId: number, merchantName: string) => void;
+    openDialog: (npcId: number, name: string, variant: NpcDialogVariant) => void;
   }
 ): void {
   if (isMerchantNpc(message.npcId, message.type)) {
-    handlers.openShop();
+    handlers.openShop(message.npcId, message.name);
     return;
   }
-  if (isUtilityNpc(message.npcId, message.type)) {
-    handlers.openDialog(message.npcId, message.name);
+  const variant = resolveDialogVariant(message.npcId, message.type);
+  if (variant) {
+    handlers.openDialog(message.npcId, message.name, variant);
   }
 }
