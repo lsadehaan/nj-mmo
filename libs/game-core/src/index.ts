@@ -1,3 +1,6 @@
+export * from './class/stat-bonus';
+export * from './class/class-combat';
+export * from './class/class-vitals';
 export * from './movement-system';
 export * from './terrain';
 export * from './world-blockers';
