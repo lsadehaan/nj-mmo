@@ -151,10 +151,16 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 21.**
+**Loop status: RUNNING — next unchecked phase: Phase 22.**
 
-**Next step:** **Phase 21 — Quests & tutorial** (`.specs/ROADMAP.md`). Planner sub-agent
-writes `.specs/features/phase-21-quests/` — TI starter quest chain, quest engine, quest log UI.
+**Next step:** **Phase 22 — Complete TI bestiary (+12 mobs)** (`.specs/ROADMAP.md`). Planner
+sub-agent writes `.specs/features/phase-22-ti-bestiary/`.
+
+**Phase 21 — Quests & tutorial: COMPLETE (Verifier PASS, fix iteration 2, 2026-06-29).**
+`.specs/features/phase-21-quests/validation.md` records PASS: 48/48 ACs traced (AC 36 Nerkas
+spawn deferred), sensor 3/3 killed, gate stable 691 tests. 17 TI quests seeded; quest engine
+in game-core; TownRoom quest handlers; quest log + markers + dialog; room anchors green after
+flake fix `465b53b`. ROADMAP Phase 21 flipped to `[x]`.
 
 **Phase 20 — Skills & combat depth: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
 `.specs/features/phase-20-skills-combat/validation.md` records PASS: 52/52 ACs traced (4 non-blocking

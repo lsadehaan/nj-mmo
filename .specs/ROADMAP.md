@@ -624,7 +624,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 21 — Quests & tutorial `[ ]`
+## Phase 21 — Quests & tutorial `[x]`
 
 > Done when: TI starter quest chain is playable — Tutorial (Q00255) plus core
 > Q001xx/Q0015x quests (~17); quest log UI; NPC quest markers; kill/collect/talk
