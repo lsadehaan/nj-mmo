@@ -1,7 +1,7 @@
 const HP_PER_LEVEL = 12;
 const MP_PER_LEVEL = 5;
 
-export interface PlayerVitals {
+export interface FlatLevelUpVitals {
   maxHp: number;
   maxMp: number;
   hp: number;
@@ -11,8 +11,8 @@ export interface PlayerVitals {
 export function applyLevelUpReward(
   prevLevel: number,
   newLevel: number,
-  vitals: PlayerVitals
-): PlayerVitals {
+  vitals: FlatLevelUpVitals
+): FlatLevelUpVitals {
   const levelsGained = Math.max(0, newLevel - prevLevel);
   if (levelsGained === 0) {
     return { ...vitals };

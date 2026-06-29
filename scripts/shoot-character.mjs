@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.LAB_BASE ?? 'http://localhost:4201';
+const classIds = process.env.LAB_CLASS_IDS?.split(',').filter(Boolean) ?? [];
 const char = process.env.LAB_CHAR;
 const model = process.env.LAB_MODEL;
 const mob = process.env.LAB_MOB;
@@ -45,6 +46,11 @@ if (weapon) {
     label: dual ? `dual-weapon-${weapon}` : `weapon-${weapon}`,
   });
 }
+if (classIds.length) {
+  for (const id of classIds) {
+    mobTargets.push({ kind: 'classId', id, label: `class-${id}` });
+  }
+}
 if (model) mobTargets.push({ kind: 'model', id: model, label: model.replace(/\//g, '-') });
 if (char && mobTargets.length === 0) mobTargets.push({ kind: 'char', id: char, label: char });
 if (mobTargets.length === 0) {
@@ -68,10 +74,14 @@ for (const target of mobTargets) {
         ? weaponShots
         : target.kind === 'char'
           ? shots
+          : target.kind === 'classId'
+            ? shots
           : mobShots;
   for (const { clip, t, angle } of clipShots) {
     const parts = [
-      target.kind === 'npc'
+      target.kind === 'classId'
+        ? `classId=${target.id}`
+        : target.kind === 'npc'
         ? `npc=${target.id}`
         : target.kind === 'mob'
         ? `mob=${target.id}`

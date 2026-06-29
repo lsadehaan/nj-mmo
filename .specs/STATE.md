@@ -151,6 +151,21 @@
 
 ## Handoff
 
+**Phase 19 — Character creation & classes: Implementer complete (T1–T10); Verifier pending.**
+
+- **Feature dir**: `.specs/features/phase-19-character-creation/`
+- **Branch**: `master`
+- **Next**: Dispatch Verifier sub-agent; on PASS flip ROADMAP Phase 19 and write `validation.md`
+
+**Loop status:** Phase 19 implementation done; awaiting verification.
+
+**Post-MVP track (Phases 19–29):** Complete Talking Island locally — character
+creation, skills, quests, full bestiary, expanded world, town services, economy,
+social, PvP rules, UI shell, audio. **Public deployment explicitly out of scope.**
+
+**Test gate:** Vitest only — unit (server + client), room integration, seed/data.
+Playwright / `client-e2e` removed per AGENTS.md.
+
 **Phase 18 — Consumable item use (Healing Potion): COMPLETE (Verifier PASS, 2026-06-28).**
 `.specs/features/phase-18-consumable-use/validation.md` records PASS after 1 fix iteration:
 27/27 ACs traced, 4/4 discrimination sensors killed, gate green (game-core 110, server 220,
@@ -159,9 +174,8 @@ reuse cooldown, `useItem` intent, inventory Use button, `__useItem__` test hook.
 Fix iteration: build type error in `test-hook.ts` + e2e browser-closure serialization.
 ROADMAP Phase 18 flipped to `[x]`.
 
-**Loop status: STOPPED — ALL ROADMAP PHASES COMPLETE.**
-Every phase (1–18) is `[x]`. The autonomous loop heartbeat is NOT re-armed.
-No unchecked phases remain in `.specs/ROADMAP.md`.
+**Loop status (superseded): STOPPED — ALL ROADMAP PHASES COMPLETE.**
+*Replaced by Post-MVP Phases 19–29 in `.specs/ROADMAP.md`.*
 
 **Phase 17 — Talking Island NPC expansion (+5): COMPLETE (Verifier PASS, 2026-06-28).**
 `.specs/features/phase-17-ti-npc-expansion/validation.md` records PASS: 35/35 ACs traced,

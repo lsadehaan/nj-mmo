@@ -53,9 +53,27 @@ export type GameStatePlayerInput = Omit<
   | 'healingPotionCooldownRemainingMs'
   | 'healingPotionCooldownEndMs'
   | 'action'
+  | 'classId'
+  | 'sex'
+  | 'str'
+  | 'dex'
+  | 'con'
+  | 'int'
+  | 'wit'
+  | 'men'
+  | 'avatarModel'
 > & {
   action?: AnimationClip;
   healingPotionCooldownEndMs?: number;
+  classId?: number;
+  sex?: number;
+  str?: number;
+  dex?: number;
+  con?: number;
+  int?: number;
+  wit?: number;
+  men?: number;
+  avatarModel?: string;
 };
 
 export interface GameStateMob {

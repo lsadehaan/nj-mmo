@@ -265,7 +265,15 @@ describe('TownRoom character creation join', () => {
         TownState
       );
       const clientB = await colyseus.sdk.joinById(room.roomId, {}, TownState);
-      const remoteOnB = clientB.state.players.get(clientA.sessionId);
+
+      expect(room.state.players.get(clientA.sessionId)?.classId).toBe(31);
+
+      const deadline = Date.now() + 2000;
+      let remoteOnB = clientB.state.players.get(clientA.sessionId);
+      while (Date.now() < deadline && remoteOnB?.classId !== 31) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        remoteOnB = clientB.state.players.get(clientA.sessionId);
+      }
       expect(remoteOnB?.classId).toBe(31);
       await clientA.leave();
       await clientB.leave();

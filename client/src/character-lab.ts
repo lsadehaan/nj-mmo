@@ -6,6 +6,7 @@ import {
   type MeshCharacter,
 } from './scene/creature/mesh-character';
 import { getCreatureEntry } from './scene/creature/creature-manifest';
+import { getPlayerManifestEntry } from './scene/creature/player-manifest';
 import { getNpcEntry } from './scene/creature/npc-manifest';
 import type { AnimationClip } from '@nj/game-core';
 import {
@@ -26,6 +27,7 @@ import { attachToBone } from './scene/creature/attachment';
  * Mob:       /character-lab.html?mob=20003&clip=attack&t=0.45&angle=0.6&auto=0
  */
 const params = new URLSearchParams(location.search);
+const classIdParam = params.get('classId');
 const mobNpcId = params.get('mob');
 const townNpcId = params.get('npc');
 const modelPath = params.get('model');
@@ -72,7 +74,9 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-const label = townNpcId
+const label = classIdParam
+  ? `classId=${classIdParam}`
+  : townNpcId
   ? `npc=${townNpcId}`
   : mobNpcId
   ? `mob=${mobNpcId}`
@@ -93,6 +97,10 @@ declare global {
 }
 
 function resolveModel(): { url: string; scale: number; clipMap?: Record<AnimationClip, string> } {
+  if (classIdParam) {
+    const entry = getPlayerManifestEntry(Number(classIdParam));
+    return { url: entry.model, scale: entry.scale, clipMap: entry.clipMap };
+  }
   if (townNpcId) {
     const entry = getNpcEntry(Number(townNpcId));
     if (!entry) throw new Error(`Unknown town npcId ${townNpcId}`);
