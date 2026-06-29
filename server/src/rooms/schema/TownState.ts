@@ -2,6 +2,7 @@ import { Schema, type, MapSchema, ArraySchema } from '@colyseus/schema';
 import { MobState } from './MobState';
 import { NpcState } from './NpcState';
 import { ItemStackState } from './ItemStackState';
+import { QuestEntryState } from './QuestEntryState';
 
 export class PlayerState extends Schema {
   @type('number') x = 0;
@@ -38,6 +39,7 @@ export class PlayerState extends Schema {
   /** Render-only; not persisted (AD-015). */
   @type('number') actionSeq = 0;
   @type({ map: ItemStackState }) items = new MapSchema<ItemStackState>();
+  @type([QuestEntryState]) questEntries = new ArraySchema<QuestEntryState>();
 }
 
 export class TownState extends Schema {
