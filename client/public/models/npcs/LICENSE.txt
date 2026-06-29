@@ -6,9 +6,16 @@ until dedicated mob meshes ship; see ../characters/LICENSE.txt.
 Wolf.glb, BeardedKeltir.glb — Quaternius "Ultimate Animated Animals" (CC0).
 https://quaternius.com/packs/ultimateanimatedanimals.html
 
-Town NPC models (Phase 12)
+Town NPC models (Phase 12 + 17)
 
 Roxxy.glb — Quaternius "Animated Woman" (CC0), via poly.pizza static mirror.
 https://quaternius.com/packs/animatedwoman.html
 
 Katerina reuses ../characters/Mage.glb (KayKit Adventurers, CC0).
+
+Phase 17 service NPCs (KayKit Adventurers, CC0 unless noted):
+Lector.glb — Knight.glb source
+Jackson.glb — Barbarian.glb source
+Silvia.glb — Rogue_Hooded.glb source
+Bitz.glb — Rogue.glb source
+Wilford.glb — Three.js Xbot sample (MIT, https://threejs.org/examples/models/gltf/Xbot.glb)
