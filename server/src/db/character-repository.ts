@@ -3,22 +3,43 @@ import { eq } from 'drizzle-orm';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import type { AppDatabase } from './client';
 import { characters, characterItems, type Character } from './schema';
+import { loadClassVitalsAtLevel } from './class-template-repository';
 
 const STARTER_NAME = 'Adventurer';
 const STARTER_ADENA = 1000;
+const DEFAULT_CLASS_ID = 0;
+const DEFAULT_SEX = 0;
 
 export type CharacterItemCounts = Record<number, number>;
 
-export function createCharacter(db: AppDatabase): Character {
+export interface CreateCharacterOptions {
+  classId?: number;
+  sex?: 0 | 1;
+}
+
+export function createCharacter(
+  db: AppDatabase,
+  opts: CreateCharacterOptions = {}
+): Character {
+  const classId = opts.classId ?? DEFAULT_CLASS_ID;
+  const sex = opts.sex ?? DEFAULT_SEX;
+
+  const vitals = loadClassVitalsAtLevel(db, classId, 1) ?? {
+    maxHp: 100,
+    maxMp: 50,
+  };
+
   const row: Character = {
     id: randomUUID(),
     name: STARTER_NAME,
+    classId,
+    sex,
     level: 1,
     xp: 0,
-    hp: 100,
-    mp: 50,
-    maxHp: 100,
-    maxMp: 50,
+    hp: vitals.maxHp,
+    mp: vitals.maxMp,
+    maxHp: vitals.maxHp,
+    maxMp: vitals.maxMp,
     equippedWeaponItemId: null,
     adena: STARTER_ADENA,
     starterKitGranted: false,
@@ -43,6 +64,8 @@ export function saveCharacter(db: AppDatabase, row: Character): void {
       target: characters.id,
       set: {
         name: row.name,
+        classId: row.classId,
+        sex: row.sex,
         level: row.level,
         xp: row.xp,
         hp: row.hp,

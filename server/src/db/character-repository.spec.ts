@@ -5,6 +5,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import { getDb } from './client';
 import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems } from './character-repository';
+import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 
 describe('character repository', () => {
   let cleanup: () => void;
@@ -28,6 +29,8 @@ describe('character repository', () => {
     );
     expect(row).toMatchObject({
       name: 'Adventurer',
+      classId: 0,
+      sex: 0,
       level: 1,
       xp: 0,
       hp: 100,
@@ -168,5 +171,38 @@ describe('character repository', () => {
     expect(loaded?.maxHp).toBe(100);
     expect(loaded?.maxMp).toBe(50);
     expect(loaded?.equippedWeaponItemId).toBeNull();
+    expect(loaded?.classId).toBe(0);
+    expect(loaded?.sex).toBe(0);
+  });
+
+  it('createCharacter with classId 10 and sex 1 applies template vitals (CHAR19-14)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nj-char-class-'));
+    const dbPath = join(dir, 'test.db');
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const row = createCharacter(db, { classId: 10, sex: 1 });
+    expect(row).toMatchObject({
+      classId: 10,
+      sex: 1,
+      maxHp: 101,
+      maxMp: 40,
+      hp: 101,
+      mp: 40,
+    });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('saveCharacter round-trips classId and sex (CHAR19-15)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nj-char-class-'));
+    const dbPath = join(dir, 'test.db');
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const created = createCharacter(db, { classId: 25, sex: 0 });
+    const updated = { ...created, classId: 31, sex: 1 };
+    saveCharacter(db, updated);
+    const loaded = loadCharacter(db, created.id);
+    expect(loaded?.classId).toBe(31);
+    expect(loaded?.sex).toBe(1);
+    rmSync(dir, { recursive: true, force: true });
   });
 });
