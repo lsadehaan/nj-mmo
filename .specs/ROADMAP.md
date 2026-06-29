@@ -467,7 +467,7 @@ Executed via `spec-driven-execution` (Planner → Implementer → Verifier):
 
 ---
 
-## Phase 18 — Consumable item use (Healing Potion) `[ ]`
+## Phase 18 — Consumable item use (Healing Potion) `[x]`
 
 > Done when: a player can **use** a Healing Potion (item **1060**) from inventory
 > — server validates ownership, applies authentic L2J healing, decrements count,

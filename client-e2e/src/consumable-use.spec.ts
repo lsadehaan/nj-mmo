@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { pickNearestCombatMob } from './peace-zone';
 import { gotoGame } from './game-page';
+import { approachMob } from './mob-combat';
 
 const ROXXY_NPC_ID = 30006;
 const HEALING_POTION_ITEM_ID = 1060;
@@ -15,7 +16,7 @@ async function walkTowardInPeaceZone(
   page: import('@playwright/test').Page,
   target: { x: number; z: number },
   arriveWithin: number,
-  timeoutMs = 30_000
+  timeoutMs = 20_000
 ): Promise<void> {
   await page.waitForFunction(() => typeof window.__sendMoveIntent__ === 'function');
   await expect
@@ -46,14 +47,21 @@ async function walkTowardInPeaceZone(
 }
 
 async function claimStarterKit(page: import('@playwright/test').Page): Promise<void> {
+  await page.waitForFunction(() => window.__GAME_STATE__?.adena === 1000, undefined, {
+    timeout: 15_000,
+  });
+  await page.waitForFunction(() => (window.__GAME_STATE__?.npcs?.length ?? 0) >= 2, undefined, {
+    timeout: 15_000,
+  });
+
   await walkTowardInPeaceZone(page, { x: 4, z: 10 }, 2.5);
 
   await page.waitForFunction(
-    () =>
-      window.__GAME_STATE__?.nearbyNpcId === ROXXY_NPC_ID &&
+    (npcId) =>
+      window.__GAME_STATE__?.nearbyNpcId === npcId &&
       window.__GAME_STATE__?.canInteract === true,
-    undefined,
-    { timeout: 20_000 }
+    ROXXY_NPC_ID,
+    { timeout: 15_000 }
   );
 
   await page.waitForFunction(() => typeof window.__npcAction__ === 'function');
@@ -61,48 +69,70 @@ async function claimStarterKit(page: import('@playwright/test').Page): Promise<v
   await expect
     .poll(
       async () =>
-        page.evaluate((npcId) => {
-          if ((window.__GAME_STATE__.items[HEALING_POTION_ITEM_ID] ?? 0) < 3) {
-            window.__npcAction__?.(npcId, 'starterKit');
-          }
-          return window.__GAME_STATE__.items[HEALING_POTION_ITEM_ID] ?? 0;
-        }, ROXXY_NPC_ID),
-      { timeout: 20_000, intervals: [300, 500, 1000] }
+        page.evaluate(
+          ({ npcId, itemId }) => {
+            if ((window.__GAME_STATE__.items[itemId] ?? 0) < 3) {
+              window.__npcAction__?.(npcId, 'starterKit');
+            }
+            return window.__GAME_STATE__.items[itemId] ?? 0;
+          },
+          { npcId: ROXXY_NPC_ID, itemId: HEALING_POTION_ITEM_ID }
+        ),
+      { timeout: 15_000, intervals: [300, 500, 800] }
     )
     .toBe(3);
 }
 
-async function waitForFieldDamage(page: import('@playwright/test').Page): Promise<void> {
+/** Walk to nearest field mob and poll until mob retaliation drops player HP. */
+async function takeFieldDamage(page: import('@playwright/test').Page): Promise<void> {
   await page.waitForFunction(() => (window.__GAME_STATE__?.mobs?.length ?? 0) > 0, undefined, {
-    timeout: 15_000,
+    timeout: 10_000,
   });
+
+  const { mobs, player } = await page.evaluate(() => ({
+    mobs: window.__GAME_STATE__.mobs.map((m) => ({
+      id: m.id,
+      x: m.x,
+      z: m.z,
+      hp: m.hp,
+    })),
+    player: {
+      x: window.__GAME_STATE__.player.x,
+      z: window.__GAME_STATE__.player.z,
+    },
+  }));
+  const mob = pickNearestCombatMob(mobs, player);
+
+  await approachMob(page, mob.id, 2.8, 20_000);
+
+  await page.waitForFunction(() => typeof window.__handleMobTarget__ === 'function');
+  await page.evaluate((mobId) => window.__handleMobTarget__?.(mobId), mob.id);
 
   await expect
     .poll(
       async () =>
-        page.evaluate(() => {
+        page.evaluate((mobId) => {
           const state = window.__GAME_STATE__;
           const { player, maxHp } = state;
           if (player.hp > 0 && player.hp < maxHp) return true;
 
-          const mobs = state.mobs.map((m) => ({
-            id: m.id,
-            x: m.x,
-            z: m.z,
-            hp: m.hp,
-          }));
-          const target = pickNearestCombatMob(mobs, player);
-          const dist = Math.hypot(player.x - target.x, player.z - target.z);
-          if (dist > 3.5) {
-            const dx = target.x - player.x;
-            const dz = target.z - player.z;
+          const mob = state.mobs.find((m) => m.id === mobId);
+          if (!mob || mob.hp <= 0) return false;
+
+          const dist = Math.hypot(player.x - mob.x, player.z - mob.z);
+          if (dist > 3.4) {
+            const dx = mob.x - player.x;
+            const dz = mob.z - player.z;
             const len = Math.hypot(dx, dz) || 1;
             const step = Math.max(1, Math.min(len - 2.5, 6));
             window.__sendMoveIntent__?.(player.x + (dx / len) * step, player.z + (dz / len) * step);
+            return false;
           }
+
+          window.__attack__?.();
           return false;
-        }),
-      { timeout: 25_000, intervals: [300, 500, 800] }
+        }, mob.id),
+      { timeout: 15_000, intervals: [200, 400, 800] }
     )
     .toBe(true);
 }
@@ -115,16 +145,16 @@ test('healing potion restores HP and decrements stack after field damage', async
   await waitReady(page);
 
   await claimStarterKit(page);
-  await waitForFieldDamage(page);
+  await takeFieldDamage(page);
 
-  const before = await page.evaluate(() => {
+  const before = await page.evaluate((itemId) => {
     const state = window.__GAME_STATE__;
     return {
       hp: state.player.hp,
       maxHp: state.maxHp,
-      count: state.items[HEALING_POTION_ITEM_ID] ?? 0,
+      count: state.items[itemId] ?? 0,
     };
-  });
+  }, HEALING_POTION_ITEM_ID);
 
   await page.waitForFunction(() => typeof window.__useItem__ === 'function');
   await page.evaluate((itemId) => window.__useItem__?.(itemId), HEALING_POTION_ITEM_ID);
@@ -145,7 +175,7 @@ test('healing potion restores HP and decrements stack after field damage', async
           },
           { expectedHp, expectedCount, itemId: HEALING_POTION_ITEM_ID }
         ),
-      { timeout: 10_000, intervals: [200, 400, 800] }
+      { timeout: 8_000, intervals: [200, 400, 800] }
     )
     .toBe(true);
 });
@@ -158,7 +188,6 @@ test('second healing potion use within 10s is blocked by reuse cooldown', async 
   await waitReady(page);
 
   await claimStarterKit(page);
-  await waitForFieldDamage(page);
 
   await page.waitForFunction(() => typeof window.__useItem__ === 'function');
   await page.evaluate((itemId) => window.__useItem__?.(itemId), HEALING_POTION_ITEM_ID);
@@ -166,12 +195,11 @@ test('second healing potion use within 10s is blocked by reuse cooldown', async 
   await expect
     .poll(
       async () =>
-        page.evaluate((itemId) => {
-          const state = window.__GAME_STATE__;
-          const beforeHp = state.player.hp;
-          return beforeHp > 0 && (state.items[itemId] ?? 0) === 2;
-        }, HEALING_POTION_ITEM_ID),
-      { timeout: 10_000, intervals: [200, 400, 800] }
+        page.evaluate(
+          (itemId) => (window.__GAME_STATE__.items[itemId] ?? 0) === 2,
+          HEALING_POTION_ITEM_ID
+        ),
+      { timeout: 8_000, intervals: [200, 400, 800] }
     )
     .toBe(true);
 
@@ -189,7 +217,7 @@ test('second healing potion use within 10s is blocked by reuse cooldown', async 
           (args) => window.__GAME_STATE__.items[args.itemId] ?? 0,
           { itemId: HEALING_POTION_ITEM_ID, expected: countAfterFirst }
         ),
-      { timeout: 5_000, intervals: [100, 200, 400] }
+      { timeout: 3_000, intervals: [100, 200, 400] }
     )
     .toBe(countAfterFirst);
 });

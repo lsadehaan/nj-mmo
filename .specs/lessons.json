@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 12,
+  "next_id": 15,
   "lessons": [
     {
       "id": "L-001",
@@ -202,6 +202,60 @@
       ],
       "created": "2026-06-28T19:42:27Z",
       "last_seen": "2026-06-28T19:42:27Z"
+    },
+    {
+      "id": "L-012",
+      "key": "gate_fail::when a gamestateplayerinput field is optional with a default in setplayer omit it from the base type before re adding as optional intersection does not relax required fields",
+      "text": "When a GameStatePlayerInput field is optional with a default in setPlayer, Omit it from the base type before re-adding as optional — intersection does not relax required fields.",
+      "signal": "gate_fail",
+      "scope": "client/test-hook",
+      "status": "candidate",
+      "features": [
+        "phase-18-consumable-use"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "client/src/test-hook.ts:GameStatePlayerInput (client/test-hook)"
+      ],
+      "created": "2026-06-29T02:39:43Z",
+      "last_seen": "2026-06-29T02:39:43Z"
+    },
+    {
+      "id": "L-013",
+      "key": "gate_fail::in playwright page evaluate and waitforfunction callbacks pass numeric constants as serialized arguments browser context cannot see node module bindings",
+      "text": "In Playwright page.evaluate and waitForFunction callbacks, pass numeric constants as serialized arguments — browser context cannot see Node module bindings.",
+      "signal": "gate_fail",
+      "scope": "client-e2e",
+      "status": "candidate",
+      "features": [
+        "phase-18-consumable-use"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "client-e2e/src/consumable-use.spec.ts:claimStarterKit (client-e2e)"
+      ],
+      "created": "2026-06-29T02:39:44Z",
+      "last_seen": "2026-06-29T02:39:44Z"
+    },
+    {
+      "id": "L-014",
+      "key": "spec_precision_gap::document test hook cooldown remaining fields on the player sub object in ac text when mirroring powerstrikecooldownremainingms root level game state paths mislead implementers",
+      "text": "Document test-hook cooldown remaining fields on the player sub-object in AC text when mirroring powerStrikeCooldownRemainingMs — root-level __GAME_STATE__ paths mislead implementers.",
+      "signal": "spec_precision_gap",
+      "scope": "spec/client",
+      "status": "candidate",
+      "features": [
+        "phase-18-consumable-use"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "CONS-25 (spec/client)"
+      ],
+      "created": "2026-06-29T02:39:49Z",
+      "last_seen": "2026-06-29T02:39:49Z"
     }
   ]
 }

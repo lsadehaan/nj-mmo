@@ -40,7 +40,10 @@ export interface GameStatePlayer {
 /** Server snapshot input — remaining cooldowns are derived client-side. */
 export type GameStatePlayerInput = Omit<
   GameStatePlayer,
-  'powerStrikeCooldownRemainingMs' | 'healingPotionCooldownRemainingMs' | 'action'
+  | 'powerStrikeCooldownRemainingMs'
+  | 'healingPotionCooldownRemainingMs'
+  | 'healingPotionCooldownEndMs'
+  | 'action'
 > & {
   action?: AnimationClip;
   healingPotionCooldownEndMs?: number;

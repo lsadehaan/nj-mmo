@@ -80,6 +80,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: ENV-11 | environment-renderer.ts:190 x+10 mutant (client/scene environment-renderer)
 - last seen: 2026-06-28T19:42:27Z
 
+### L-012 — When a GameStatePlayerInput field is optional with a default in setPlayer, Omit it from the base type before re-adding as optional — intersection does not relax required fields.
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `client/test-hook` · harmful: 0
+- features: phase-18-consumable-use
+- evidence: client/src/test-hook.ts:GameStatePlayerInput (client/test-hook)
+- last seen: 2026-06-29T02:39:43Z
+
+### L-013 — In Playwright page.evaluate and waitForFunction callbacks, pass numeric constants as serialized arguments — browser context cannot see Node module bindings.
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `client-e2e` · harmful: 0
+- features: phase-18-consumable-use
+- evidence: client-e2e/src/consumable-use.spec.ts:claimStarterKit (client-e2e)
+- last seen: 2026-06-29T02:39:44Z
+
+### L-014 — Document test-hook cooldown remaining fields on the player sub-object in AC text when mirroring powerStrikeCooldownRemainingMs — root-level __GAME_STATE__ paths mislead implementers.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `spec/client` · harmful: 0
+- features: phase-18-consumable-use
+- evidence: CONS-25 (spec/client)
+- last seen: 2026-06-29T02:39:49Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

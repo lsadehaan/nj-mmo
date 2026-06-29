@@ -151,6 +151,18 @@
 
 ## Handoff
 
+**Phase 18 — Consumable item use (Healing Potion): COMPLETE (Verifier PASS, 2026-06-28).**
+`.specs/features/phase-18-consumable-use/validation.md` records PASS after 1 fix iteration:
+27/27 ACs traced, 4/4 discrimination sensors killed, gate green (game-core 110, server 220,
+client 238, e2e consumable-use 2/2 in 27 s). Single 24 HP grant (skill 2031: 8×3), 10 s
+reuse cooldown, `useItem` intent, inventory Use button, `__useItem__` test hook.
+Fix iteration: build type error in `test-hook.ts` + e2e browser-closure serialization.
+ROADMAP Phase 18 flipped to `[x]`.
+
+**Loop status: STOPPED — ALL ROADMAP PHASES COMPLETE.**
+Every phase (1–18) is `[x]`. The autonomous loop heartbeat is NOT re-armed.
+No unchecked phases remain in `.specs/ROADMAP.md`.
+
 **Phase 17 — Talking Island NPC expansion (+5): COMPLETE (Verifier PASS, 2026-06-28).**
 `.specs/features/phase-17-ti-npc-expansion/validation.md` records PASS: 35/35 ACs traced,
 4/4 discrimination sensors killed, gate green (server 210, client 232, game-core 101, visual
