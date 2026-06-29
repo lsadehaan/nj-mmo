@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { initGameState, setQuests, getGameState } from './test-hook';
-
-import { describe, it, expect, beforeEach } from 'vitest';
-import { initGameState, setMobs, getGameState } from '../test-hook';
+import { initGameState, setQuests, setMobs, getGameState } from './test-hook';
 
 describe('test-hook mobs', () => {
   beforeEach(() => {
