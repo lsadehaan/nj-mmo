@@ -19,6 +19,10 @@ import {
   type ExperienceCurveRow,
   type SeededRng,
   EntityAction,
+  HEALING_POTION_HEAL_AMOUNT,
+  HEALING_POTION_ITEM_ID,
+  HEALING_POTION_REUSE_MS,
+  resolveConsumableUse,
 } from '@nj/game-core';
 import { getDb, type AppDatabase } from '../db/client';
 import {
@@ -193,6 +197,10 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.onMessage('equip', (client, message: { itemId: number }) => {
       this.handleEquip(client.sessionId, message.itemId);
     });
+
+    this.onMessage('useItem', (client, message: { itemId: number }) => {
+      this.handleUseItem(client.sessionId, message.itemId);
+    });
   }
 
   private initializeNpcs(): void {
@@ -301,6 +309,36 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     stored.equippedWeaponItemId = equipped;
     player.equippedWeaponItemId = equipped ?? 0;
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleUseItem(sessionId: string, itemId: number): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored || player.hp <= 0) return;
+
+    const item = this.itemsById.get(itemId);
+    const cooldownEndMs =
+      itemId === HEALING_POTION_ITEM_ID ? player.healingPotionCooldownEndMs : 0;
+
+    const result = resolveConsumableUse({
+      itemId,
+      itemType: item?.type,
+      ownedCount: this.getItemCount(sessionId, itemId),
+      hp: player.hp,
+      maxHp: player.maxHp,
+      healAmount: HEALING_POTION_HEAL_AMOUNT,
+      reuseMs: HEALING_POTION_REUSE_MS,
+      nowMs: this.nowMs(),
+      cooldownEndMs,
+    });
+
+    if (!result.ok) return;
+
+    player.hp = result.hp;
+    stored.hp = result.hp;
+    this.setItemCount(sessionId, itemId, result.itemCount);
+    player.healingPotionCooldownEndMs = result.cooldownEndMs;
     this.scheduleDebouncedSave(sessionId);
   }
 

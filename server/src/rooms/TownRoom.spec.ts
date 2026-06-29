@@ -1675,6 +1675,228 @@ describe('TownRoom equip', () => {
   });
 });
 
+describe('TownRoom useItem', () => {
+  const KATERINA = 30004;
+  const ROXXY = 30006;
+
+  function grantPotions(room: TestRoom, sessionId: string, count: number): void {
+    room['playerItems'].set(sessionId, { [HEALING_POTION]: count });
+    room['syncItemsToPlayerState'](sessionId);
+  }
+
+  it('heals 24 HP, decrements stack, and sets reuse cooldown on success', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(2000);
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, nowMs: clock.now });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      grantPotions(room, client.sessionId, 1);
+      player.hp = 50;
+
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+
+      expect(player.hp).toBe(74);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
+      expect(player.healingPotionCooldownEndMs).toBe(12_000);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects useItem when potion count is 0', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      player.hp = 50;
+
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+
+      expect(player.hp).toBe(50);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects useItem for weapon item 2369', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      await claimStarterKit(room, client, client.sessionId);
+      const player = room.state.players.get(client.sessionId)!;
+      const hpBefore = player.hp;
+      const swordBefore = getPlayerItemCount(room, client.sessionId, SQUIRES_SWORD);
+
+      await deliver(room, client, [['useItem', { itemId: SQUIRES_SWORD }]]);
+
+      expect(player.hp).toBe(hpBefore);
+      expect(getPlayerItemCount(room, client.sessionId, SQUIRES_SWORD)).toBe(swordBefore);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects second useItem at t+9999 and accepts at t+10000', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const clock = createFakeClock(1000);
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, nowMs: clock.now });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      grantPotions(room, client.sessionId, 2);
+      player.hp = 50;
+
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+      expect(player.hp).toBe(74);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(1);
+
+      clock.advance(9999);
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+      expect(player.hp).toBe(74);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(1);
+
+      clock.advance(1);
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+      expect(player.hp).toBe(98);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('allows potion use inside peace zone', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      grantPotions(room, client.sessionId, 1);
+      placePlayerNear(room, client.sessionId, 0, 0);
+      player.hp = 80;
+
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+
+      expect(player.hp).toBe(100);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('persists hp and potion count after useItem on reconnect', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(room.roomId, {}, TownState);
+      const characterId = await client.waitForMessage('characterId');
+      const player = room.state.players.get(client.sessionId)!;
+      grantPotions(room, client.sessionId, 1);
+      player.hp = 50;
+
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+      await client.leave(true);
+
+      expect(loadCharacter(getDb(dbPath), characterId)!.hp).toBe(74);
+      expect(loadCharacterItems(getDb(dbPath), characterId)[HEALING_POTION]).toBeUndefined();
+
+      const room2 = await colyseus.createRoom('town', { dbPath });
+      const client2 = await colyseus.sdk.joinById(room2.roomId, { characterId }, TownState);
+      const player2 = room2.state.players.get(client2.sessionId)!;
+      expect(player2.hp).toBe(74);
+      expect(getPlayerItemCount(room2, client2.sessionId, HEALING_POTION)).toBe(0);
+      await client2.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Roxxy heal still restores full HP after potion use', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      grantPotions(room, client.sessionId, 1);
+      player.hp = 40;
+      placePlayerAtNpc(room, client.sessionId, ROXXY);
+
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+      expect(player.hp).toBe(64);
+
+      await deliver(room, client, [['npcAction', { npcId: ROXXY, action: 'heal' }]]);
+      expect(player.hp).toBe(100);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Katerina buy 1× potion at 103 adena still works', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      placePlayerAtNpc(room, client.sessionId, KATERINA);
+
+      await deliver(room, client, [
+        ['buy', { npcId: KATERINA, itemId: HEALING_POTION, quantity: 1 }],
+      ]);
+
+      expect(player.adena).toBe(897);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects equipping Healing Potion (regression)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      await claimStarterKit(room, client, client.sessionId);
+      const player = room.state.players.get(client.sessionId)!;
+
+      await deliver(room, client, [['equip', { itemId: HEALING_POTION }]]);
+
+      expect(player.equippedWeaponItemId).toBe(0);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects useItem when player is dead', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      grantPotions(room, client.sessionId, 1);
+      player.hp = 0;
+
+      await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
+
+      expect(player.hp).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(1);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+});
+
 describe('TownRoom player death', () => {
   it('emits DIE before same-tick respawn restores HP after lethal mob hit (CHAR-08)', async () => {
     const { dbPath, cleanup } = seededCombatDb();
