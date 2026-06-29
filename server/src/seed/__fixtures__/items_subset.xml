@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../xsd/items.xsd">
+	<item id="1" name="Short Sword" type="Weapon">
+		<set name="bodypart" val="rhand" />
+	</item>
+	<item id="4" name="Club" type="Weapon">
+		<set name="bodypart" val="rhand" />
+	</item>
+	<item id="13" name="Short Bow" type="Weapon">
+		<set name="bodypart" val="lrhand" />
+	</item>
 	<item id="17" name="Wooden Arrow" type="EtcItem">
 		<set name="etcitem_type" val="ARROW" />
 		<set name="bodypart" val="lhand" />
@@ -7,8 +16,26 @@
 	<item id="1060" name="Healing Potion" type="EtcItem">
 		<set name="etcitem_type" val="POTION" />
 	</item>
+	<item id="112" name="Apprentice's Earring" type="Armor">
+		<set name="bodypart" val="rear;lear" />
+	</item>
+	<item id="116" name="Magic Ring" type="Armor">
+		<set name="bodypart" val="rfinger;lfinger" />
+	</item>
+	<item id="118" name="Necklace of Magic" type="Armor">
+		<set name="bodypart" val="neck" />
+	</item>
 	<item id="1835" name="Soulshot (No-grade)" type="EtcItem">
 		<set name="etcitem_type" val="SOULSHOT" />
+	</item>
+	<item id="21" name="Shirt" type="Armor">
+		<set name="bodypart" val="chest" />
+	</item>
+	<item id="28" name="Pants" type="Armor">
+		<set name="bodypart" val="legs" />
+	</item>
+	<item id="1121" name="Apprentice's Shoes" type="Armor">
+		<set name="bodypart" val="feet" />
 	</item>
 	<item id="2369" name="Squire's Sword" type="Weapon">
 		<set name="bodypart" val="rhand" />
