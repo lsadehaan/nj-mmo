@@ -199,9 +199,6 @@ export function resolveSkillUse(params: {
   let consumedShot = false;
 
   if (skill.effectKind === 'physical_damage') {
-    if (rollHitMiss({ accuracy: 4.75 }, { dex: params.playerDex }, rng)) {
-      return { ok: true, damage: 0, mpCost: skill.mpConsumeL1, killed: false, cooldownEndMs: nowMs + skill.reuseDelay, consumedShot: false };
-    }
     const effectivePAtk = playerPAtk * patkMult;
     damage = calcPhysicalSkillDamage(
       { pAtk: effectivePAtk, randomDamage: STARTER_COMBAT.randomDamage },
@@ -323,12 +320,6 @@ export function resolvePlayerAttack(params: {
     return { damage: 0, killed: false };
   }
 
-  if (rollHitMiss({ accuracy: 4.75 }, { dex: attackerDex }, rng)) {
-    combat.nextAttackAtMs =
-      nowMs + calculateAttackIntervalMs(STARTER_COMBAT.attackSpeed);
-    return { damage: 0, killed: false };
-  }
-
   let patkMult = getPatkMultiplier(combat);
   if (mobEffect) {
     patkMult *= getPatkMultiplier(mobEffect);
@@ -375,6 +366,14 @@ export function resolvePowerStrike(params: {
   rng: SeededRng;
   attackerPAtk?: number;
 }): PowerStrikeResult {
+  if (!params.combat.skillPending) {
+    return {
+      damage: 0,
+      mpCost: 0,
+      killed: false,
+      cooldownEndMs: getSkillCooldownEnd(params.combat, 3),
+    };
+  }
   const skill: Skill = {
     skillId: 3,
     name: 'Power Strike',
@@ -415,10 +414,11 @@ export function resolveMobAttack(params: {
   targetX: number;
   targetZ: number;
   targetHp: number;
+  targetDex: number;
   nowMs: number;
   rng: SeededRng;
 }): MobAttackResult {
-  const { mob, mobEffect, targetSessionId, targetX, targetZ, nowMs, rng } = params;
+  const { mob, mobEffect, targetSessionId, targetX, targetZ, targetDex, nowMs, rng } = params;
 
   if (mob.hp <= 0 || mob.targetSessionId !== targetSessionId) {
     return { damage: 0 };
@@ -435,6 +435,11 @@ export function resolveMobAttack(params: {
   if (
     !isInMeleeRange(mob.x, mob.z, targetX, targetZ, mob.attackRangeWorld)
   ) {
+    return { damage: 0 };
+  }
+
+  if (rollHitMiss({ accuracy: 4.75 }, { dex: targetDex }, rng)) {
+    mob.nextAttackAtMs = nowMs + calculateAttackIntervalMs(mob.attackSpeed);
     return { damage: 0 };
   }
 

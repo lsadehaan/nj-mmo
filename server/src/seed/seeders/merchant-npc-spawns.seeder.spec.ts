@@ -143,13 +143,15 @@ describe('NPC spawn seeding', () => {
     { npcId: 30005, x: 16, z: 0 },
     { npcId: 30006, x: 4, z: 10 },
     { npcId: 30026, x: 2, z: -4 },
+    { npcId: 30027, x: 6, z: -6 },
+    { npcId: 30033, x: 8, z: -8 },
   ] as const;
 
-  it('seeds seven npc_spawns rows matching anchor table (TINPC-11)', () => {
+  it('seeds nine npc_spawns rows matching anchor table (TINPC-11, SKILL20-10)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const rows = getDb(dbPath).select().from(npcSpawns).all();
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(9);
     for (const anchor of SPAWN_TABLE) {
       const row = rows.find((r) => r.npcId === anchor.npcId);
       expect(row).toMatchObject({ x: anchor.x, z: anchor.z });

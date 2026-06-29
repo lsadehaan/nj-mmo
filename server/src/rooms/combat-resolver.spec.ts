@@ -66,7 +66,7 @@ const POWER_STRIKE_SKILL = {
 };
 
 const zeroRng = () => ({
-  nextFloat: () => 0,
+  nextFloat: () => 1,
   nextInt: () => 0,
   nextDamageOffset: () => 0,
 });
@@ -75,7 +75,7 @@ describe('combat-resolver', () => {
   it('player attack with RNG offset 0 reduces Gremlin HP by 17', () => {
     const mob = gremlinMob();
     const rng = {
-      nextFloat: () => 0,
+      nextFloat: () => 1,
       nextInt: () => 0,
       nextDamageOffset: () => 0,
     };
@@ -198,7 +198,7 @@ describe('combat-resolver', () => {
   it('mob attack deals damage when in melee range', () => {
     const mob = gremlinMob({ targetSessionId: 'p1' });
     const rng = {
-      nextFloat: () => 0,
+      nextFloat: () => 1,
       nextInt: () => 0,
       nextDamageOffset: () => 0,
     };
@@ -210,6 +210,7 @@ describe('combat-resolver', () => {
       targetX: OUT_OF_PEACE.x + 2,
       targetZ: OUT_OF_PEACE.z,
       targetHp: 100,
+      targetDex: 30,
       nowMs: 1000,
       rng,
     });
@@ -278,7 +279,7 @@ describe('combat-resolver', () => {
       expect(result.mpCost).toBe(9);
       expect(result.killed).toBe(false);
       expect(result.cooldownEndMs).toBe(4000);
-      expect(combat.powerStrikeCooldownEndMs).toBe(4000);
+      expect(combat.skillCooldownEndMs[3]).toBe(4000);
       expect(mob.hp).toBeCloseTo(200 - 69, 3);
     });
 
@@ -609,6 +610,7 @@ describe('combat-resolver', () => {
         targetX: 0,
         targetZ: 0,
         targetHp: 100,
+        targetDex: 30,
         nowMs: 1000,
         rng: zeroRng(),
       });
@@ -626,6 +628,7 @@ describe('combat-resolver', () => {
         targetX: 30,
         targetZ: 30,
         targetHp: 100,
+        targetDex: 30,
         nowMs: 1000,
         rng: zeroRng(),
       });

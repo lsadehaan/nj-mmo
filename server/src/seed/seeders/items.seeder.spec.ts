@@ -37,15 +37,16 @@ describe('items seeding', () => {
     });
   });
 
-  it('seeds all four MVP items with correct types', () => {
+  it('seeds all five MVP items with correct types (SKILL20-07)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const db = getDb(dbPath);
     const rows = db.select().from(items).all();
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows.find((r) => r.itemId === 1060)?.type).toBe('consumable');
     expect(rows.find((r) => r.itemId === 17)?.type).toBe('etc');
-    expect(rows.find((r) => r.itemId === 1835)?.type).toBe('etc');
+    expect(rows.find((r) => r.itemId === 1835)?.type).toBe('shot');
+    expect(rows.find((r) => r.itemId === 2509)?.type).toBe('shot');
     expect(rows.find((r) => r.itemId === 2369)?.type).toBe('weapon');
   });
 
@@ -56,6 +57,6 @@ describe('items seeding', () => {
     const db = getDb(dbPath);
     const sword = db.select().from(items).where(eq(items.itemId, 2369)).get();
     expect(sword?.pAtk).toBe(6);
-    expect(db.select().from(items).all()).toHaveLength(4);
+    expect(db.select().from(items).all()).toHaveLength(5);
   });
 });

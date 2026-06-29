@@ -44,7 +44,7 @@ function seededCombatDb(): { dbPath: string; cleanup: () => void } {
 
 function zeroOffsetRng() {
   return {
-    nextFloat: () => 0,
+    nextFloat: () => 1,
     nextInt: (min: number) => min,
     nextDamageOffset: () => 0,
   };
@@ -663,7 +663,6 @@ describe('TownRoom combat', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      await prepareFighterWithPowerStrike(room, client, client.sessionId);
       placePlayerAndMobForCombat(room, client.sessionId, gremlin);
 
       expect(player.action).toBe(0);
@@ -1090,15 +1089,15 @@ describe('TownRoom combat', () => {
   });
 });
 
-describe('TownRoom Power Strike', () => {
-  async function prepareFighterWithPowerStrike(
-    room: TestRoom,
-    client: TestClient,
-    sessionId: string
-  ): Promise<void> {
-    await learnSkillAtBitz(room, client, sessionId, 3);
-  }
+async function prepareFighterWithPowerStrike(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string
+): Promise<void> {
+  await learnSkillAtBitz(room, client, sessionId, 3);
+}
 
+describe('TownRoom Power Strike', () => {
   async function castPowerStrike(
     client: Awaited<ReturnType<ColyseusTestServer['connectTo']>>,
     room: Awaited<ReturnType<ColyseusTestServer['createRoom']>>,
@@ -1326,11 +1325,12 @@ describe('TownRoom Power Strike', () => {
       expect(player.mp).toBe(mpBefore);
 
       while (room.state.mobs.has(gremlin.id)) {
+        const mobState = room.state.mobs.get(gremlin.id);
+        if (!mobState || mobState.hp <= 0) break;
         const combat = room['playerCombat'].get(client.sessionId)!;
         combat.nextAttackAtMs = 0;
         combat.targetMobId = gremlin.id;
         await deliverAndTick(room, client, [['attack', {}]]);
-        if (room.state.mobs.get(gremlin.id)!.hp <= 0) break;
       }
 
       await deliverAndTick(room, client, [
@@ -1353,11 +1353,11 @@ describe('TownRoom NPC shop and peace zone', () => {
   const POTION = 1060;
   const SHORT_SWORD = 1;
 
-  it('boots with 7 NPCs in state.npcs from seed', async () => {
+  it('boots with 9 NPCs in state.npcs from seed (SKILL20-10)', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath });
-      expect(room.state.npcs.size).toBe(7);
+      expect(room.state.npcs.size).toBe(9);
       expect(findNpcByNpcId(room, KATERINA)).toMatchObject({ npcId: KATERINA });
       expect(findNpcByNpcId(room, ROXXY)).toMatchObject({ npcId: ROXXY });
       expect(findNpcByNpcId(room, LECTOR)).toMatchObject({ npcId: LECTOR });
