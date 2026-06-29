@@ -1,5 +1,5 @@
 import { initGameState, setReady, getGameState, refreshPlayerCooldownRemaining } from './test-hook';
-import { connectSafe, wireRoom } from './net/room';
+import { connectSafe, wireRoom, getStoredCharacterId } from './net/room';
 import { wireCombatControls } from './combat-input';
 import { mountPowerStrikeCooldown, startPowerStrikeCooldownLoop } from './hud/power-strike-cooldown';
 import { mountPlayerVitalsHud } from './hud/player-vitals';
@@ -7,6 +7,7 @@ import { mountShopWindow } from './ui/shop-window';
 import { mountInventoryWindow } from './ui/inventory-window';
 import { mountNpcDialog } from './ui/npc-dialog';
 import { mountInteractPrompt } from './npc-interaction';
+import { mountCharacterCreation } from './ui/character-creation';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 
 async function boot(): Promise<void> {
@@ -43,17 +44,30 @@ async function boot(): Promise<void> {
     game.renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  const room = await connectSafe();
-  if (room) {
-    wireCombatControls(room, game);
-    wireRoom(room, game);
-    window.__consentLeave__ = async () => {
-      await room.leave(true);
-    };
-  } else {
-    console.warn('Failed to connect to game server');
+  const beginSession = async (create?: { classId: number; sex: 0 | 1 }): Promise<void> => {
+    const room = await connectSafe(undefined, create ? { create } : {});
+    if (room) {
+      wireCombatControls(room, game);
+      wireRoom(room, game);
+      window.__consentLeave__ = async () => {
+        await room.leave(true);
+      };
+    } else {
+      console.warn('Failed to connect to game server');
+    }
+    setReady(true);
+  };
+
+  if (!getStoredCharacterId()) {
+    mountCharacterCreation(async (payload) => {
+      const overlay = document.getElementById('character-creation');
+      overlay?.remove();
+      await beginSession(payload);
+    });
+    return;
   }
-  setReady(true);
+
+  await beginSession();
 }
 
 boot();

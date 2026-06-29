@@ -26,11 +26,17 @@ import {
   type NpcPresence,
 } from '../npc-interaction';
 import { getGameState } from '../test-hook';
+import { getPlayerManifestEntry } from '../scene/creature/player-manifest';
 
 const DEFAULT_ENDPOINT =
   import.meta.env.VITE_COLYSEUS_ENDPOINT ?? 'http://localhost:2567';
 
 export const CHARACTER_ID_STORAGE_KEY = 'nj.characterId';
+
+export interface CreateCharacterOptions {
+  classId: number;
+  sex: 0 | 1;
+}
 
 export function getStoredCharacterId(): string | null {
   return localStorage.getItem(CHARACTER_ID_STORAGE_KEY);
@@ -40,14 +46,21 @@ export function storeCharacterId(id: string): void {
   localStorage.setItem(CHARACTER_ID_STORAGE_KEY, id);
 }
 
-export async function connect(endpoint = DEFAULT_ENDPOINT): Promise<Room> {
+export async function connect(
+  endpoint = DEFAULT_ENDPOINT,
+  options: { create?: CreateCharacterOptions } = {}
+): Promise<Room> {
   const client = new Client(endpoint);
   const characterId = getStoredCharacterId();
   if (characterId) {
     setCharacterId(characterId);
   }
-  const options: Record<string, string> = characterId ? { characterId } : {};
-  const room = await client.joinOrCreate('town', options);
+  const joinOptions: Record<string, unknown> = characterId
+    ? { characterId }
+    : options.create
+      ? { create: options.create }
+      : {};
+  const room = await client.joinOrCreate('town', joinOptions);
 
   room.onMessage('characterId', (id: string) => {
     storeCharacterId(id);
@@ -58,9 +71,12 @@ export async function connect(endpoint = DEFAULT_ENDPOINT): Promise<Room> {
   return room;
 }
 
-export async function connectSafe(endpoint = DEFAULT_ENDPOINT): Promise<Room | null> {
+export async function connectSafe(
+  endpoint = DEFAULT_ENDPOINT,
+  options: { create?: CreateCharacterOptions } = {}
+): Promise<Room | null> {
   try {
-    return await connect(endpoint);
+    return await connect(endpoint, options);
   } catch {
     setConnected(false);
     return null;
@@ -79,6 +95,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     x: number;
     y: number;
     z: number;
+    classId?: number;
+    sex?: number;
+    str?: number;
+    dex?: number;
+    con?: number;
+    int?: number;
+    wit?: number;
+    men?: number;
     xp: number;
     level: number;
     hp: number;
@@ -266,13 +290,18 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   const syncLocal = (player: PlayerSchema): void => {
+    const classId = player.classId ?? 0;
+    const sex = player.sex ?? 0;
+    const manifest = getPlayerManifestEntry(classId);
     game.syncLocalPlayer(
       player.x,
       player.y,
       player.z,
       player.action ?? 0,
       player.actionSeq ?? 0,
-      player.equippedWeaponItemId ?? 0
+      player.equippedWeaponItemId ?? 0,
+      classId,
+      sex
     );
     game.syncPlayerVfx({
       hp: player.hp,
@@ -292,6 +321,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       level: player.level,
       hp: player.hp,
       mp: player.mp,
+      classId,
+      sex,
+      str: player.str ?? 40,
+      dex: player.dex ?? 30,
+      con: player.con ?? 43,
+      int: player.int ?? 21,
+      wit: player.wit ?? 11,
+      men: player.men ?? 25,
+      avatarModel: manifest.model,
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
       healingPotionCooldownEndMs: player.healingPotionCooldownEndMs ?? 0,
       action: game.getCurrentAnimationClip(),
@@ -448,6 +486,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       action: state.action,
       actionSeq: state.actionSeq,
       equippedWeaponItemId: state.equippedWeaponItemId ?? 0,
+      classId: state.classId ?? 0,
+      sex: state.sex ?? 0,
     });
     publishOthers();
     callbacks.onChange(state, () => {
@@ -458,6 +498,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         action: state.action,
         actionSeq: state.actionSeq,
         equippedWeaponItemId: state.equippedWeaponItemId ?? 0,
+        classId: state.classId ?? 0,
+        sex: state.sex ?? 0,
       });
       publishOthers();
     });
