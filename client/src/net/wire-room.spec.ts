@@ -597,4 +597,157 @@ describe('wireRoom class identity', () => {
 
     expect(mockSyncLocalPlayer).toHaveBeenCalledWith(5, 6, 7, 0, 0, 0, 31, 1);
   });
+
+  it('SKILL20-50: syncs knownSkillIds and skill cooldown arrays from PlayerState', async () => {
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void)
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          handlerOrProperty(
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+              xp: 0,
+              level: 1,
+              hp: 100,
+              maxHp: 100,
+              mp: 50,
+              maxMp: 50,
+              adena: 1000,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 5_000,
+              healingPotionCooldownEndMs: 0,
+              knownSkillIds: [3, 1177],
+              skillCooldownEndMs: [5_000, 0],
+              castingSkillId: 0,
+              castEndMs: 0,
+              activeBuffSkillId: 0,
+              action: 0,
+              actionSeq: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send: vi.fn(),
+      } as never,
+      mockGame as never
+    );
+
+    expect(window.__GAME_STATE__.player.knownSkillIds).toEqual([3, 1177]);
+    expect(window.__GAME_STATE__.player.skillCooldownEndMs).toEqual([5_000, 0]);
+  });
+
+  it('SKILL20-42: exposes active Might buff in player.effects hook', async () => {
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void)
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          handlerOrProperty(
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+              xp: 0,
+              level: 1,
+              hp: 100,
+              maxHp: 100,
+              mp: 50,
+              maxMp: 50,
+              adena: 1000,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 0,
+              healingPotionCooldownEndMs: 0,
+              knownSkillIds: [1068],
+              skillCooldownEndMs: [0],
+              castingSkillId: 0,
+              castEndMs: 0,
+              activeBuffSkillId: 1068,
+              action: 0,
+              actionSeq: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send: vi.fn(),
+      } as never,
+      mockGame as never
+    );
+
+    expect(window.__GAME_STATE__.player.effects).toEqual(['Might']);
+  });
+
+  it('SKILL20-37: forwards useShot intent from inventory handlers', async () => {
+    const send = vi.fn();
+    mockOnAdd.mockImplementation(
+      (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((item: unknown, id: string) => void)
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          handlerOrProperty(
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+              xp: 0,
+              level: 1,
+              hp: 100,
+              maxHp: 100,
+              mp: 50,
+              maxMp: 50,
+              adena: 1000,
+              equippedWeaponItemId: 0,
+              powerStrikeCooldownEndMs: 0,
+              healingPotionCooldownEndMs: 0,
+              knownSkillIds: [],
+              skillCooldownEndMs: [],
+              action: 0,
+              actionSeq: 0,
+              items: { entries: () => [] as const },
+            },
+            'local-session'
+          );
+        }
+      }
+    );
+
+    const { wireRoom } = await import('./room');
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        state: { mobs: new Map(), players: new Map(), npcs: new Map() },
+        onMessage: vi.fn(),
+        send,
+      } as never,
+      mockGame as never
+    );
+
+    window.__useShot__?.(1835);
+    expect(send).toHaveBeenCalledWith('useShot', { itemId: 1835 });
+  });
 });

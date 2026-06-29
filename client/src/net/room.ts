@@ -1,7 +1,7 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { EntityAction } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId } from '../test-hook';
 import type { GameRenderer } from '../scene/renderer';
 import {
   mountShopWindow,
@@ -16,6 +16,9 @@ import {
   isInventoryVisible,
 } from '../ui/inventory-window';
 import { mountNpcDialog, renderNpcDialog, setNpcDialogVisible } from '../ui/npc-dialog';
+import { getLearnableSkillIds } from '../ui/trainer-skills';
+import { renderHotbar } from '../ui/hotbar';
+import { updateCastBar } from '../ui/cast-bar';
 import {
   findNearestInteractableNpc,
   mountInteractPrompt,
@@ -113,6 +116,11 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     equippedWeaponItemId: number;
     powerStrikeCooldownEndMs: number;
     healingPotionCooldownEndMs: number;
+    knownSkillIds?: { length: number; [index: number]: number };
+    skillCooldownEndMs?: { length: number; [index: number]: number };
+    castingSkillId?: number;
+    castEndMs?: number;
+    activeBuffSkillId?: number;
     action?: number;
     actionSeq?: number;
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
@@ -228,6 +236,39 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     return counts;
   };
 
+  const readNumberArray = (
+    arr: { length: number; [index: number]: number } | undefined
+  ): number[] => {
+    if (!arr) return [];
+    const out: number[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      out.push(arr[i] as number);
+    }
+    return out;
+  };
+
+  const inventoryHandlers = () => ({
+    sendEquip: (payload: { itemId: number }) => room.send('equip', payload),
+    sendUseItem: (payload: { itemId: number }) => room.send('useItem', payload),
+    sendUseShot: (payload: { itemId: number }) => room.send('useShot', payload),
+  });
+
+  const refreshHotbarDom = (player: PlayerSchema, nowMs = Date.now()): void => {
+    const knownSkillIds = readNumberArray(player.knownSkillIds);
+    const skillCooldownEndMs = readNumberArray(player.skillCooldownEndMs);
+    renderHotbar({
+      knownSkillIds,
+      skillCooldownEndMs,
+      nowMs,
+      handlers: { onUseSkill: (skillId) => room.send('useSkill', { skillId }) },
+    });
+    updateCastBar({
+      castingSkillId: player.castingSkillId ?? 0,
+      castEndMs: player.castEndMs ?? 0,
+      nowMs,
+    });
+  };
+
   const refreshShopDom = (player: PlayerSchema): void => {
     renderShopWindow({
       npcId: activeShopNpcId,
@@ -249,10 +290,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       equippedWeaponItemId: player.equippedWeaponItemId ?? 0,
       healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
       visible: isInventoryVisible(),
-      handlers: {
-        sendEquip: (payload) => room.send('equip', payload),
-        sendUseItem: (payload) => room.send('useItem', payload),
-      },
+      handlers: inventoryHandlers(),
     });
   };
 
@@ -313,6 +351,9 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       z: player.z,
       soulshotCount: localItemCounts[1835] ?? 0,
     });
+    const knownSkillIds = readNumberArray(player.knownSkillIds);
+    const skillCooldownEndMs = readNumberArray(player.skillCooldownEndMs);
+    const activeBuffSkillId = player.activeBuffSkillId ?? 0;
     setPlayer({
       x: player.x,
       y: player.y,
@@ -330,10 +371,16 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       wit: player.wit ?? 11,
       men: player.men ?? 25,
       avatarModel: manifest.model,
+      knownSkillIds,
+      skillCooldownEndMs,
+      castingSkillId: player.castingSkillId ?? 0,
+      castEndMs: player.castEndMs ?? 0,
+      effects: effectsFromBuffSkillId(activeBuffSkillId),
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
       healingPotionCooldownEndMs: player.healingPotionCooldownEndMs ?? 0,
       action: game.getCurrentAnimationClip(),
     });
+    refreshHotbarDom(player);
     setMaxHp(player.maxHp ?? 0);
     setMaxMp(player.maxMp ?? 0);
     const weaponId = player.equippedWeaponItemId ?? 0;
@@ -372,6 +419,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     room.send('useItem', { itemId });
   };
 
+  window.__useShot__ = (itemId) => {
+    room.send('useShot', { itemId });
+  };
+
+  window.__learnSkill__ = (skillId) => {
+    room.send('learnSkill', { skillId });
+  };
+
   window.__openInventory__ = () => {
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
     if (local) {
@@ -381,10 +436,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
         healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
         visible: true,
-        handlers: {
-          sendEquip: (payload) => room.send('equip', payload),
-          sendUseItem: (payload) => room.send('useItem', payload),
-        },
+        handlers: inventoryHandlers(),
       });
     } else {
       setInventoryVisible(true);
@@ -416,10 +468,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
         healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
         visible: nextVisible,
-        handlers: {
-          sendEquip: (payload) => room.send('equip', payload),
-          sendUseItem: (payload) => room.send('useItem', payload),
-        },
+        handlers: inventoryHandlers(),
       });
     } else {
       setInventoryVisible(nextVisible);
@@ -455,13 +504,24 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       openDialog: (npcId, name, variant) => {
         setShopVisible(false);
         setShopOpen(false);
+        const local = room.state.players.get(localId) as PlayerSchema | undefined;
+        const hookPlayer = getGameState().player;
+        const classId = local?.classId ?? hookPlayer.classId;
+        const knownSkillIds = local
+          ? readNumberArray(local.knownSkillIds)
+          : hookPlayer.knownSkillIds;
         renderNpcDialog({
           npcId,
           name,
           variant,
           visible: true,
+          learnableSkillIds:
+            variant === 'trainer' || variant === 'folkTrainer'
+              ? getLearnableSkillIds(npcId, classId, knownSkillIds)
+              : undefined,
           handlers: {
             sendNpcAction: (payload) => room.send('npcAction', payload),
+            sendLearnSkill: (payload) => room.send('learnSkill', payload),
           },
         });
         fireNpcGreet(npcId);

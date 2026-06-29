@@ -380,6 +380,9 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.powerStrikeCooldownEndMs = psCd;
     player.castingSkillId = combat?.castingSkillId ?? 0;
     player.castEndMs = combat?.castEndMs ?? 0;
+    const buff = combat?.activeEffect;
+    player.activeBuffSkillId =
+      buff && buff.kind === 'buff_self' ? buff.skillId : 0;
   }
 
   private handleUseSkill(sessionId: string, skillId: number): void {
@@ -865,6 +868,14 @@ export class TownRoom extends Room<{ state: TownState }> {
       tickCombatEffects(combat, this.mobEffects, now);
     }
 
+    for (const [sessionId, combat] of this.playerCombat.entries()) {
+      const player = this.state.players.get(sessionId);
+      if (!player) continue;
+      const buff = combat.activeEffect;
+      player.activeBuffSkillId =
+        buff && buff.kind === 'buff_self' ? buff.skillId : 0;
+    }
+
     this.resolveCastingSkills(now);
 
     for (const [sessionId, combat] of this.playerCombat.entries()) {
@@ -917,6 +928,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         targetX: target.x,
         targetZ: target.z,
         targetHp: target.hp,
+        targetDex: target.dex,
         nowMs: now,
         rng: this.combatRng,
       });

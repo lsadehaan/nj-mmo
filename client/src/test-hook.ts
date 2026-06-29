@@ -1,6 +1,9 @@
 import { updatePowerStrikeCooldown } from './hud/power-strike-cooldown';
 import { updatePlayerVitalsHud } from './hud/player-vitals';
+import { renderHotbar } from './ui/hotbar';
+import { updateCastBar } from './ui/cast-bar';
 import type { AnimationClip } from '@nj/game-core';
+import { SKILL_EFFECT_NAMES } from './ui/trainer-skills';
 
 export interface GameStateVfx {
   powerStrikeCount: number;
@@ -39,6 +42,11 @@ export interface GameStatePlayer {
   wit: number;
   men: number;
   avatarModel: string;
+  knownSkillIds: number[];
+  skillCooldownEndMs: number[];
+  castingSkillId: number;
+  castEndMs: number;
+  effects: string[];
   powerStrikeCooldownEndMs: number;
   powerStrikeCooldownRemainingMs: number;
   healingPotionCooldownEndMs: number;
@@ -62,6 +70,11 @@ export type GameStatePlayerInput = Omit<
   | 'wit'
   | 'men'
   | 'avatarModel'
+  | 'knownSkillIds'
+  | 'skillCooldownEndMs'
+  | 'castingSkillId'
+  | 'castEndMs'
+  | 'effects'
 > & {
   action?: AnimationClip;
   healingPotionCooldownEndMs?: number;
@@ -74,6 +87,11 @@ export type GameStatePlayerInput = Omit<
   wit?: number;
   men?: number;
   avatarModel?: string;
+  knownSkillIds?: number[];
+  skillCooldownEndMs?: number[];
+  castingSkillId?: number;
+  castEndMs?: number;
+  effects?: string[];
 };
 
 export interface GameStateMob {
@@ -140,7 +158,9 @@ declare global {
     __handleMobTarget__?: (mobId: string) => void;
     __sendMoveIntent__?: (targetX: number, targetZ: number) => void;
     __attack__?: () => void;
-    __useSkill__?: () => void;
+    __useSkill__?: (skillId?: number) => void;
+    __useShot__?: (itemId: number) => void;
+    __learnSkill__?: (skillId: number) => void;
     __interact__?: (npcId: number) => void;
     __buyItem__?: (npcId: number, itemId: number, quantity?: number) => void;
     __sellItem__?: (npcId: number, itemId: number, quantity?: number) => void;
@@ -155,7 +175,7 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, classId: 0, sex: 0, str: 40, dex: 30, con: 43, int: 21, wit: 11, men: 25, avatarModel: '/models/characters/Knight.glb', powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle' },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, classId: 0, sex: 0, str: 40, dex: 30, con: 43, int: 21, wit: 11, men: 25, avatarModel: '/models/characters/Knight.glb', knownSkillIds: [], skillCooldownEndMs: [], castingSkillId: 0, castEndMs: 0, effects: [], powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle' },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -287,6 +307,13 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
   if (player.wit !== undefined) state.player.wit = player.wit;
   if (player.men !== undefined) state.player.men = player.men;
   if (player.avatarModel !== undefined) state.player.avatarModel = player.avatarModel;
+  if (player.knownSkillIds !== undefined) state.player.knownSkillIds = [...player.knownSkillIds];
+  if (player.skillCooldownEndMs !== undefined) {
+    state.player.skillCooldownEndMs = [...player.skillCooldownEndMs];
+  }
+  if (player.castingSkillId !== undefined) state.player.castingSkillId = player.castingSkillId;
+  if (player.castEndMs !== undefined) state.player.castEndMs = player.castEndMs;
+  if (player.effects !== undefined) state.player.effects = [...player.effects];
   state.player.powerStrikeCooldownEndMs = player.powerStrikeCooldownEndMs;
   state.player.healingPotionCooldownEndMs = player.healingPotionCooldownEndMs ?? 0;
   state.player.powerStrikeCooldownRemainingMs = computePowerStrikeCooldownRemainingMs(
@@ -302,6 +329,19 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
   }
   if (typeof document !== 'undefined') {
     updatePowerStrikeCooldown(player.powerStrikeCooldownEndMs, nowMs);
+    renderHotbar({
+      knownSkillIds: state.player.knownSkillIds,
+      skillCooldownEndMs: state.player.skillCooldownEndMs,
+      nowMs,
+      handlers: {
+        onUseSkill: (skillId) => window.__useSkill__?.(skillId),
+      },
+    });
+    updateCastBar({
+      castingSkillId: state.player.castingSkillId,
+      castEndMs: state.player.castEndMs,
+      nowMs,
+    });
     updatePlayerVitalsHud({
       level: player.level,
       hp: player.hp,
@@ -384,6 +424,12 @@ export function setMaxMp(maxMp: number): void {
       maxMp,
     });
   }
+}
+
+export function effectsFromBuffSkillId(activeBuffSkillId: number): string[] {
+  if (!activeBuffSkillId) return [];
+  const name = SKILL_EFFECT_NAMES[activeBuffSkillId];
+  return name ? [name] : [`Skill ${activeBuffSkillId}`];
 }
 
 export function setEnvironment(environment: GameStateEnvironment): void {

@@ -28,6 +28,8 @@ export class PlayerState extends Schema {
   @type(['number']) skillCooldownEndMs = new ArraySchema<number>();
   @type('number') castingSkillId = 0;
   @type('number') castEndMs = 0;
+  /** Active self-buff skill id (0 = none) — render hook for client effects list */
+  @type('number') activeBuffSkillId = 0;
   /** @deprecated alias for skill 3 cooldown — synced from skillCooldownEndMs */
   @type('number') powerStrikeCooldownEndMs = 0;
   @type('number') healingPotionCooldownEndMs = 0;
