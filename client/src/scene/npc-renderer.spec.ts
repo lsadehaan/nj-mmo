@@ -103,6 +103,27 @@ describe('npc-renderer', () => {
     expect(instances.get('npc-30004')?.usesCapsule).toBe(false);
   });
 
+  it('creates mesh-backed group for Lector weapon merchant (30001)', () => {
+    const scene = new THREE.Scene();
+    const map = new Map<string, THREE.Group>();
+    const instances = createNpcInstanceMap();
+    const group = syncNpcVisual(
+      map,
+      instances,
+      npcStateToVisual({
+        id: 'npc-30001',
+        npcId: 30001,
+        type: 'Merchant',
+        x: -14,
+        y: 4.26,
+        z: -2,
+      }),
+      scene
+    );
+    expect(group.userData.renderKind).toBe('mesh');
+    expect(instances.get('npc-30001')?.usesCapsule).toBe(false);
+  });
+
   it('keeps capsule fallback for unmapped npcId', () => {
     const scene = new THREE.Scene();
     const map = new Map<string, THREE.Group>();
