@@ -365,9 +365,8 @@ export class TownRoom extends Room<{ state: TownState }> {
     const player = this.state.players.get(sessionId);
     if (!player) return;
 
-    const from = { x: player.x, z: player.z };
     const to = { x, z };
-    if (!isWalkable(from, to)) return;
+    if (!isWalkable(to, to)) return;
 
     placePlayerAt(player, this.tickStates.get(sessionId), x, z);
     const stored = this.characters.get(sessionId);

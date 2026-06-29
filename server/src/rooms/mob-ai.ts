@@ -74,6 +74,8 @@ function tickWander(
   rng: SeededRng,
   nowMs: number
 ): void {
+  if (mob.wanderCooldownMs >= Number.MAX_SAFE_INTEGER) return;
+
   if (mob.wanderCooldownMs <= nowMs || mob.wanderTargetX === null) {
     pickWanderTarget(mob, rng);
     mob.wanderCooldownMs = nowMs + WANDER_REPICK_MS;
