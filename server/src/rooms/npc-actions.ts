@@ -19,10 +19,8 @@ export type HealSuccess = { ok: true; hp: number };
 export type HealFailure = { ok: false; hp: number };
 export type HealResult = HealSuccess | HealFailure;
 
-const MAX_STARTER_HP = 100;
-
-export function applyHeal(params: { hp: number }): HealResult {
-  return { ok: true, hp: MAX_STARTER_HP };
+export function applyHeal(params: { hp: number; maxHp: number }): HealResult {
+  return { ok: true, hp: params.maxHp };
 }
 
 export type StarterKitSuccess = {

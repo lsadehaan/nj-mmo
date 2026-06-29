@@ -187,6 +187,75 @@ async function deliverAndTick(
   tick(room);
 }
 
+async function joinWithClass(
+  room: TestRoom,
+  opts: { classId: number; sex: 0 | 1 }
+) {
+  return colyseus.connectTo(room, { create: opts });
+}
+
+/** Human Fighter level-1 vitals from seeded class_templates (CHAR19-04). */
+const HUMAN_FIGHTER_MAX_HP = 80;
+const HUMAN_FIGHTER_MAX_MP = 30;
+
+describe('TownRoom character creation join', () => {
+  it('CHAR19-17: create Elven Mystic applies class vitals and baseInt', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await joinWithClass(room, { classId: 25, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      expect(player.classId).toBe(25);
+      expect(player.maxHp).toBe(104);
+      expect(player.maxMp).toBe(40);
+      expect(player.int).toBe(37);
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('CHAR19-21: rejects invalid classId on create', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      await expect(
+        colyseus.sdk.joinById(room.roomId, { create: { classId: 99, sex: 0 } }, TownState)
+      ).rejects.toThrow();
+      expect(room.state.players.size).toBe(0);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('CHAR19-22: rejoin with characterId preserves classId and sex', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.sdk.joinById(
+        room.roomId,
+        { create: { classId: 10, sex: 1 } },
+        TownState
+      );
+      const characterId = await client.waitForMessage('characterId');
+      expect(room.state.players.get(client.sessionId)!.classId).toBe(10);
+      expect(room.state.players.get(client.sessionId)!.sex).toBe(1);
+
+      await client.leave(true);
+      await room.disconnect();
+
+      const room2 = await colyseus.createRoom('town', { dbPath });
+      const client2 = await colyseus.sdk.joinById(room2.roomId, { characterId }, TownState);
+      const rejoined = room2.state.players.get(client2.sessionId)!;
+      expect(rejoined.classId).toBe(10);
+      expect(rejoined.sex).toBe(1);
+      await client2.leave();
+    } finally {
+      cleanup();
+    }
+  });
+});
+
 describe('TownRoom', () => {
   it('adds a player to state on join', async () => {
     const room = await colyseus.createRoom('town', { dbPath: ':memory:' });
@@ -681,7 +750,7 @@ describe('TownRoom combat', () => {
     }
   });
 
-  it('attack in range reduces Gremlin HP by 17', async () => {
+  it('CHAR19-18: Human Fighter naked melee deals 8 damage to Gremlin', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
@@ -696,8 +765,29 @@ describe('TownRoom combat', () => {
       ]);
 
       const gremlinAfter = room.state.mobs.get(gremlin.id)!;
-      expect(hpBefore - gremlinAfter.hp).toBeCloseTo(17, 3);
+      expect(hpBefore - gremlinAfter.hp).toBeCloseTo(8, 3);
 
+      await client.leave();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('CHAR19-19: Human Mystic naked melee deals 3 damage to Gremlin', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
+
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(3, 3);
       await client.leave();
     } finally {
       cleanup();
@@ -948,7 +1038,7 @@ describe('TownRoom combat', () => {
       expect(hpWhenDieEmitted).toBe(0);
       expect(player.action).toBe(EntityAction.Die);
       expect(player.actionSeq).toBe(1);
-      expect(player.hp).toBe(100);
+      expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
       expect(player.x).toBe(SPAWN_X);
       expect(player.z).toBe(SPAWN_Z);
 
@@ -990,7 +1080,7 @@ describe('TownRoom Power Strike', () => {
 
       expect(player.action).toBe(2);
       expect(player.actionSeq).toBe(1);
-      expect(player.mp).toBe(41);
+      expect(player.mp).toBe(21);
 
       await client.leave();
     } finally {
@@ -998,7 +1088,7 @@ describe('TownRoom Power Strike', () => {
     }
   });
 
-  it('useSkill in range deals 69 damage and reduces MP from 50 to 41', async () => {
+  it('useSkill in range deals 69 damage and reduces MP from 30 to 21', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', {
@@ -1012,7 +1102,7 @@ describe('TownRoom Power Strike', () => {
 
       await castPowerStrike(client, room, gremlin.id);
 
-      expect(player.mp).toBe(41);
+      expect(player.mp).toBe(21);
       expect(room.state.mobs.has(gremlin.id)).toBe(false);
       expect(player.xp).toBe(44);
       await client.leave();
@@ -1061,7 +1151,7 @@ describe('TownRoom Power Strike', () => {
 
       await castPowerStrike(client, room, gremlin.id);
 
-      expect(player.mp).toBe(41);
+      expect(player.mp).toBe(21);
       expect(room.state.mobs.has(gremlin.id)).toBe(false);
       await client.leave();
     } finally {
@@ -1136,18 +1226,18 @@ describe('TownRoom Power Strike', () => {
 
       await castPowerStrike(client, room, gremlin.id);
       const hpAfterFirst = room.state.mobs.get(gremlin.id)!.hp;
-      expect(player.mp).toBe(41);
+      expect(player.mp).toBe(21);
 
       clock.advance(2999);
       await castPowerStrike(client, room, gremlin.id);
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpAfterFirst, 3);
-      expect(player.mp).toBe(41);
+      expect(player.mp).toBe(21);
 
       clock.advance(1);
       await castPowerStrike(client, room, gremlin.id);
-      expect(player.mp).toBe(32);
+      expect(player.mp).toBe(12);
       const gremlinAfter = room.state.mobs.get(gremlin.id)!;
-      expect(hpAfterFirst - gremlinAfter.hp).toBeCloseTo(69, 3);
+      expect(hpAfterFirst - gremlinAfter.hp).toBeCloseTo(60, 3);
       await client.leave();
     } finally {
       cleanup();
@@ -1387,7 +1477,7 @@ describe('TownRoom NPC shop and peace zone', () => {
     }
   });
 
-  it('heal restores hp from 40 to 100 near Roxxy', async () => {
+  it('heal restores hp from 40 to maxHp near Roxxy', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath });
@@ -1398,7 +1488,7 @@ describe('TownRoom NPC shop and peace zone', () => {
 
       await deliver(room, client, [['npcAction', { npcId: ROXXY, action: 'heal' }]]);
 
-      expect(player.hp).toBe(100);
+      expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
       await client.leave();
     } finally {
       cleanup();
@@ -1505,7 +1595,7 @@ describe('TownRoom NPC shop and peace zone', () => {
       ]);
 
       expect(room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(hpBefore, 3);
-      expect(player.mp).toBe(50);
+      expect(player.mp).toBe(HUMAN_FIGHTER_MAX_MP);
       await client.leave();
     } finally {
       cleanup();
@@ -1561,7 +1651,7 @@ async function claimStarterKit(
 }
 
 describe('TownRoom equip', () => {
-  it('equipping Squire\'s Sword then melee deals 27 damage to Gremlin', async () => {
+  it('CHAR19-36: equipping Squire\'s Sword then melee deals 19 damage to Gremlin', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
@@ -1582,7 +1672,7 @@ describe('TownRoom equip', () => {
         ['attack', {}],
       ]);
 
-      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(27, 3);
+      expect(hpBefore - room.state.mobs.get(gremlin.id)!.hp).toBeCloseTo(19, 3);
       await client.leave();
     } finally {
       cleanup();
@@ -1764,7 +1854,7 @@ describe('TownRoom useItem', () => {
 
       clock.advance(1);
       await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
-      expect(player.hp).toBe(98);
+      expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
       await client.leave();
     } finally {
@@ -1780,11 +1870,11 @@ describe('TownRoom useItem', () => {
       const player = room.state.players.get(client.sessionId)!;
       grantPotions(room, client.sessionId, 1);
       placePlayerNear(room, client.sessionId, 0, 0);
-      player.hp = 80;
+      player.hp = 56;
 
       await deliver(room, client, [['useItem', { itemId: HEALING_POTION }]]);
 
-      expect(player.hp).toBe(100);
+      expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
       expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(0);
       await client.leave();
     } finally {
@@ -1833,7 +1923,7 @@ describe('TownRoom useItem', () => {
       expect(player.hp).toBe(64);
 
       await deliver(room, client, [['npcAction', { npcId: ROXXY, action: 'heal' }]]);
-      expect(player.hp).toBe(100);
+      expect(player.hp).toBe(HUMAN_FIGHTER_MAX_HP);
       await client.leave();
     } finally {
       cleanup();
@@ -2108,15 +2198,15 @@ describe('TownRoom level-up reward', () => {
 
       expect(player.level).toBe(1);
       expect(player.xp).toBe(44);
-      expect(player.maxHp).toBe(100);
-      expect(player.maxMp).toBe(50);
+      expect(player.maxHp).toBe(HUMAN_FIGHTER_MAX_HP);
+      expect(player.maxMp).toBe(HUMAN_FIGHTER_MAX_MP);
       await client.leave();
     } finally {
       cleanup();
     }
   });
 
-  it('two Gremlin kills reach level 2 with maxHp 112 and maxMp 55', async () => {
+  it('CHAR19-20: two Gremlin kills reach level 2 with class vitals 91.83 / 35.46', async () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
@@ -2128,10 +2218,10 @@ describe('TownRoom level-up reward', () => {
 
       expect(player.level).toBe(2);
       expect(player.xp).toBe(88);
-      expect(player.maxHp).toBe(112);
-      expect(player.maxMp).toBe(55);
-      expect(player.hp).toBe(112);
-      expect(player.mp).toBe(55);
+      expect(player.maxHp).toBeCloseTo(91.83, 2);
+      expect(player.maxMp).toBeCloseTo(35.46, 2);
+      expect(player.hp).toBeCloseTo(91.83, 2);
+      expect(player.mp).toBeCloseTo(35.46, 2);
       await client.leave();
     } finally {
       cleanup();
@@ -2152,10 +2242,10 @@ describe('TownRoom level-up reward', () => {
       expect(row).toMatchObject({
         level: 2,
         xp: 88,
-        maxHp: 112,
-        maxMp: 55,
-        hp: 112,
-        mp: 55,
+        maxHp: expect.closeTo(91.83, 2),
+        maxMp: expect.closeTo(35.46, 2),
+        hp: expect.closeTo(91.83, 2),
+        mp: expect.closeTo(35.46, 2),
       });
       await client.leave();
     } finally {

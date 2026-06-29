@@ -11,11 +11,11 @@ describe('npc-actions', () => {
     ).toBe(false);
   });
 
-  it('applyHeal restores hp from 40 to 100', () => {
-    const result = applyHeal({ hp: 40 });
+  it('applyHeal restores hp to maxHp', () => {
+    const result = applyHeal({ hp: 40, maxHp: 80 });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.hp).toBe(100);
+      expect(result.hp).toBe(80);
     }
   });
 
