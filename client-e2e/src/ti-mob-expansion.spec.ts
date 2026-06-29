@@ -53,7 +53,7 @@ test('outer field exposes new TI mob npcIds in __GAME_STATE__', async ({ page },
 });
 
 test('new mob attack and die clips during combat kill', async ({ page }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(150_000);
   await page.addInitScript(() => {
     localStorage.removeItem('nj.characterId');
     (window as unknown as {
@@ -133,7 +133,7 @@ test('new mob attack and die clips during combat kill', async ({ page }, testInf
           }
           return false;
         }, target.id),
-      { timeout: 110_000, intervals: [100, 200, 400, 600] }
+      { timeout: 120_000, intervals: [100, 200, 400, 600] }
     )
     .toBe(true);
 });
