@@ -15,6 +15,10 @@ export interface GameStateVfx {
   activeEffectCount: number;
 }
 
+import type { GameStateAudio } from './audio/audio-manager';
+
+export type { GameStateAudio };
+
 export interface EnvironmentCategoryState {
   count: number;
   renderKind: 'mesh' | 'primitive';
@@ -259,6 +263,7 @@ export interface GameState {
   /** Stays 0 while movement is server-authoritative (no client step()). */
   localMovementTicks: number;
   vfx: GameStateVfx;
+  audio: GameStateAudio;
   environment: GameStateEnvironment;
   zone: GameStateZone;
   quests: GameStateQuests;
@@ -333,6 +338,15 @@ const initialState: GameState = {
     levelUpCount: 0,
     targetRingVisible: false,
     activeEffectCount: 0,
+  },
+  audio: {
+    currentMusicId: null,
+    ambientId: null,
+    sfxCounts: {},
+    musicVolume: 0.7,
+    sfxVolume: 0.8,
+    muted: false,
+    inCombat: false,
   },
   environment: {
     buildings: { count: 0, renderKind: 'primitive' },

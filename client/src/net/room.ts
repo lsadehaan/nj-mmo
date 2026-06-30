@@ -51,6 +51,7 @@ import { renderMinimap } from '../ui/minimap';
 import { renderEffectBars } from '../ui/buff-debuff-bars';
 import { renderTargetFrame } from '../ui/target-frame';
 import { publishUiState, isPanelOpen, togglePanel, openPanel } from '../ui/window-manager';
+import type { AudioManager } from '../audio/audio-manager';
 
 export const DEFAULT_COLYSEUS_ENDPOINT =
   import.meta.env.VITE_COLYSEUS_ENDPOINT ?? 'http://localhost:2567';
@@ -122,7 +123,12 @@ export async function connectSafe(
   }
 }
 
-export function wireRoom(room: Room, game: GameRenderer): void {
+export function wireRoom(
+  room: Room,
+  game: GameRenderer,
+  options?: { audioManager?: AudioManager }
+): void {
+  const audioManager = options?.audioManager;
   const callbacks = Callbacks.get(room);
   const localId = room.sessionId;
 
@@ -497,6 +503,21 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       z: player.z,
       soulshotCount: localItemCounts[1835] ?? 0,
     });
+    const zoneHit = getZoneAt(player.x, player.z);
+    audioManager?.syncPlayer({
+      hp: player.hp,
+      level: player.level,
+      action: (player.action ?? 0) as import('@nj/game-core').EntityAction,
+      actionSeq: player.actionSeq ?? 0,
+      x: player.x,
+      y: player.y,
+      z: player.z,
+      soulshotCount: localItemCounts[1835] ?? 0,
+    });
+    const zoneId = player.zoneId ?? zoneHit.zoneId;
+    audioManager?.syncZone(zoneId);
+    audioManager?.syncCombat(getGameState().targetMobId);
+    audioManager?.publishHook();
     const knownSkillIds = readNumberArray(player.knownSkillIds);
     const skillCooldownEndMs = readNumberArray(player.skillCooldownEndMs);
     const activeBuffSkillId = player.activeBuffSkillId ?? 0;
@@ -579,9 +600,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     setWarehouse(warehouseCounts);
     refreshShopDom(player);
     refreshInventoryDom(player);
-    const zoneHit = getZoneAt(player.x, player.z);
     setZone({
-      id: player.zoneId ?? zoneHit.zoneId,
+      id: zoneId,
       type: zoneHit.type,
       displayName: zoneHit.displayName,
     });
@@ -1042,6 +1062,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       action: mob.action ?? 0,
       actionSeq: mob.actionSeq ?? 0,
     });
+    audioManager?.syncMob({ id: mobId, hp: mob.hp });
     publishMobs();
   };
 

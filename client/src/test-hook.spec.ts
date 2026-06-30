@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { initGameState, setQuests, setMobs, getGameState } from './test-hook';
+import { createMockAudioBackend } from './audio/audio-backend';
+import { createAudioManager } from './audio/audio-manager';
 
 describe('test-hook mobs', () => {
   beforeEach(() => {
@@ -80,6 +82,40 @@ describe('test-hook mobs', () => {
   });
 });
 
+describe('test-hook audio', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('AUD29-42: __GAME_STATE__.audio exposes hook fields', () => {
+    const mock = createMockAudioBackend();
+    const mgr = createAudioManager({ backend: mock.backend });
+    mgr.syncZone('ti_village');
+    mgr.syncCombat('mob-1');
+    mgr.publishHook();
+    const audio = getGameState().audio;
+    expect(audio).toMatchObject({
+      currentMusicId: 'music_town',
+      ambientId: 'ambient_village',
+      musicVolume: 0.7,
+      sfxVolume: 0.8,
+      muted: false,
+      inCombat: true,
+    });
+    expect(typeof audio.sfxCounts).toBe('object');
+  });
+
+  it('AUD29-43: inCombat mirrors targetMobId presence', () => {
+    const mock = createMockAudioBackend();
+    const mgr = createAudioManager({ backend: mock.backend });
+    mgr.syncCombat(null);
+    mgr.publishHook();
+    expect(getGameState().audio.inCombat).toBe(false);
+    mgr.syncCombat('mob-a');
+    mgr.publishHook();
+    expect(getGameState().audio.inCombat).toBe(true);
+  });
+});
 describe('test-hook quests', () => {
   beforeEach(() => {
     initGameState();
