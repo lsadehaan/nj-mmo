@@ -4588,6 +4588,165 @@ describe('Phase 25 equipment/craft/enchant', () => {
     }
   });
 
+  // ITEM25-25
+  it('migrates legacy equippedWeaponItemId 2369 to rhand on join', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const db = getDb(dbPath);
+      const saved = createCharacter(db, { classId: 0, sex: 0 });
+      saveCharacter(db, { ...saved, equippedWeaponItemId: SQUIRES_SWORD });
+
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.sdk.joinById(
+        room.roomId,
+        { characterId: saved.id },
+        TownState
+      );
+
+      expect(getEquipItemId(room, client.sessionId, 'rhand')).toBe(SQUIRES_SWORD);
+      expect(getPlayerItemCount(room, client.sessionId, SQUIRES_SWORD)).toBe(0);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-40
+  it('rejects human fighter craft attempt', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      player.mp = 50;
+      seedInventory(room, client.sessionId, {
+        [RECIPE_BROADSWORD]: 1,
+        2005: 1,
+        1869: 18,
+        1870: 18,
+      });
+
+      await deliver(room, client, [['craft', { recipeId: 2 }]]);
+
+      expect(getPlayerItemCount(room, client.sessionId, BROADSWORD)).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, RECIPE_BROADSWORD)).toBe(1);
+      expect(getPlayerItemCount(room, client.sessionId, 2005)).toBe(1);
+      expect(getPlayerItemCount(room, client.sessionId, 1869)).toBe(18);
+      expect(getPlayerItemCount(room, client.sessionId, 1870)).toBe(18);
+      expect(player.mp).toBe(50);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-41
+  it('rejects craft with insufficient materials without partial consume', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 53, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      player.mp = 50;
+      seedInventory(room, client.sessionId, {
+        [RECIPE_BROADSWORD]: 1,
+        2005: 1,
+        1869: 5,
+      });
+
+      await deliver(room, client, [['craft', { recipeId: 2 }]]);
+
+      expect(getPlayerItemCount(room, client.sessionId, BROADSWORD)).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, RECIPE_BROADSWORD)).toBe(1);
+      expect(getPlayerItemCount(room, client.sessionId, 2005)).toBe(1);
+      expect(getPlayerItemCount(room, client.sessionId, 1869)).toBe(5);
+      expect(getPlayerItemCount(room, client.sessionId, 1870)).toBe(0);
+      expect(player.mp).toBe(50);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-45
+  it('rejects enchant beyond +3 max safe level', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, {
+        [MITHRIL_BREASTPLATE]: 1,
+        [ENCHANT_ARMOR_SCROLL_D]: 4,
+      });
+
+      await deliver(room, client, [
+        ['equip', { itemId: MITHRIL_BREASTPLATE }],
+        ['enchant', { scrollItemId: ENCHANT_ARMOR_SCROLL_D, slot: 'chest' }],
+        ['enchant', { scrollItemId: ENCHANT_ARMOR_SCROLL_D, slot: 'chest' }],
+        ['enchant', { scrollItemId: ENCHANT_ARMOR_SCROLL_D, slot: 'chest' }],
+      ]);
+      expect(getEquipEnchantLevel(room, client.sessionId, 'chest')).toBe(3);
+      expect(getPlayerItemCount(room, client.sessionId, ENCHANT_ARMOR_SCROLL_D)).toBe(1);
+
+      await deliver(room, client, [
+        ['enchant', { scrollItemId: ENCHANT_ARMOR_SCROLL_D, slot: 'chest' }],
+      ]);
+
+      expect(getEquipEnchantLevel(room, client.sessionId, 'chest')).toBe(3);
+      expect(getPlayerItemCount(room, client.sessionId, ENCHANT_ARMOR_SCROLL_D)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-46
+  it('rejects grade mismatch enchant scroll 955 on NG Broadsword', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, {
+        [BROADSWORD]: 1,
+        [ENCHANT_WEAPON_SCROLL_D]: 1,
+      });
+
+      await deliver(room, client, [
+        ['equip', { itemId: BROADSWORD }],
+        ['enchant', { scrollItemId: ENCHANT_WEAPON_SCROLL_D, slot: 'rhand' }],
+      ]);
+
+      expect(getEquipEnchantLevel(room, client.sessionId, 'rhand')).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, ENCHANT_WEAPON_SCROLL_D)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-47
+  it('rejects enchant on NG Broadsword 3', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, {
+        [BROADSWORD]: 1,
+        [ENCHANT_WEAPON_SCROLL_D]: 1,
+      });
+
+      await deliver(room, client, [['enchant', { scrollItemId: ENCHANT_WEAPON_SCROLL_D, slot: 'rhand' }]]);
+
+      expect(getEquipItemId(room, client.sessionId, 'rhand')).toBe(0);
+      expect(getEquipEnchantLevel(room, client.sessionId, 'rhand')).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, BROADSWORD)).toBe(1);
+      expect(getPlayerItemCount(room, client.sessionId, ENCHANT_WEAPON_SCROLL_D)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
   // ITEM25-51
   it('mob kill drops armor shirt 21 to inventory with seeded rng', async () => {
     const { dbPath, cleanup } = seededCombatDb();

@@ -47,7 +47,7 @@ describe('phase 25 merchant buylists', () => {
     expect(count).toBeGreaterThanOrEqual(30);
   });
 
-  it('seeds Silvia 30003 with at least 13 accessory rows (ITEM25-13)', () => {
+  it('seeds Silvia 30003 with 13 accessory rows per L2J fixture (ITEM25-13)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const count = getDb(dbPath)
@@ -55,7 +55,8 @@ describe('phase 25 merchant buylists', () => {
       .from(merchantItems)
       .where(eq(merchantItems.npcId, 30003))
       .all().length;
-    // Spec deviation: ITEM25-13 asks ≥15; L2J Classic buylist_30003.xml fixture has 13 rows.
+    // SPEC_DEVIATION accepted: spec says ≥15; L2J Classic buylist_30003.xml has 13 rows.
+    expect(count).toBeGreaterThanOrEqual(13);
     expect(count).toBe(13);
   });
 
