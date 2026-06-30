@@ -74,5 +74,5 @@ export function parseRecipesXml(xml: string): NewRecipe[] {
     });
   }
 
-  return results.sort((a, b) => a.recipeId - b.recipeId);
+  return results.sort((a, b) => (a.recipeId ?? 0) - (b.recipeId ?? 0));
 }
