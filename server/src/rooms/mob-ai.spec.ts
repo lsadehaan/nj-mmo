@@ -7,7 +7,7 @@ import {
 import { tickMobAi, WANDER_RADIUS, WANDER_SPEED_FACTOR, findClanAssistTargets } from './mob-ai';
 import type { MobRuntime } from './spawn-manager';
 
-const OUT_OF_PEACE = { x: 30, z: -30 };
+const OUT_OF_PEACE = { x: -150, z: 55 };
 
 function makeRng(sequence: number[]): SeededRng {
   let i = 0;
@@ -59,11 +59,11 @@ describe('tickMobAi', () => {
     const mob = baseMob({
       npcId: 20003,
       isAggressive: true,
-      x: 0,
-      z: 0,
+      x: OUT_OF_PEACE.x,
+      z: OUT_OF_PEACE.z,
       aggroRangeWorld: 45,
     });
-    const players = [{ sessionId: 'p1', x: 40, z: 0 }];
+    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 40, z: OUT_OF_PEACE.z }];
 
     tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
 
