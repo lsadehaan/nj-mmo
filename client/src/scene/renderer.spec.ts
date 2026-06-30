@@ -41,6 +41,15 @@ vi.mock('./vfx/vfx-manager', () => ({
   })),
 }));
 
+vi.mock('./environment-renderer', () => ({
+  buildEnvironmentScene: vi.fn(async () => ({
+    buildings: { count: 5, renderKind: 'mesh' as const },
+    scatter: { count: 220, renderKind: 'mesh' as const },
+    peaceZone: { count: 1, renderKind: 'mesh' as const },
+    landmarks: { count: 6, renderKind: 'mesh' as const },
+  })),
+}));
+
 vi.mock('./player-avatar', () => ({
   createPlayerAvatar: vi.fn(() => ({
     group: new THREE.Group(),

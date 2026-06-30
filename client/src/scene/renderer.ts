@@ -153,7 +153,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     60,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    2000
   );
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
