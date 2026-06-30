@@ -5,8 +5,12 @@ import {
   isValidMoveIntent,
   createSeededRng,
   STARTER_COMBAT,
-  effectivePAtk,
   calcClassBasePAtk,
+  calcEffectivePAtk,
+  calcPlayerPDef,
+  calcClassBasePDef,
+  EQUIP_SLOTS,
+  type EquipSlot,
   applyClassLevelUpReward,
   resolvePlayerDeath,
   stepAlongPath,
@@ -32,6 +36,8 @@ import {
   depositToWarehouse,
   withdrawFromWarehouse,
   applyBuffSelf,
+  canCraft,
+  applyCraft,
 } from '@nj/game-core';
 import { getDb, type AppDatabase } from '../db/client';
 import {
@@ -60,7 +66,7 @@ import {
   countDistinctWarehouseItems,
   type WarehouseItemCounts,
 } from '../db/warehouse-repository';
-import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, classTemplates, classSkillTree, teleportDestinations, type Character, type MerchantItem, type Item, type ClassTemplate, type Skill } from '../db/schema';
+import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, recipes, classTemplates, classSkillTree, teleportDestinations, type Character, type MerchantItem, type Item, type ClassTemplate, type Skill, type Recipe } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
@@ -97,7 +103,19 @@ import {
   type MobRuntime,
 } from './spawn-manager';
 import { buyItem, sellItem } from './shop-transaction';
-import { validateEquip, applyEquip } from './equip-transaction';
+import {
+  loadEquipment,
+  saveAllEquipment,
+  migrateLegacyWeapon,
+  type EquipmentRow,
+} from '../db/equipment-repository';
+import {
+  applyEquipTransaction,
+  applyUnequipTransaction,
+  buildCraftRecipe,
+  applyEnchantTransaction,
+} from './equipment-handlers';
+import { syncEquipArrays, weaponItemIdFromEquipment } from './equipment-sync';
 import { canInteract, applyHeal, applyStarterKit } from './npc-actions';
 import { isStarterClassId, isValidSex } from './starter-classes';
 import {
@@ -200,6 +218,8 @@ export class TownRoom extends Room<{ state: TownState }> {
   private npcSpawnsById = new Map<number, { x: number; y: number; z: number }>();
   private classTemplatesById = new Map<number, ClassTemplate>();
   private classVitalsByClassId = new Map<number, ClassVitalsRow[]>();
+  private playerEquipment = new Map<string, EquipmentRow[]>();
+  private recipesById = new Map<number, Recipe>();
 
   override onCreate(options: TownRoomOptions = {}): void {
     this.db = getDb(options.dbPath ?? DEFAULT_DB_PATH);
@@ -324,6 +344,21 @@ export class TownRoom extends Room<{ state: TownState }> {
       this.handleEquip(client.sessionId, message.itemId);
     });
 
+    this.onMessage('unequip', (client, message: { slot: EquipSlot }) => {
+      this.handleUnequip(client.sessionId, message.slot);
+    });
+
+    this.onMessage('craft', (client, message: { recipeId: number }) => {
+      this.handleCraft(client.sessionId, message.recipeId);
+    });
+
+    this.onMessage(
+      'enchant',
+      (client, message: { scrollItemId: number; slot: EquipSlot }) => {
+        this.handleEnchant(client.sessionId, message.scrollItemId, message.slot);
+      }
+    );
+
     this.onMessage('useItem', (client, message: { itemId: number }) => {
       this.handleUseItem(client.sessionId, message.itemId);
     });
@@ -423,13 +458,18 @@ export class TownRoom extends Room<{ state: TownState }> {
     );
   }
 
-  private getPlayerPAtk(player: PlayerState): number {
-    const weaponId = player.equippedWeaponItemId || null;
-    const weapon = weaponId ? this.itemsById.get(weaponId) : undefined;
-    return effectivePAtk(
-      this.getPlayerBasePAtk(player),
-      weaponId,
-      weapon?.pAtk ?? undefined
+  private getPlayerPAtk(sessionId: string, player: PlayerState): number {
+    const equipment = this.playerEquipment.get(sessionId) ?? [];
+    const weaponRow =
+      equipment.find((e) => e.slot === 'rhand') ??
+      equipment.find((e) => e.slot === 'lrhand');
+    const weapon = weaponRow ? this.itemsById.get(weaponRow.itemId) : undefined;
+    const base = this.getPlayerBasePAtk(player);
+    if (!weapon || weapon.pAtk == null) return base;
+    return calcEffectivePAtk(
+      base,
+      { pAtk: weapon.pAtk, weaponType: weapon.weaponType, bodyPart: weapon.bodyPart },
+      weaponRow?.enchantLevel ?? 0
     );
   }
 
@@ -565,21 +605,153 @@ export class TownRoom extends Room<{ state: TownState }> {
     if (!player || !stored || player.hp <= 0) return;
 
     const item = this.itemsById.get(itemId);
-    const currentEquipped = stored.equippedWeaponItemId;
-    const result = validateEquip({
-      itemId,
-      itemType: item?.type,
-      bodyPart: item?.bodyPart,
-      ownedCount: this.getItemCount(sessionId, itemId),
-      currentEquippedWeaponItemId: currentEquipped,
-    });
+    const equipment = this.playerEquipment.get(sessionId) ?? [];
+    const inventory = { ...(this.playerItems.get(sessionId) ?? {}) };
+    const result = applyEquipTransaction({ itemId, item, inventory, equipment });
+    if (!result) return;
 
-    const equipped = applyEquip(currentEquipped, result);
-    if (!result.ok) return;
-
-    stored.equippedWeaponItemId = equipped;
-    player.equippedWeaponItemId = equipped ?? 0;
+    this.playerItems.set(sessionId, result.inventory);
+    this.playerEquipment.set(sessionId, result.equipment);
+    this.syncItemsToPlayerState(sessionId);
+    this.syncEquipmentToPlayerState(sessionId);
     this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleUnequip(sessionId: string, slot: EquipSlot): void {
+    const player = this.state.players.get(sessionId);
+    if (!player || player.hp <= 0) return;
+    if (!EQUIP_SLOTS.includes(slot)) return;
+
+    const equipment = this.playerEquipment.get(sessionId) ?? [];
+    const inventory = { ...(this.playerItems.get(sessionId) ?? {}) };
+    const result = applyUnequipTransaction({ slot, equipment, inventory });
+    if (!result) return;
+
+    this.playerItems.set(sessionId, result.inventory);
+    this.playerEquipment.set(sessionId, result.equipment);
+    this.syncItemsToPlayerState(sessionId);
+    this.syncEquipmentToPlayerState(sessionId);
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleCraft(sessionId: string, recipeId: number): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored || player.hp <= 0) return;
+
+    const recipe = this.recipesById.get(recipeId);
+    if (!recipe) return;
+    const recipeItem = [...this.itemsById.values()].find(
+      (i) => i.type === 'recipe' && i.recipeId === recipeId
+    );
+    if (!recipeItem?.recipeId) return;
+
+    const craftRecipe = buildCraftRecipe(recipe, recipeItem.itemId);
+    const inventory = { ...(this.playerItems.get(sessionId) ?? {}) };
+    const reject = canCraft({
+      classId: player.classId,
+      recipe: craftRecipe,
+      inventory,
+      mp: player.mp,
+    });
+    if (reject) return;
+
+    const result = applyCraft({ recipe: craftRecipe, inventory, mp: player.mp });
+    this.playerItems.set(sessionId, result.inventory);
+    player.mp = result.mp;
+    stored.mp = result.mp;
+    this.syncItemsToPlayerState(sessionId);
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleEnchant(sessionId: string, scrollItemId: number, slot: EquipSlot): void {
+    const player = this.state.players.get(sessionId);
+    if (!player || player.hp <= 0) return;
+
+    const equipment = this.playerEquipment.get(sessionId) ?? [];
+    const row = equipment.find((e) => e.slot === slot);
+    if (!row) return;
+    const item = this.itemsById.get(row.itemId);
+    if (!item) return;
+
+    const inventory = { ...(this.playerItems.get(sessionId) ?? {}) };
+    const result = applyEnchantTransaction({
+      slot,
+      scrollItemId,
+      item,
+      equipment,
+      inventory,
+      rng: () => this.combatRng.nextFloat(),
+    });
+    if (!result) return;
+
+    this.playerItems.set(sessionId, result.inventory);
+    this.playerEquipment.set(sessionId, result.equipment);
+    this.syncItemsToPlayerState(sessionId);
+    this.syncEquipmentToPlayerState(sessionId);
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private syncEquipmentToPlayerState(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored) return;
+
+    const equipment = this.playerEquipment.get(sessionId) ?? [];
+    syncEquipArrays(
+      player.equipSlotIds,
+      player.equipItemIds,
+      player.equipEnchantLevels,
+      equipment
+    );
+
+    const weaponId = weaponItemIdFromEquipment(equipment);
+    player.equippedWeaponItemId = weaponId ?? 0;
+    stored.equippedWeaponItemId = weaponId;
+
+    const vitals = this.computePlayerVitals(player, equipment);
+    player.pDef = vitals.pDef;
+    const baseMaxHp = this.getBaseMaxHp(player);
+    player.maxHp = baseMaxHp + vitals.maxHpBonus;
+    stored.maxHp = player.maxHp;
+  }
+
+  private getBaseMaxHp(player: PlayerState): number {
+    const curve = this.classVitalsByClassId.get(player.classId);
+    const row = curve?.find((v) => v.level === player.level);
+    return row?.hp ?? player.maxHp;
+  }
+
+  private computePlayerVitals(
+    player: PlayerState,
+    equipment: EquipmentRow[]
+  ): { pDef: number; maxHpBonus: number } {
+    const template = this.classTemplatesById.get(player.classId);
+    const basePDef = template
+      ? calcClassBasePDef({ baseCon: template.baseCon }, player.level)
+      : 41;
+    const armorPieces = equipment
+      .map((e) => {
+        const item = this.itemsById.get(e.itemId);
+        if (!item || item.type === 'weapon' || item.type === 'shot') return null;
+        return {
+          itemId: e.itemId,
+          pDef: item.pDef ?? 0,
+          enchantLevel: e.enchantLevel,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+    const equippedIds = equipment.map((e) => e.itemId);
+    return calcPlayerPDef(basePDef, armorPieces, equippedIds);
+  }
+
+  private getPlayerPDef(player: PlayerState): number {
+    return player.pDef > 0
+      ? player.pDef
+      : calcClassBasePDef(
+          { baseCon: this.classTemplatesById.get(player.classId)?.baseCon ?? 43 },
+          player.level
+        );
   }
 
   private handleUseItem(sessionId: string, itemId: number): void {
@@ -1050,6 +1222,11 @@ export class TownRoom extends Room<{ state: TownState }> {
       this.skillsById.set(row.skillId, row);
     }
 
+    this.recipesById.clear();
+    for (const row of this.db.select().from(recipes).all()) {
+      this.recipesById.set(row.recipeId, row);
+    }
+
     const powerStrike = this.skillsById.get(3) ?? this.ensurePowerStrikeSeeded();
     if (!powerStrike) {
       throw new Error('Power Strike (skillId 3) not found in database');
@@ -1093,7 +1270,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       playerZ: player.z,
       playerMp: player.mp,
       playerMAtk: this.getSkillMAtk(player, skill),
-      playerPAtk: this.getPlayerPAtk(player),
+      playerPAtk: this.getPlayerPAtk(sessionId, player),
       playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
       playerDex: player.dex,
       combat,
@@ -1151,7 +1328,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         playerZ: player.z,
         playerMp: player.mp,
         playerMAtk: this.getSkillMAtk(player, skill),
-        playerPAtk: this.getPlayerPAtk(player),
+        playerPAtk: this.getPlayerPAtk(sessionId, player),
         playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
         playerDex: player.dex,
         combat,
@@ -1284,7 +1461,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         mobEffect,
         nowMs: now,
         rng: this.combatRng,
-        attackerPAtk: this.getPlayerPAtk(player),
+        attackerPAtk: this.getPlayerPAtk(sessionId, player),
         attackerCritRate: this.classTemplatesById.get(player.classId)?.baseCritRate,
         attackerDex: player.dex,
       });
@@ -1312,6 +1489,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         targetZ: target.z,
         targetHp: target.hp,
         targetDex: target.dex,
+        targetPDef: this.getPlayerPDef(target),
         nowMs: now,
         rng: this.combatRng,
       });
@@ -1547,6 +1725,9 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.level = character.level;
     player.adena = character.adena;
     player.connected = true;
+    migrateLegacyWeapon(this.db, character.id, character.equippedWeaponItemId);
+    const equipmentRows = loadEquipment(this.db, character.id);
+    this.playerEquipment.set(client.sessionId, equipmentRows);
     this.playerItems.set(client.sessionId, loadCharacterItems(this.db, character.id));
     this.playerWarehouse.set(
       client.sessionId,
@@ -1556,6 +1737,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.playerQuests.set(client.sessionId, loadCharacterQuests(this.db, character.id));
     this.state.players.set(client.sessionId, player);
     this.syncItemsToPlayerState(client.sessionId);
+    this.syncEquipmentToPlayerState(client.sessionId);
     this.syncWarehouseToPlayerState(client.sessionId);
     this.syncQuestEntries(client.sessionId);
     ensureAutoStartQuests(this.createQuestContext(client.sessionId));
@@ -1610,6 +1792,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.playerWarehouse.delete(sessionId);
     this.playerSkills.delete(sessionId);
     this.playerQuests.delete(sessionId);
+    this.playerEquipment.delete(sessionId);
 
     for (const runtime of this.mobRuntime.values()) {
       if (runtime.targetSessionId === sessionId) {
@@ -1643,6 +1826,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       z: player.z,
     });
     saveCharacterItems(this.db, characterId, this.playerItems.get(sessionId) ?? {});
+    saveAllEquipment(this.db, characterId, this.playerEquipment.get(sessionId) ?? []);
     saveCharacterSkills(this.db, characterId, this.playerSkills.get(sessionId) ?? {});
   }
 

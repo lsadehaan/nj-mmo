@@ -416,10 +416,12 @@ export function resolveMobAttack(params: {
   targetZ: number;
   targetHp: number;
   targetDex: number;
+  targetPDef?: number;
   nowMs: number;
   rng: SeededRng;
 }): MobAttackResult {
   const { mob, mobEffect, targetSessionId, targetX, targetZ, targetDex, nowMs, rng } = params;
+  const targetPDef = params.targetPDef ?? STARTER_COMBAT.pDef;
 
   if (mob.hp <= 0 || mob.targetSessionId !== targetSessionId) {
     return { damage: 0 };
@@ -454,7 +456,7 @@ export function resolveMobAttack(params: {
 
   const damage = calcMeleeDamage(
     { pAtk: mobPatk, randomDamage: mob.randomDamage },
-    { pDef: STARTER_COMBAT.pDef },
+    { pDef: targetPDef },
     { rng }
   );
 
