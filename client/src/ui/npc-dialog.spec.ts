@@ -34,14 +34,14 @@ describe('npc-dialog DOM', () => {
     expect(dialog?.querySelector('[data-action="starterKit"]')).not.toBeNull();
   });
 
-  it('shows warehouse title and disabled deposit/withdraw actions (TINPC-26)', () => {
+  it('shows warehouse title and enabled deposit/withdraw actions (TOWN24-27)', () => {
     mountNpcDialog();
     renderNpcDialog({
       npcId: WILFORD_NPC_ID,
       name: 'Wilford',
       variant: 'warehouse',
       visible: true,
-      handlers: { sendNpcAction: vi.fn() },
+      handlers: { sendNpcAction: vi.fn(), openWarehouse: vi.fn() },
     });
 
     const dialog = document.getElementById('npc-dialog');
@@ -50,28 +50,26 @@ describe('npc-dialog DOM', () => {
     );
     const deposit = dialog?.querySelector('[data-action="deposit"]') as HTMLButtonElement | null;
     const withdraw = dialog?.querySelector('[data-action="withdraw"]') as HTMLButtonElement | null;
-    expect(deposit?.disabled).toBe(true);
-    expect(withdraw?.disabled).toBe(true);
-    expect(deposit?.textContent).toContain('Coming soon');
-    expect(withdraw?.textContent).toContain('Coming soon');
+    expect(deposit?.disabled).toBe(false);
+    expect(withdraw?.disabled).toBe(false);
   });
 
-  it('disabled warehouse buttons do not wire click handlers (TINPC-27)', () => {
-    const sendNpcAction = vi.fn();
+  it('warehouse deposit opens warehouse window handler (TOWN24-27)', () => {
+    const openWarehouse = vi.fn();
     mountNpcDialog();
     renderNpcDialog({
       npcId: WILFORD_NPC_ID,
       name: 'Wilford',
       variant: 'warehouse',
       visible: true,
-      handlers: { sendNpcAction },
+      handlers: { sendNpcAction: vi.fn(), openWarehouse },
     });
 
     const deposit = document.querySelector(
       '#npc-dialog [data-action="deposit"]'
     ) as HTMLButtonElement;
     deposit?.click();
-    expect(sendNpcAction).not.toHaveBeenCalled();
+    expect(openWarehouse).toHaveBeenCalled();
   });
 
   it('shows trainer learn buttons for Bitz fighter skills (SKILL20-20)', () => {
@@ -116,6 +114,48 @@ describe('npc-dialog DOM', () => {
     const mightBtn = dialog?.querySelector('[data-action="learn-1068"]') as HTMLButtonElement | null;
     mightBtn?.click();
     expect(sendLearnSkill).toHaveBeenCalledWith({ skillId: 1068 });
+  });
+
+  it('gatekeeper shows teleport destination buttons (TOWN24-34)', () => {
+    const sendTeleport = vi.fn();
+    mountNpcDialog();
+    renderNpcDialog({
+      npcId: ROXXY_NPC_ID,
+      name: 'Roxxy',
+      variant: 'gatekeeper',
+      visible: true,
+      handlers: { sendNpcAction: vi.fn(), sendTeleport },
+    });
+
+    const obelisk = document.querySelector(
+      '#npc-dialog [data-action="obelisk"]'
+    ) as HTMLButtonElement;
+    expect(obelisk).not.toBeNull();
+    obelisk.click();
+    expect(sendTeleport).toHaveBeenCalledWith({ destinationId: 'obelisk' });
+  });
+
+  it('trainer shows class transfer buttons at level 20 (TOWN24-43)', () => {
+    const sendClassTransfer = vi.fn();
+    mountNpcDialog();
+    renderNpcDialog({
+      npcId: BITZ_NPC_ID,
+      name: 'Bitz',
+      variant: 'trainer',
+      visible: true,
+      classTransferOptions: [
+        { targetClassId: 1, label: 'Warrior' },
+        { targetClassId: 4, label: 'Knight' },
+      ],
+      handlers: { sendNpcAction: vi.fn(), sendClassTransfer },
+    });
+
+    const warrior = document.querySelector(
+      '#npc-dialog [data-action="class-1"]'
+    ) as HTMLButtonElement;
+    expect(warrior).not.toBeNull();
+    warrior.click();
+    expect(sendClassTransfer).toHaveBeenCalledWith({ targetClassId: 1 });
   });
 
   it('heal button sends npcAction heal intent', () => {

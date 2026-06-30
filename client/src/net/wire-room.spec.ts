@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { initGameState, getGameState, setQuests, setMobs, setZone } from '../test-hook';
+import {
+  initGameState,
+  getGameState,
+  setQuests,
+  setMobs,
+  setZone,
+  setWarehouse,
+  setNpcs,
+} from '../test-hook';
 import { getZoneAt } from '@nj/game-core';
+import { TI_NPC_MANIFEST_IDS } from '../scene/creature/npc-manifest';
 
 describe('wireRoom mob sync (unit)', () => {
   beforeEach(() => {
@@ -68,6 +77,41 @@ describe('test-hook zone defaults', () => {
       type: 'unknown',
       displayName: '',
     });
+  });
+});
+
+describe('wireRoom warehouse sync (unit)', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('TOWN24-28: exposes warehouse stacks on __GAME_STATE__.warehouse', () => {
+    setWarehouse({ 1060: 3, 1835: 10 });
+    expect(getGameState().warehouse[1060]).toBe(3);
+    expect(getGameState().warehouse[1835]).toBe(10);
+  });
+});
+
+describe('wireRoom TI NPC roster (unit)', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('TOWN24-14: manifest lists 25 TI NPC ids for mesh polling', () => {
+    expect(TI_NPC_MANIFEST_IDS).toHaveLength(25);
+    setNpcs(
+      TI_NPC_MANIFEST_IDS.map((npcId, i) => ({
+        npcId,
+        name: `Npc${npcId}`,
+        type: 'Folk',
+        x: i,
+        y: 4,
+        z: 0,
+        action: 'idle' as const,
+      }))
+    );
+    expect(getGameState().npcs).toHaveLength(25);
+    expect(getGameState().npcs[0]?.npcId).toBe(30001);
   });
 });
 

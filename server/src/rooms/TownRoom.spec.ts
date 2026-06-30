@@ -7,6 +7,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest
 import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT, getZoneAt } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
+import { classLevelVitals } from '../db/schema';
 import { onMobKilledForQuests, type QuestRoomContext } from './quest-handlers';
 import {
   createCharacter,
@@ -25,7 +26,16 @@ import * as mobAi from './mob-ai';
 
 const OUT_OF_PEACE = { x: -150, z: 55 };
 
-/** Phase 23 zone anchor coordinates for room-integration guards. */
+/** Phase 24 NPC ids for room-integration tests (spawn via placePlayerAtNpc). */
+export const NPC_TEST_COORDS = {
+  wilford: 30005,
+  roxxy: 30006,
+  bitz: 30026,
+  vivyan: 30030,
+  biotin: 30031,
+  arnold: 30041,
+} as const;
+
 export const ZONE_TEST_COORDS = {
   village: { x: 0, z: 0 },
   obelisk: { x: -150, z: 55 },
@@ -3865,6 +3875,234 @@ describe.sequential('TownRoom quests', () => {
       ]);
       expect(getPlayerItemCount(room, client.sessionId, 49037)).toBe(1);
       expect(getQuestEntry(room, client.sessionId, 158)?.status).toBe('completed');
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+/** Phase 24 — town services room integration (TOWN24-18 … 48). */
+describe('Phase 24 town services', () => {
+  const WILFORD = 30005;
+  const VIVYAN = 30030;
+  const BIOTIN = 30031;
+  const HEALING_POTION = 1060;
+
+  it('deposits and withdraws healing potions at Wilford (TOWN24-22, TOWN24-23)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      grantItem(room, client.sessionId, HEALING_POTION, 5);
+      placePlayerAtNpc(room, client.sessionId, WILFORD);
+      await deliver(room, client, [
+        ['warehouseDeposit', { npcId: WILFORD, itemId: HEALING_POTION, quantity: 3 }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(2);
+      const whIds = room.state.players.get(client.sessionId)!.warehouseItemIds;
+      const whCounts = room.state.players.get(client.sessionId)!.warehouseItemCounts;
+      expect([...whIds]).toContain(HEALING_POTION);
+      expect(whCounts[[...whIds].indexOf(HEALING_POTION)]).toBe(3);
+      await deliver(room, client, [
+        ['warehouseWithdraw', { npcId: WILFORD, itemId: HEALING_POTION, quantity: 1 }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(3);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('teleports to obelisk for 200 adena (TOWN24-30)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      player.adena = 1000;
+      placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
+      await deliver(room, client, [
+        ['teleport', { npcId: ROXXY_NPC, destinationId: 'obelisk' }],
+      ]);
+      const after = room.state.players.get(client.sessionId)!;
+      expect(after.adena).toBe(800);
+      expect(Math.hypot(after.x + 155.43, after.z - 58.17)).toBeLessThan(1);
+      expect(after.zoneId).toBe(getZoneAt(after.x, after.z).zoneId);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Human Fighter transfers to Warrior at Bitz level 20 (TOWN24-38)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      setPlayerLevel(room, client.sessionId, 20);
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['classTransfer', { npcId: BITZ_NPC_ID, targetClassId: 1 }],
+      ]);
+      const player = room.state.players.get(client.sessionId)!;
+      expect(player.classId).toBe(1);
+      const warriorVitals = getDb(dbPath)
+        .select()
+        .from(classLevelVitals)
+        .all()
+        .find((r) => r.classId === 1 && r.level === 20);
+      expect(player.maxHp).toBeCloseTo(warriorVitals?.hp ?? 0, 1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Human Mystic learns Might at Vivyan (TOWN24-18)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      setPlayerLevel(room, client.sessionId, 7);
+      placePlayerAtNpc(room, client.sessionId, VIVYAN);
+      await deliver(room, client, [
+        ['interact', { npcId: VIVYAN }],
+        ['learnSkill', { skillId: 1068 }],
+      ]);
+      const known = [...(room.state.players.get(client.sessionId)!.knownSkillIds)];
+      expect(known).toContain(1068);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Biotin resurrect restores HP (TOWN24-44)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      player.hp = 0;
+      placePlayerAtNpc(room, client.sessionId, BIOTIN);
+      await deliver(room, client, [
+        ['npcAction', { npcId: BIOTIN, action: 'resurrect' }],
+      ]);
+      expect(room.state.players.get(client.sessionId)!.hp).toBe(player.maxHp);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects quest-item warehouse deposit (TOWN24-24)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      grantItem(room, client.sessionId, 1012, 1);
+      placePlayerAtNpc(room, client.sessionId, WILFORD);
+      await deliver(room, client, [
+        ['warehouseDeposit', { npcId: WILFORD, itemId: 1012, quantity: 1 }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, 1012)).toBe(1);
+      expect(room.state.players.get(client.sessionId)!.warehouseItemIds.length).toBe(0);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects warehouse deposit when out of range (TOWN24-26)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      grantItem(room, client.sessionId, HEALING_POTION, 2);
+      const player = room.state.players.get(client.sessionId)!;
+      player.x = OUT_OF_PEACE.x;
+      player.z = OUT_OF_PEACE.z;
+      await deliver(room, client, [
+        ['warehouseDeposit', { npcId: WILFORD, itemId: HEALING_POTION, quantity: 1 }],
+      ]);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(2);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects teleport when adena insufficient (TOWN24-32)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 0, sex: 0 });
+      const before = room.state.players.get(client.sessionId)!;
+      before.adena = 50;
+      placePlayerAtNpc(room, client.sessionId, ROXXY_NPC);
+      const atRoxxy = room.state.players.get(client.sessionId)!;
+      const startZone = atRoxxy.zoneId;
+      const startX = atRoxxy.x;
+      const startZ = atRoxxy.z;
+      await deliver(room, client, [
+        ['teleport', { npcId: ROXXY_NPC, destinationId: 'obelisk' }],
+      ]);
+      const after = room.state.players.get(client.sessionId)!;
+      expect(after.adena).toBe(50);
+      expect(after.zoneId).toBe(startZone);
+      expect(after.x).toBeCloseTo(startX, 1);
+      expect(after.z).toBeCloseTo(startZ, 1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('rejects mystic class transfer at Bitz (TOWN24-40)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      setPlayerLevel(room, client.sessionId, 20);
+      placePlayerAtNpc(room, client.sessionId, BITZ_NPC_ID);
+      await deliver(room, client, [
+        ['classTransfer', { npcId: BITZ_NPC_ID, targetClassId: 11 }],
+      ]);
+      expect(room.state.players.get(client.sessionId)!.classId).toBe(10);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Human Mystic transfers to Cleric at Biotin level 20 (TOWN24-41)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      setPlayerLevel(room, client.sessionId, 20);
+      placePlayerAtNpc(room, client.sessionId, BIOTIN);
+      await deliver(room, client, [
+        ['classTransfer', { npcId: BIOTIN, targetClassId: 11 }],
+      ]);
+      expect(room.state.players.get(client.sessionId)!.classId).toBe(11);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Biotin bless applies Might buff (TOWN24-46)', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 10, sex: 0 });
+      placePlayerAtNpc(room, client.sessionId, BIOTIN);
+      await deliver(room, client, [
+        ['npcAction', { npcId: BIOTIN, action: 'bless' }],
+      ]);
+      expect(room.state.players.get(client.sessionId)!.activeBuffSkillId).toBe(1068);
       await leaveRoom(room, client);
     } finally {
       cleanup();

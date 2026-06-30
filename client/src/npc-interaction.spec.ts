@@ -41,11 +41,21 @@ describe('npc-interaction proximity', () => {
     expect(horizontalDistance(0, 0, -6, -8)).toBeGreaterThan(NPC_INTERACT_RADIUS);
   });
 
+  it('skips Guard type when finding nearest interactable NPC (TOWN24-15)', () => {
+    const withGuard = [
+      { npcId: 30039, name: 'Day', x: 0, y: 4.26, z: 0, type: 'Guard' },
+      { npcId: KATERINA_NPC_ID, name: 'Katerina', x: 2, y: 4.26, z: 0, type: 'Merchant' },
+    ];
+    const nearest = findNearestInteractableNpc({ x: 0, z: 0 }, withGuard);
+    expect(nearest?.npcId).toBe(KATERINA_NPC_ID);
+    expect(nearest?.canInteract).toBe(true);
+  });
+
   it('maps merchant type to shop and utility types to dialog variants', () => {
     expect(isMerchantNpc(LECTOR_NPC_ID, 'Merchant')).toBe(true);
     expect(resolveDialogVariant(WILFORD_NPC_ID, 'Warehouse')).toBe('warehouse');
     expect(resolveDialogVariant(BITZ_NPC_ID, 'VillageMasterFighter')).toBe('trainer');
-    expect(resolveDialogVariant(ROXXY_NPC_ID, 'Teleporter')).toBe('helper');
+    expect(resolveDialogVariant(ROXXY_NPC_ID, 'Teleporter')).toBe('gatekeeper');
   });
 
   it('routes merchant interact to shop with merchant npcId (TINPC-29)', () => {

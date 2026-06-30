@@ -40,9 +40,11 @@ describe('npc-manifest', () => {
     }
   });
 
-  it('uses unique model paths for all seven TI NPCs (TINPC-17)', () => {
+  it('uses unique model paths for 25 TI NPCs with guard variant groups (TOWN24-12)', () => {
     const paths = TI_NPC_MANIFEST_IDS.map((id) => getNpcEntry(id)?.model);
-    expect(new Set(paths).size).toBe(7);
+    const unique = new Set(paths);
+    expect(unique.size).toBeGreaterThanOrEqual(18);
+    expect(TI_NPC_MANIFEST_IDS).toHaveLength(25);
   });
 
   it('maps vocabulary keys to real track names for all manifest clip maps (TINPC-18)', () => {
