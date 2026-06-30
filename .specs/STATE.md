@@ -151,10 +151,14 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 24.**
+**Loop status: RUNNING — next unchecked phase: Phase 25.**
 
-**Next step:** **Phase 24 — Town services & full NPC roster** (`.specs/ROADMAP.md`). Planner
-sub-agent writes `.specs/features/phase-24-town-services/`.
+**Next step:** **Phase 25 — Items, economy & crafting** (`.specs/ROADMAP.md`).
+
+**Phase 24 — Town services & full NPC roster: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
+`.specs/features/phase-24-town-services/validation.md` PASS: 50/50 ACs, sensor 3/3, gate 866 + visual 64/64.
+25 TI NPCs, warehouse, Roxxy teleports, Bitz/Biotin class transfer, folk trainers, guards.
+Branch `phase-24-town-services` merged. ROADMAP Phase 24 `[x]`.
 
 **Phase 23 — Full Talking Island world & zones: COMPLETE (Verifier PASS, 2026-06-29).**
 `.specs/features/phase-23-ti-world/validation.md` records PASS: 50/50 ACs (TIW23-38 indirect only),

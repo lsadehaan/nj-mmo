@@ -731,7 +731,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 24 — Town services & full NPC roster `[ ]`
+## Phase 24 — Town services & full NPC roster `[x]`
 
 > Done when: remaining TI town NPCs are seeded and functional — High Priest,
 > guards, blacksmith, folk trainers, Gatekeeper teleports; real warehouse
