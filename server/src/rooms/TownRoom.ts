@@ -50,6 +50,9 @@ import {
   canCraft,
   applyCraft,
   horizontalDistance,
+  calcInventoryWeight,
+  calcMaxLoad,
+  countInventorySlots,
 } from '@nj/game-core';
 import { getDb, type AppDatabase } from '../db/client';
 import {
@@ -200,9 +203,12 @@ function questCompletedIds(entries: QuestRuntimeState[]): Set<number> {
 
 export interface TownJoinOptions {
   characterId?: string;
+  accountName?: string;
   create?: {
     classId: number;
     sex: 0 | 1;
+    accountName?: string;
+    name?: string;
   };
 }
 
@@ -577,6 +583,29 @@ export class TownRoom extends Room<{ state: TownState }> {
       stack.count = count;
       player.items.set(String(itemId), stack);
     }
+    this.syncInventoryMetricsToPlayerState(sessionId);
+  }
+
+  private buildItemWeightTable(): Record<number, number> {
+    const table: Record<number, number> = {};
+    for (const [itemId, item] of this.itemsById) {
+      table[itemId] = item.weight ?? 0;
+    }
+    return table;
+  }
+
+  private syncInventoryMetricsToPlayerState(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const items = this.playerItems.get(sessionId);
+    if (!player || !items) return;
+
+    const weightTable = this.buildItemWeightTable();
+    player.inventoryWeight = calcInventoryWeight(items, weightTable);
+    player.inventorySlotsUsed = countInventorySlots(items);
+    const template = this.classTemplatesById.get(player.classId);
+    const baseCon = template?.baseCon ?? player.con;
+    const effectiveCon = effectiveStat(baseCon, player.bonusCon);
+    player.maxLoad = calcMaxLoad(effectiveCon);
   }
 
   private getItemCount(sessionId: string, itemId: number): number {
@@ -2298,12 +2327,29 @@ export class TownRoom extends Room<{ state: TownState }> {
         client.leave(4004, 'character not found');
         return;
       }
+      if (
+        options.accountName &&
+        character.accountName !== options.accountName
+      ) {
+        client.leave(4003, 'character does not belong to account');
+        return;
+      }
     } else if (options.create) {
       if (!isStarterClassId(options.create.classId) || !isValidSex(options.create.sex)) {
         client.leave(4000, 'invalid character create options');
         return;
       }
-      character = createCharacter(this.db, options.create);
+      try {
+        character = createCharacter(this.db, {
+          classId: options.create.classId,
+          sex: options.create.sex,
+          accountName: options.create.accountName,
+          name: options.create.name,
+        });
+      } catch {
+        client.leave(4000, 'invalid character create options');
+        return;
+      }
     } else {
       character = createCharacter(this.db);
     }

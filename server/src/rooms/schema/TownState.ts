@@ -62,6 +62,9 @@ export class PlayerState extends Schema {
   @type('number') bonusInt = 0;
   @type('number') bonusWit = 0;
   @type('number') bonusMen = 0;
+  @type('number') inventoryWeight = 0;
+  @type('number') maxLoad = 0;
+  @type('number') inventorySlotsUsed = 0;
 }
 
 export class TownState extends Schema {
