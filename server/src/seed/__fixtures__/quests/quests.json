@@ -144,7 +144,7 @@
           "objectives": [
             { "kind": "DELIVER", "npcId": 30001, "itemId": 6353, "count": 1, "description": "Deliver to Lector" },
             { "kind": "DELIVER", "npcId": 30003, "itemId": 6354, "count": 1, "description": "Deliver to Silvia" },
-            { "kind": "DELIVER", "npcId": 30026, "itemId": 6355, "count": 1, "description": "Deliver to Bitz" }
+            { "kind": "DELIVER", "npcId": 30041, "itemId": 6355, "count": 1, "description": "Deliver to Arnold" }
           ]
         }
       ],

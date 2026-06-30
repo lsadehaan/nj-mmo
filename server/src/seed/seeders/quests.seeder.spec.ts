@@ -65,6 +65,20 @@ describe('quest seeding', () => {
     expect(row?.isQuestItem).toBe(true);
   });
 
+  it('quest 153 third deliver leg targets Arnold guard 30041 (TOWN24-49)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const rows = getDb(dbPath)
+      .select()
+      .from(questObjectives)
+      .where(eq(questObjectives.questId, 153))
+      .all();
+    const arnoldDeliver = rows.find(
+      (o) => o.kind === 'DELIVER' && o.npcId === 30041 && o.itemId === 6355
+    );
+    expect(arnoldDeliver?.count).toBe(1);
+  });
+
   it('seeds reward anchors for quests 101, 105, and 156', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
