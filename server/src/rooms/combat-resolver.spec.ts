@@ -21,7 +21,7 @@ import {
 import type { Skill } from '../db/schema';
 import type { MobRuntime } from './spawn-manager';
 
-const OUT_OF_PEACE = { x: 30, z: -30 };
+const OUT_OF_PEACE = { x: -150, z: 55 };
 
 const TEST_CURVE: ExperienceCurveRow[] = [
   { level: 1, xpToNextLevel: 0 },
@@ -607,15 +607,15 @@ describe('combat-resolver', () => {
     });
 
     it('resolvePlayerAttack outside peace zone still deals damage', () => {
-      const mob = gremlinMob({ x: 30, z: 30 });
+      const mob = gremlinMob();
       const combat = createPlayerCombatState();
       combat.targetMobId = mob.id;
       combat.attackPending = true;
 
       const result = resolvePlayerAttack({
         sessionId: 'p1',
-        playerX: 30,
-        playerZ: 30,
+        playerX: OUT_OF_PEACE.x,
+        playerZ: OUT_OF_PEACE.z,
         combat,
         mob,
         nowMs: 1000,
@@ -650,15 +650,15 @@ describe('combat-resolver', () => {
     });
 
     it('resolvePowerStrike outside peace zone still deals damage', () => {
-      const mob = gremlinMob({ x: 30, z: 30, hp: 200, maxHp: 200 });
+      const mob = gremlinMob({ hp: 200, maxHp: 200 });
       const combat = createPlayerCombatState();
       combat.targetMobId = mob.id;
       combat.skillPending = true;
 
       const result = resolvePowerStrike({
         sessionId: 'p1',
-        playerX: 30,
-        playerZ: 30,
+        playerX: OUT_OF_PEACE.x,
+        playerZ: OUT_OF_PEACE.z,
         playerMp: 50,
         combat,
         mob,
@@ -690,14 +690,14 @@ describe('combat-resolver', () => {
     });
 
     it('resolveMobAttack vs target outside peace zone deals damage', () => {
-      const mob = gremlinMob({ targetSessionId: 'p1', x: 30, z: 30 });
+      const mob = gremlinMob({ targetSessionId: 'p1' });
       mob.nextAttackAtMs = 0;
 
       const result = resolveMobAttack({
         mob,
         targetSessionId: 'p1',
-        targetX: 30,
-        targetZ: 30,
+        targetX: OUT_OF_PEACE.x,
+        targetZ: OUT_OF_PEACE.z,
         targetHp: 100,
         targetDex: 30,
         nowMs: 1000,
