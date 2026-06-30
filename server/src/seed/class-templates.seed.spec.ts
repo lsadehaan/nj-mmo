@@ -22,14 +22,15 @@ describe('class template seeding', () => {
     return dbPath;
   }
 
-  it('seeds nine starter class templates (CHAR19-01)', () => {
+  it('seeds 27 class templates (9 starters + 18 first class) (TOWN24-37)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const db = getDb(dbPath);
     const rows = db.select().from(classTemplates).all();
-    expect(rows).toHaveLength(9);
-    const ids = rows.map((r) => r.classId).sort((a, b) => a - b);
-    expect(ids).toEqual([...STARTER_CLASS_IDS].sort((a, b) => a - b));
+    expect(rows).toHaveLength(27);
+    const warrior = db.select().from(classTemplates).where(eq(classTemplates.classId, 1)).get();
+    expect(warrior?.name).toBe('Warrior');
+    expect(warrior?.basePAtk).toBe(4);
   });
 
   it('Human Fighter base stats (CHAR19-02)', () => {

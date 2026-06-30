@@ -9,4 +9,22 @@
 	<class classId="44" name="Orc Fighter" />
 	<class classId="49" name="Orc Mystic" />
 	<class classId="53" name="Dwarf Fighter" />
+	<class classId="1" name="Warrior" />
+	<class classId="4" name="Human Knight" />
+	<class classId="7" name="Rogue" />
+	<class classId="11" name="Human Wizard" />
+	<class classId="15" name="Cleric" />
+	<class classId="19" name="Elven Knight" />
+	<class classId="22" name="Elven Scout" />
+	<class classId="26" name="Elven Wizard" />
+	<class classId="29" name="Elven Oracle" />
+	<class classId="32" name="Palus Knight" />
+	<class classId="35" name="Assassin" />
+	<class classId="39" name="Dark Wizard" />
+	<class classId="42" name="Shillien Oracle" />
+	<class classId="45" name="Orc Raider" />
+	<class classId="47" name="Orc Monk" />
+	<class classId="50" name="Orc Shaman" />
+	<class classId="54" name="Scavenger" />
+	<class classId="56" name="Artisan" />
 </list>
