@@ -42,3 +42,8 @@ export * from './items/equipment-stats';
 export * from './items/enchant';
 export * from './items/craft';
 export * from './items/armor-sets';
+export * from './social/chat';
+export * from './social/party-xp';
+export * from './social/party-loot';
+export * from './social/trade';
+export * from './social/friends';
