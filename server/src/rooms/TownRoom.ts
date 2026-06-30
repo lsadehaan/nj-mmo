@@ -38,6 +38,7 @@ import {
   applyBuffSelf,
   canCraft,
   applyCraft,
+  horizontalDistance,
 } from '@nj/game-core';
 import { getDb, type AppDatabase } from '../db/client';
 import {
@@ -129,6 +130,35 @@ import {
   type QuestRoomContext,
 } from './quest-handlers';
 import { canStartQuest } from '@nj/game-core';
+import { handleChat, createChatRateState, type ChatRateState } from './social/chat-handler';
+import {
+  handlePartyInvite,
+  handlePartyAccept,
+  handlePartyDecline,
+  handlePartyLeave,
+  handlePartyKick,
+  cleanupPartyOnDisconnect,
+  getPartyMemberSessionIds,
+  type PartyInvitePending,
+} from './party-handlers';
+import { resolvePartyKillRewards, PARTY_KILL_RANGE } from './party-kill-rewards';
+import {
+  handleTradeRequest,
+  handleTradeAccept,
+  handleTradeOffer,
+  handleTradeConfirm,
+  handleTradeCancel,
+  cleanupTradeOnDisconnect,
+  type TradeSession,
+} from './trade-handlers';
+import {
+  handleFriendAdd,
+  handleFriendRemove,
+  syncFriendsToPlayer,
+  registerCharacterSession,
+  unregisterCharacterSession,
+  type FriendHandlerDeps,
+} from './friend-handlers';
 
 const WILFORD_NPC_ID = 30005;
 const ROXXY_NPC_ID = 30006;
@@ -221,6 +251,14 @@ export class TownRoom extends Room<{ state: TownState }> {
   private classVitalsByClassId = new Map<number, ClassVitalsRow[]>();
   private playerEquipment = new Map<string, EquipmentRow[]>();
   private recipesById = new Map<number, Recipe>();
+  private chatRateBySession = new Map<string, ChatRateState>();
+  private pendingPartyInvites = new Map<string, PartyInvitePending>();
+  private partyMemberOrder = new Map<number, string[]>();
+  private nextPartyId = 1;
+  private tradeSessions = new Map<string, TradeSession>();
+  private tradeSessionByPlayer = new Map<string, string>();
+  private sessionByCharacterId = new Map<string, string>();
+  private connectedSessions = new Set<string>();
 
   override onCreate(options: TownRoomOptions = {}): void {
     this.db = getDb(options.dbPath ?? DEFAULT_DB_PATH);
@@ -370,6 +408,64 @@ export class TownRoom extends Room<{ state: TownState }> {
         this.handleQuestAction(client.sessionId, message.npcId, message.action);
       }
     );
+
+    this.onMessage('chat', (client, message: { channel: string; text: string }) => {
+      this.handleChatMessage(client.sessionId, message);
+    });
+
+    this.onMessage('partyInvite', (client, message: { targetSessionId: string }) => {
+      handlePartyInvite(this.createPartyDeps(), client.sessionId, message.targetSessionId);
+    });
+
+    this.onMessage('partyAccept', (client, message: { inviterSessionId: string }) => {
+      handlePartyAccept(this.createPartyDeps(), client.sessionId, message.inviterSessionId);
+    });
+
+    this.onMessage('partyDecline', (client, message: { inviterSessionId: string }) => {
+      handlePartyDecline(this.createPartyDeps(), client.sessionId, message.inviterSessionId);
+    });
+
+    this.onMessage('partyLeave', (client) => {
+      handlePartyLeave(this.createPartyDeps(), client.sessionId);
+    });
+
+    this.onMessage('partyKick', (client, message: { targetSessionId: string }) => {
+      handlePartyKick(this.createPartyDeps(), client.sessionId, message.targetSessionId);
+    });
+
+    this.onMessage('tradeRequest', (client, message: { targetSessionId: string }) => {
+      handleTradeRequest(this.createTradeDeps(), client.sessionId, message.targetSessionId);
+    });
+
+    this.onMessage('tradeAccept', (client, message: { fromSessionId: string }) => {
+      handleTradeAccept(this.createTradeDeps(), client.sessionId, message.fromSessionId);
+    });
+
+    this.onMessage(
+      'tradeOffer',
+      (client, message: { items: { itemId: number; count: number }[]; adena: number }) => {
+        handleTradeOffer(this.createTradeDeps(), client.sessionId, message);
+      }
+    );
+
+    this.onMessage('tradeConfirm', (client) => {
+      handleTradeConfirm(this.createTradeDeps(), client.sessionId);
+    });
+
+    this.onMessage('tradeCancel', (client) => {
+      handleTradeCancel(this.createTradeDeps(), client.sessionId);
+    });
+
+    this.onMessage(
+      'friendAdd',
+      (client, message: { targetSessionId?: string; targetCharacterId?: string }) => {
+        handleFriendAdd(this.createFriendDeps(), client.sessionId, message);
+      }
+    );
+
+    this.onMessage('friendRemove', (client, message: { friendCharacterId: string }) => {
+      handleFriendRemove(this.createFriendDeps(), client.sessionId, message.friendCharacterId);
+    });
   }
 
   private initializeNpcs(): void {
@@ -852,6 +948,71 @@ export class TownRoom extends Room<{ state: TownState }> {
       persistCharacter: () => this.persistCharacter(sessionId),
       syncQuestEntries: () => this.syncQuestEntries(sessionId),
     };
+  }
+
+  private sendToSession(sessionId: string, type: string, payload: unknown): void {
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    client?.send(type, payload);
+  }
+
+  private createPartyDeps() {
+    return {
+      state: this.state,
+      pendingInvites: this.pendingPartyInvites,
+      partyMemberOrder: this.partyMemberOrder,
+      allocPartyId: () => this.nextPartyId++,
+      getPlayer: (sessionId: string) => this.state.players.get(sessionId),
+      sendTo: (sessionId: string, type: string, payload: unknown) =>
+        this.sendToSession(sessionId, type, payload),
+    };
+  }
+
+  private createTradeDeps() {
+    return {
+      tradeSessions: this.tradeSessions,
+      tradeSessionByPlayer: this.tradeSessionByPlayer,
+      getPlayer: (sessionId: string) => this.state.players.get(sessionId),
+      getItems: (sessionId: string) => this.playerItems.get(sessionId) ?? {},
+      setItems: (sessionId: string, items: CharacterItemCounts) =>
+        this.playerItems.set(sessionId, items),
+      getEquipment: (sessionId: string) => this.playerEquipment.get(sessionId) ?? [],
+      isQuestItem: (itemId: number) => isQuestItem(this.db, itemId),
+      sendTo: (sessionId: string, type: string, payload: unknown) =>
+        this.sendToSession(sessionId, type, payload),
+      syncItems: (sessionId: string) => this.syncItemsToPlayerState(sessionId),
+      persist: (sessionId: string) => this.persistCharacter(sessionId),
+      nowMs: () => this.nowMs(),
+    };
+  }
+
+  private createFriendDeps(): FriendHandlerDeps {
+    return {
+      db: this.db,
+      characterIds: this.characterIds,
+      sessionByCharacterId: this.sessionByCharacterId,
+      connectedSessions: this.connectedSessions,
+      nowMs: () => this.nowMs(),
+      sendTo: (sessionId, type, payload) => this.sendToSession(sessionId, type, payload),
+    };
+  }
+
+  private handleChatMessage(sessionId: string, message: { channel: string; text: string }): void {
+    handleChat(
+      {
+        getPlayer: (id) => this.state.players.get(id),
+        forEachPlayer: (fn) => {
+          for (const [id, p] of this.state.players.entries()) fn(id, p);
+        },
+        chatRateBySession: this.chatRateBySession,
+        nowMs: () => this.nowMs(),
+        broadcastAll: (payload) => this.broadcast('chat', payload),
+        sendTo: (targetId, payload) => this.sendToSession(targetId, 'chat', payload),
+        getPartyMemberSessionIds: (partyId) =>
+          getPartyMemberSessionIds(this.createPartyDeps(), partyId),
+      },
+      sessionId,
+      message
+    );
   }
 
   private syncQuestEntries(sessionId: string): void {
@@ -1587,65 +1748,119 @@ export class TownRoom extends Room<{ state: TownState }> {
   }
 
   private handleMobKill(killerSessionId: string, runtime: MobRuntime): void {
-    const player = this.state.players.get(killerSessionId);
-    const stored = this.characters.get(killerSessionId);
-    if (!player || !stored) return;
-
-    const prevLevel = player.level;
-
-    const kill: KillEvent = {
-      mobId: runtime.id,
-      npcId: runtime.npcId,
-      killerSessionId,
-      exp: runtime.exp,
-      drops: [],
-    };
+    const killer = this.state.players.get(killerSessionId);
+    const killerStored = this.characters.get(killerSessionId);
+    if (!killer || !killerStored) return;
 
     const dropRows = this.dropsByNpcId.get(runtime.npcId) ?? [];
-    applyKillRewards(player, kill, this.experienceCurve, dropRows, this.combatRng);
 
-    if (kill.drops.length > 0) {
-      const inventory = { ...(this.playerItems.get(killerSessionId) ?? {}) };
-      for (const drop of kill.drops) {
-        inventory[drop.itemId] = (inventory[drop.itemId] ?? 0) + drop.count;
+    if (killer.partyId !== 0) {
+      const party = this.state.parties.get(String(killer.partyId));
+      if (party) {
+        const members = party.memberSessionIds
+          .map((sessionId) => {
+            const player = this.state.players.get(sessionId);
+            const stored = this.characters.get(sessionId);
+            if (!player || !stored) return null;
+            return {
+              sessionId,
+              player,
+              stored,
+              inRange:
+                horizontalDistance(player.x, player.z, runtime.x, runtime.z) <=
+                PARTY_KILL_RANGE,
+            };
+          })
+          .filter((m): m is NonNullable<typeof m> => m !== null);
+
+        const result = resolvePartyKillRewards({
+          killerSessionId,
+          mobX: runtime.x,
+          mobZ: runtime.z,
+          mobExp: runtime.exp,
+          mobNpcId: runtime.npcId,
+          mobId: runtime.id,
+          members,
+          experienceCurve: this.experienceCurve,
+          dropRows,
+          rng: this.combatRng,
+          classVitalsByClassId: this.classVitalsByClassId,
+        });
+
+        if (result) {
+          for (const member of members) {
+            this.persistCharacter(member.sessionId);
+          }
+          for (const [sessionId, drops] of result.dropsBySession.entries()) {
+            if (drops.length === 0) continue;
+            const inventory = { ...(this.playerItems.get(sessionId) ?? {}) };
+            for (const drop of drops) {
+              inventory[drop.itemId] = (inventory[drop.itemId] ?? 0) + drop.count;
+            }
+            this.playerItems.set(sessionId, inventory);
+            this.syncItemsToPlayerState(sessionId);
+          }
+
+          for (const member of members) {
+            if (!member.inRange) continue;
+            onMobKilledForQuests(this.createQuestContext(member.sessionId), runtime.npcId);
+          }
+        }
       }
-      this.playerItems.set(killerSessionId, inventory);
-      this.syncItemsToPlayerState(killerSessionId);
+    } else {
+      const prevLevel = killer.level;
+      const kill: KillEvent = {
+        mobId: runtime.id,
+        npcId: runtime.npcId,
+        killerSessionId,
+        exp: runtime.exp,
+        drops: [],
+      };
+
+      applyKillRewards(killer, kill, this.experienceCurve, dropRows, this.combatRng);
+
+      if (kill.drops.length > 0) {
+        const inventory = { ...(this.playerItems.get(killerSessionId) ?? {}) };
+        for (const drop of kill.drops) {
+          inventory[drop.itemId] = (inventory[drop.itemId] ?? 0) + drop.count;
+        }
+        this.playerItems.set(killerSessionId, inventory);
+        this.syncItemsToPlayerState(killerSessionId);
+      }
+
+      if (killer.level > prevLevel) {
+        const curve = this.classVitalsByClassId.get(killer.classId);
+        const rewarded = curve
+          ? applyClassLevelUpReward(
+              prevLevel,
+              killer.level,
+              {
+                maxHp: killer.maxHp,
+                maxMp: killer.maxMp,
+                hp: killer.hp,
+                mp: killer.mp,
+              },
+              curve
+            )
+          : {
+              maxHp: killer.maxHp,
+              maxMp: killer.maxMp,
+              hp: killer.hp,
+              mp: killer.mp,
+            };
+        killer.maxHp = rewarded.maxHp;
+        killer.maxMp = rewarded.maxMp;
+        killer.hp = rewarded.hp;
+        killer.mp = rewarded.mp;
+        killerStored.maxHp = rewarded.maxHp;
+        killerStored.maxMp = rewarded.maxMp;
+        killerStored.hp = rewarded.hp;
+        killerStored.mp = rewarded.mp;
+      }
+
+      this.persistCharacter(killerSessionId);
+      onMobKilledForQuests(this.createQuestContext(killerSessionId), runtime.npcId);
     }
-
-    if (player.level > prevLevel) {
-      const curve = this.classVitalsByClassId.get(player.classId);
-      const rewarded = curve
-        ? applyClassLevelUpReward(
-            prevLevel,
-            player.level,
-            {
-              maxHp: player.maxHp,
-              maxMp: player.maxMp,
-              hp: player.hp,
-              mp: player.mp,
-            },
-            curve
-          )
-        : {
-            maxHp: player.maxHp,
-            maxMp: player.maxMp,
-            hp: player.hp,
-            mp: player.mp,
-          };
-      player.maxHp = rewarded.maxHp;
-      player.maxMp = rewarded.maxMp;
-      player.hp = rewarded.hp;
-      player.mp = rewarded.mp;
-      stored.maxHp = rewarded.maxHp;
-      stored.maxMp = rewarded.maxMp;
-      stored.hp = rewarded.hp;
-      stored.mp = rewarded.mp;
-    }
-
-    this.persistCharacter(killerSessionId);
-
-    onMobKilledForQuests(this.createQuestContext(killerSessionId), runtime.npcId);
 
     const mobState = this.state.mobs.get(runtime.id);
     if (mobState) {
@@ -1736,6 +1951,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.level = character.level;
     player.adena = character.adena;
     player.connected = true;
+    player.characterName = character.name;
     migrateLegacyWeapon(this.db, character.id, character.equippedWeaponItemId);
     const equipmentRows = loadEquipment(this.db, character.id);
     this.playerEquipment.set(client.sessionId, equipmentRows);
@@ -1758,6 +1974,10 @@ export class TownRoom extends Room<{ state: TownState }> {
     );
     this.playerCombat.set(client.sessionId, createPlayerCombatState());
     this.syncPlayerSkillsToState(client.sessionId);
+
+    this.connectedSessions.add(client.sessionId);
+    registerCharacterSession(this.createFriendDeps(), client.sessionId, character.id);
+    syncFriendsToPlayer(this.createFriendDeps(), client.sessionId);
 
     client.send('characterId', character.id);
   }
@@ -1788,6 +2008,14 @@ export class TownRoom extends Room<{ state: TownState }> {
   override onLeave(client: Client): void {
     this.clearSaveTimer(client.sessionId);
     this.persistCharacter(client.sessionId);
+    const characterId = this.characterIds.get(client.sessionId);
+    this.connectedSessions.delete(client.sessionId);
+    if (characterId) {
+      unregisterCharacterSession(this.createFriendDeps(), client.sessionId, characterId);
+    }
+    cleanupPartyOnDisconnect(this.createPartyDeps(), client.sessionId);
+    cleanupTradeOnDisconnect(this.createTradeDeps(), client.sessionId);
+    this.chatRateBySession.delete(client.sessionId);
     this.removePlayer(client.sessionId);
   }
 
