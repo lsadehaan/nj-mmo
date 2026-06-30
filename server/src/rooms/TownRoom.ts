@@ -28,6 +28,10 @@ import {
   HEALING_POTION_ITEM_ID,
   HEALING_POTION_REUSE_MS,
   resolveConsumableUse,
+  canTransferClass,
+  depositToWarehouse,
+  withdrawFromWarehouse,
+  applyBuffSelf,
 } from '@nj/game-core';
 import { getDb, type AppDatabase } from '../db/client';
 import {
@@ -40,6 +44,7 @@ import {
   saveCharacterSkills,
   loadCharacterQuests,
   isQuestItem,
+  grantAutoGetSkills,
   type CharacterItemCounts,
   type CharacterSkillLevels,
 } from '../db/character-repository';
@@ -47,8 +52,15 @@ import { loadQuestDefinitions } from '../db/quest-repository';
 import {
   loadClassTemplate,
   loadClassVitalsCurve,
+  loadClassVitalsAtLevel,
 } from '../db/class-template-repository';
-import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, classTemplates, classSkillTree, type Character, type MerchantItem, type Item, type ClassTemplate, type Skill } from '../db/schema';
+import {
+  loadWarehouseItems,
+  saveWarehouseItems,
+  countDistinctWarehouseItems,
+  type WarehouseItemCounts,
+} from '../db/warehouse-repository';
+import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, classTemplates, classSkillTree, teleportDestinations, type Character, type MerchantItem, type Item, type ClassTemplate, type Skill } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
@@ -99,12 +111,18 @@ import {
 } from './quest-handlers';
 import { canStartQuest } from '@nj/game-core';
 
+const WILFORD_NPC_ID = 30005;
+const ROXXY_NPC_ID = 30006;
 const BITZ_NPC_ID = 30026;
+const BIOTIN_NPC_ID = 30031;
 const GWINTER_NPC_ID = 30027;
 const BAULRO_NPC_ID = 30033;
 const SOULSHOT_ITEM_ID = 1835;
 const SPIRITSHOT_ITEM_ID = 2509;
-const TRAINER_NPC_IDS = new Set([BITZ_NPC_ID, GWINTER_NPC_ID, BAULRO_NPC_ID]);
+const FOLK_TRAINER_NPC_IDS = [
+  30027, 30028, 30029, 30030, 30032, 30033, 30034, 30035, 30036,
+] as const;
+const TRAINER_NPC_IDS = new Set<number>([BITZ_NPC_ID, ...FOLK_TRAINER_NPC_IDS]);
 
 function questCompletedIds(entries: QuestRuntimeState[]): Set<number> {
   return new Set(entries.filter((e) => e.status === 'completed').map((e) => e.questId));
@@ -176,6 +194,7 @@ export class TownRoom extends Room<{ state: TownState }> {
   private mobEffects = new Map<string, MobEffectState>();
   private nowMs = () => Date.now();
   private playerItems = new Map<string, CharacterItemCounts>();
+  private playerWarehouse = new Map<string, WarehouseItemCounts>();
   private playerQuests = new Map<string, QuestRuntimeState[]>();
   private questDefs = new Map<number, QuestDefinition>();
   private npcSpawnsById = new Map<number, { x: number; y: number; z: number }>();
@@ -258,8 +277,46 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     this.onMessage(
       'npcAction',
-      (client, message: { npcId: number; action: 'heal' | 'starterKit' }) => {
+      (client, message: { npcId: number; action: 'heal' | 'starterKit' | 'resurrect' | 'bless' }) => {
         this.handleNpcAction(client.sessionId, message.npcId, message.action);
+      }
+    );
+
+    this.onMessage(
+      'warehouseDeposit',
+      (client, message: { npcId: number; itemId: number; quantity: number }) => {
+        this.handleWarehouseDeposit(
+          client.sessionId,
+          message.npcId,
+          message.itemId,
+          message.quantity
+        );
+      }
+    );
+
+    this.onMessage(
+      'warehouseWithdraw',
+      (client, message: { npcId: number; itemId: number; quantity: number }) => {
+        this.handleWarehouseWithdraw(
+          client.sessionId,
+          message.npcId,
+          message.itemId,
+          message.quantity
+        );
+      }
+    );
+
+    this.onMessage(
+      'teleport',
+      (client, message: { npcId: number; destinationId: string }) => {
+        this.handleTeleport(client.sessionId, message.npcId, message.destinationId);
+      }
+    );
+
+    this.onMessage(
+      'classTransfer',
+      (client, message: { npcId: number; targetClassId: number }) => {
+        this.handleClassTransfer(client.sessionId, message.npcId, message.targetClassId);
       }
     );
 
@@ -567,9 +624,9 @@ export class TownRoom extends Room<{ state: TownState }> {
   }
 
   private handleInteract(sessionId: string, npcId: number): void {
-    if (!this.isNearNpc(sessionId, npcId).ok) return;
     const meta = this.db.select().from(npcs).where(eq(npcs.npcId, npcId)).get();
-    if (!meta) return;
+    if (!meta || meta.type === 'Guard') return;
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
     const combat = this.playerCombat.get(sessionId);
     if (combat && TRAINER_NPC_IDS.has(npcId)) {
       combat.openTrainerNpcId = npcId;
@@ -690,17 +747,249 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.scheduleDebouncedSave(sessionId);
   }
 
+  private syncWarehouseToPlayerState(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const warehouse = this.playerWarehouse.get(sessionId);
+    if (!player || !warehouse) return;
+
+    player.warehouseItemIds.clear();
+    player.warehouseItemCounts.clear();
+    const ids = Object.keys(warehouse)
+      .map(Number)
+      .filter((id) => (warehouse[id] ?? 0) > 0)
+      .sort((a, b) => a - b);
+    for (const itemId of ids) {
+      player.warehouseItemIds.push(itemId);
+      player.warehouseItemCounts.push(warehouse[itemId]!);
+    }
+  }
+
+  private getWarehouseCount(sessionId: string, itemId: number): number {
+    return this.playerWarehouse.get(sessionId)?.[itemId] ?? 0;
+  }
+
+  private setWarehouseCount(sessionId: string, itemId: number, count: number): void {
+    const warehouse = { ...(this.playerWarehouse.get(sessionId) ?? {}) };
+    if (count <= 0) {
+      delete warehouse[itemId];
+    } else {
+      warehouse[itemId] = count;
+    }
+    this.playerWarehouse.set(sessionId, warehouse);
+    this.syncWarehouseToPlayerState(sessionId);
+  }
+
+  private handleWarehouseDeposit(
+    sessionId: string,
+    npcId: number,
+    itemId: number,
+    quantity: number
+  ): void {
+    if (npcId !== WILFORD_NPC_ID) return;
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+
+    const characterId = this.characterIds.get(sessionId);
+    if (!characterId) return;
+
+    const inventoryCount = this.getItemCount(sessionId, itemId);
+    const warehouseCount = this.getWarehouseCount(sessionId, itemId);
+    const warehouse = this.playerWarehouse.get(sessionId) ?? {};
+
+    const result = depositToWarehouse({
+      inventoryCount,
+      warehouseCount,
+      quantity,
+      isQuestItem: isQuestItem(this.db, itemId),
+      distinctWarehouseItems: countDistinctWarehouseItems(warehouse),
+    });
+    if (!result.ok) return;
+
+    this.setItemCount(sessionId, itemId, result.inventoryCount);
+    this.setWarehouseCount(sessionId, itemId, result.warehouseCount);
+    saveWarehouseItems(this.db, characterId, this.playerWarehouse.get(sessionId) ?? {});
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleWarehouseWithdraw(
+    sessionId: string,
+    npcId: number,
+    itemId: number,
+    quantity: number
+  ): void {
+    if (npcId !== WILFORD_NPC_ID) return;
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+
+    const characterId = this.characterIds.get(sessionId);
+    if (!characterId) return;
+
+    const result = withdrawFromWarehouse({
+      inventoryCount: this.getItemCount(sessionId, itemId),
+      warehouseCount: this.getWarehouseCount(sessionId, itemId),
+      quantity,
+    });
+    if (!result.ok) return;
+
+    this.setItemCount(sessionId, itemId, result.inventoryCount);
+    this.setWarehouseCount(sessionId, itemId, result.warehouseCount);
+    saveWarehouseItems(this.db, characterId, this.playerWarehouse.get(sessionId) ?? {});
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleTeleport(
+    sessionId: string,
+    npcId: number,
+    destinationId: string
+  ): void {
+    if (npcId !== ROXXY_NPC_ID) return;
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored || player.hp <= 0) return;
+
+    const dest = this.db
+      .select()
+      .from(teleportDestinations)
+      .where(
+        and(
+          eq(teleportDestinations.npcId, npcId),
+          eq(teleportDestinations.destinationId, destinationId)
+        )
+      )
+      .get();
+    if (!dest) return;
+    if (player.adena < dest.feeAdena) return;
+
+    player.adena -= dest.feeAdena;
+    stored.adena = player.adena;
+    player.x = dest.localX;
+    player.z = dest.localZ;
+    player.y = snapEntityY(dest.localX, dest.localZ);
+    player.zoneId = getZoneAt(dest.localX, dest.localZ).zoneId;
+    stored.x = player.x;
+    stored.y = player.y;
+    stored.z = player.z;
+
+    const tickState = this.tickStates.get(sessionId);
+    if (tickState) {
+      tickState.x = player.x;
+      tickState.y = player.y;
+      tickState.z = player.z;
+      tickState.targetX = null;
+      tickState.targetZ = null;
+      tickState.waypoints = [];
+      tickState.waypointIndex = 0;
+    }
+
+    this.scheduleDebouncedSave(sessionId);
+  }
+
+  private handleClassTransfer(
+    sessionId: string,
+    npcId: number,
+    targetClassId: number
+  ): void {
+    const masterKind =
+      npcId === BITZ_NPC_ID ? 'fighter' : npcId === BIOTIN_NPC_ID ? 'priest' : null;
+    if (!masterKind) return;
+    if (!this.isNearNpc(sessionId, npcId).ok) return;
+
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    const characterId = this.characterIds.get(sessionId);
+    if (!player || !stored || !characterId) return;
+
+    if (
+      !canTransferClass({
+        currentClassId: player.classId,
+        targetClassId,
+        level: player.level,
+        masterKind,
+      })
+    ) {
+      return;
+    }
+
+    const template =
+      this.classTemplatesById.get(targetClassId) ??
+      loadClassTemplate(this.db, targetClassId);
+    if (!template) return;
+
+    const vitals = loadClassVitalsAtLevel(this.db, targetClassId, player.level);
+    const maxHp = vitals?.maxHp ?? player.maxHp;
+    const maxMp = vitals?.maxMp ?? player.maxMp;
+
+    stored.classId = targetClassId;
+    player.classId = targetClassId;
+    player.str = template.baseStr;
+    player.dex = template.baseDex;
+    player.con = template.baseCon;
+    player.int = template.baseInt;
+    player.wit = template.baseWit;
+    player.men = template.baseMen;
+    player.maxHp = maxHp;
+    player.maxMp = maxMp;
+    player.hp = maxHp;
+    player.mp = maxMp;
+    stored.maxHp = maxHp;
+    stored.maxMp = maxMp;
+    stored.hp = maxHp;
+    stored.mp = maxMp;
+
+    this.classTemplatesById.set(targetClassId, template);
+
+    const existing = this.playerSkills.get(sessionId) ?? {};
+    const autoSkills = grantAutoGetSkills(this.db, characterId, targetClassId);
+    const merged = { ...existing, ...autoSkills };
+    this.playerSkills.set(sessionId, merged);
+    saveCharacterSkills(this.db, characterId, merged);
+    this.syncPlayerSkillsToState(sessionId);
+    this.scheduleDebouncedSave(sessionId);
+  }
+
   private handleNpcAction(
     sessionId: string,
     npcId: number,
-    action: 'heal' | 'starterKit'
+    action: 'heal' | 'starterKit' | 'resurrect' | 'bless'
   ): void {
-    if (npcId !== 30006) return;
     if (!this.isNearNpc(sessionId, npcId).ok) return;
 
     const player = this.state.players.get(sessionId);
     const stored = this.characters.get(sessionId);
     if (!player || !stored) return;
+
+    if (npcId === ROXXY_NPC_ID) {
+      if (action === 'heal') {
+        const result = applyHeal({ hp: player.hp, maxHp: player.maxHp });
+        if (!result.ok) return;
+        player.hp = result.hp;
+        stored.hp = result.hp;
+        this.scheduleDebouncedSave(sessionId);
+        return;
+      }
+      if (action === 'starterKit') {
+        const result = applyStarterKit({
+          starterKitGranted: stored.starterKitGranted,
+          itemCounts: this.playerItems.get(sessionId) ?? {},
+        });
+        if (!result.ok) return;
+        stored.starterKitGranted = result.starterKitGranted;
+        this.playerItems.set(sessionId, result.itemCounts);
+        this.syncItemsToPlayerState(sessionId);
+        this.scheduleDebouncedSave(sessionId);
+      }
+      return;
+    }
+
+    if (npcId !== BIOTIN_NPC_ID) return;
+
+    if (action === 'resurrect') {
+      if (player.hp > 0) return;
+      player.hp = player.maxHp;
+      stored.hp = player.maxHp;
+      this.scheduleDebouncedSave(sessionId);
+      return;
+    }
 
     if (action === 'heal') {
       const result = applyHeal({ hp: player.hp, maxHp: player.maxHp });
@@ -711,16 +1000,16 @@ export class TownRoom extends Room<{ state: TownState }> {
       return;
     }
 
-    const result = applyStarterKit({
-      starterKitGranted: stored.starterKitGranted,
-      itemCounts: this.playerItems.get(sessionId) ?? {},
-    });
-    if (!result.ok) return;
-
-    stored.starterKitGranted = result.starterKitGranted;
-    this.playerItems.set(sessionId, result.itemCounts);
-    this.syncItemsToPlayerState(sessionId);
-    this.scheduleDebouncedSave(sessionId);
+    if (action === 'bless') {
+      if (player.hp <= 0) return;
+      const skill = this.skillsById.get(1068);
+      const combat = this.playerCombat.get(sessionId);
+      if (!combat || !skill?.buffMultiplier) return;
+      const durationSec = skill.abnormalTime > 0 ? skill.abnormalTime : 1200;
+      applyBuffSelf(combat, 1068, skill.buffMultiplier, durationSec, this.nowMs());
+      player.activeBuffSkillId = 1068;
+      this.scheduleDebouncedSave(sessionId);
+    }
   }
 
   private loadClassTemplateData(): void {
@@ -1259,10 +1548,15 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.adena = character.adena;
     player.connected = true;
     this.playerItems.set(client.sessionId, loadCharacterItems(this.db, character.id));
+    this.playerWarehouse.set(
+      client.sessionId,
+      loadWarehouseItems(this.db, character.id)
+    );
     this.playerSkills.set(client.sessionId, loadCharacterSkills(this.db, character.id));
     this.playerQuests.set(client.sessionId, loadCharacterQuests(this.db, character.id));
     this.state.players.set(client.sessionId, player);
     this.syncItemsToPlayerState(client.sessionId);
+    this.syncWarehouseToPlayerState(client.sessionId);
     this.syncQuestEntries(client.sessionId);
     ensureAutoStartQuests(this.createQuestContext(client.sessionId));
     this.tickStates.set(
@@ -1313,6 +1607,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.saveTimers.delete(sessionId);
     this.playerCombat.delete(sessionId);
     this.playerItems.delete(sessionId);
+    this.playerWarehouse.delete(sessionId);
     this.playerSkills.delete(sessionId);
     this.playerQuests.delete(sessionId);
 
