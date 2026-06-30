@@ -50,6 +50,18 @@ export class PlayerState extends Schema {
   @type(['number']) warehouseItemCounts = new ArraySchema<number>();
   @type('number') partyId = 0;
   @type('string') characterName = '';
+  @type('number') sp = 0;
+  @type('number') karma = 0;
+  @type('number') pvpFlag = 0;
+  @type('number') pvpFlagEndMs = 0;
+  @type('number') expBeforeDeath = 0;
+  @type('number') unspentStatPoints = 0;
+  @type('number') bonusStr = 0;
+  @type('number') bonusDex = 0;
+  @type('number') bonusCon = 0;
+  @type('number') bonusInt = 0;
+  @type('number') bonusWit = 0;
+  @type('number') bonusMen = 0;
 }
 
 export class TownState extends Schema {

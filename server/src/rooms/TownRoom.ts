@@ -12,7 +12,18 @@ import {
   EQUIP_SLOTS,
   type EquipSlot,
   applyClassLevelUpReward,
+  classVitalsAtLevel,
   resolvePlayerDeath,
+  calcDeathXpLoss,
+  levelFromCumulativeXp,
+  xpForLevel,
+  applyRestoreExp,
+  canAffordSkill,
+  deductSkillSp,
+  awardStatPointOnLevelUp,
+  effectiveStat,
+  isInPeaceZone,
+  type ExperienceLossRow,
   stepAlongPath,
   snapEntityY,
   isWalkable,
@@ -67,7 +78,7 @@ import {
   countDistinctWarehouseItems,
   type WarehouseItemCounts,
 } from '../db/warehouse-repository';
-import { experience, mobDrops, skills, merchantItems, npcSpawns, npcs, items, recipes, classTemplates, classSkillTree, teleportDestinations, type Character, type MerchantItem, type Item, type ClassTemplate, type Skill, type Recipe } from '../db/schema';
+import { experience, experienceLoss, mobDrops, skills, merchantItems, npcSpawns, npcs, items, recipes, classTemplates, classSkillTree, teleportDestinations, monsters, type Character, type MerchantItem, type Item, type ClassTemplate, type Skill, type Recipe } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
@@ -83,6 +94,7 @@ import {
   resolveSkillUse,
   resolveMobAttack,
   applyKillRewards,
+  resolvePlayerVsPlayerMeleeAttack,
   beginSkillCast,
   cancelSkillCast,
   canUseSkill,
@@ -159,6 +171,14 @@ import {
   unregisterCharacterSession,
   type FriendHandlerDeps,
 } from './friend-handlers';
+import {
+  handleTogglePvpIntent,
+  tickPvpFlagsForPlayers,
+  extendAttackerPvpFlag,
+  applyPlayerKillKarma,
+  handleSetTargetPlayer,
+} from './pvp-handlers';
+import { handleAllocateStat, handleResetStats } from './stat-handlers';
 
 const WILFORD_NPC_ID = 30005;
 const ROXXY_NPC_ID = 30006;
@@ -235,6 +255,8 @@ export class TownRoom extends Room<{ state: TownState }> {
   private pendingRespawns = new Map<string, PendingRespawn>();
   private combatRng!: SeededRng;
   private experienceCurve: ExperienceCurveRow[] = [];
+  private experienceLossTable: ExperienceLossRow[] = [];
+  private pendingPlayerKiller = new Map<string, string>();
   private dropsByNpcId = new Map<number, DropRow[]>();
   private itemsById = new Map<number, Item>();
   private powerStrikeSkill!: PowerStrikeSkill;
@@ -312,6 +334,22 @@ export class TownRoom extends Room<{ state: TownState }> {
       this.handleLearnSkill(client.sessionId, message.skillId);
     });
 
+    this.onMessage('togglePvp', (client) => {
+      this.handleTogglePvp(client.sessionId);
+    });
+
+    this.onMessage('setTargetPlayer', (client, message: { sessionId: string }) => {
+      this.handleSetTargetPlayer(client.sessionId, message.sessionId);
+    });
+
+    this.onMessage('allocateStat', (client, message: { stat: string }) => {
+      this.handleAllocateStat(client.sessionId, message.stat);
+    });
+
+    this.onMessage('resetStats', (client) => {
+      this.handleResetStats(client.sessionId);
+    });
+
     this.onMessage('useShot', (client, message: { itemId: number }) => {
       this.handleUseShot(client.sessionId, message.itemId);
     });
@@ -336,7 +374,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     this.onMessage(
       'npcAction',
-      (client, message: { npcId: number; action: 'heal' | 'starterKit' | 'resurrect' | 'bless' }) => {
+      (client, message: { npcId: number; action: 'heal' | 'starterKit' | 'resurrect' | 'bless' | 'restoreExp' }) => {
         this.handleNpcAction(client.sessionId, message.npcId, message.action);
       }
     );
@@ -549,8 +587,9 @@ export class TownRoom extends Room<{ state: TownState }> {
     if (!template) {
       return STARTER_COMBAT.pAtk;
     }
+    const effectiveStr = effectiveStat(template.baseStr, player.bonusStr);
     return calcClassBasePAtk(
-      { basePAtk: template.basePAtk, baseStr: template.baseStr },
+      { basePAtk: template.basePAtk, baseStr: effectiveStr },
       player.level
     );
   }
@@ -669,8 +708,11 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     const learned = this.playerSkills.get(sessionId) ?? {};
     if (learned[skillId]) return;
+    if (!canAffordSkill(player.sp, treeRow.levelUpSp)) return;
 
     const updated = { ...learned, [skillId]: 1 };
+    player.sp = deductSkillSp(player.sp, treeRow.levelUpSp);
+    stored.sp = player.sp;
     this.playerSkills.set(sessionId, updated);
     saveCharacterSkills(this.db, characterId, updated);
     this.syncPlayerSkillsToState(sessionId);
@@ -1284,7 +1326,7 @@ export class TownRoom extends Room<{ state: TownState }> {
   private handleNpcAction(
     sessionId: string,
     npcId: number,
-    action: 'heal' | 'starterKit' | 'resurrect' | 'bless'
+    action: 'heal' | 'starterKit' | 'resurrect' | 'bless' | 'restoreExp'
   ): void {
     if (!this.isNearNpc(sessionId, npcId).ok) return;
 
@@ -1343,7 +1385,133 @@ export class TownRoom extends Room<{ state: TownState }> {
       applyBuffSelf(combat, 1068, skill.buffMultiplier, durationSec, this.nowMs());
       player.activeBuffSkillId = 1068;
       this.scheduleDebouncedSave(sessionId);
+      return;
     }
+
+    if (action === 'restoreExp') {
+      const result = applyRestoreExp(
+        {
+          xp: player.xp,
+          expBeforeDeath: player.expBeforeDeath,
+          adena: player.adena,
+        },
+        { costPerXp: 10 }
+      );
+      if (!result.ok) return;
+      player.xp = result.xp;
+      player.adena = result.adena;
+      player.expBeforeDeath = result.expBeforeDeath;
+      stored.xp = result.xp;
+      stored.adena = result.adena;
+      stored.expBeforeDeath = result.expBeforeDeath;
+      this.scheduleDebouncedSave(sessionId);
+    }
+  }
+
+  private handleTogglePvp(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored || player.hp <= 0) return;
+    if (
+      handleTogglePvpIntent(player, stored, player.x, player.z, this.nowMs())
+    ) {
+      this.scheduleDebouncedSave(sessionId);
+    }
+  }
+
+  private handleSetTargetPlayer(sessionId: string, targetSessionId: string): void {
+    const combat = this.playerCombat.get(sessionId);
+    const target = this.state.players.get(targetSessionId);
+    if (!combat || !target || target.hp <= 0) return;
+    if (handleSetTargetPlayer(combat, targetSessionId, sessionId)) {
+      combat.targetMobId = null;
+    }
+  }
+
+  private handleAllocateStat(sessionId: string, stat: string): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    if (!player || !stored) return;
+    if (handleAllocateStat(player, stored, stat)) {
+      this.scheduleDebouncedSave(sessionId);
+    }
+  }
+
+  private handleResetStats(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const stored = this.characters.get(sessionId);
+    const combat = this.playerCombat.get(sessionId);
+    if (!player || !stored || !combat) return;
+    const trainerNpcId = combat.openTrainerNpcId;
+    if (!trainerNpcId || !TRAINER_NPC_IDS.has(trainerNpcId)) return;
+    if (!this.isNearNpc(sessionId, trainerNpcId).ok) return;
+    if (handleResetStats(player, stored)) {
+      this.scheduleDebouncedSave(sessionId);
+    }
+  }
+
+  private applyLevelChangeRewards(
+    sessionId: string,
+    player: PlayerState,
+    stored: Character,
+    prevLevel: number
+  ): void {
+    if (player.level > prevLevel) {
+      const statAward = awardStatPointOnLevelUp(
+        {
+          unspentStatPoints: player.unspentStatPoints,
+          bonusStr: player.bonusStr,
+          bonusDex: player.bonusDex,
+          bonusCon: player.bonusCon,
+          bonusInt: player.bonusInt,
+          bonusWit: player.bonusWit,
+          bonusMen: player.bonusMen,
+        },
+        prevLevel,
+        player.level
+      );
+      player.unspentStatPoints = statAward.unspentStatPoints;
+      stored.unspentStatPoints = statAward.unspentStatPoints;
+
+      const curve = this.classVitalsByClassId.get(player.classId);
+      if (curve) {
+        const rewarded = applyClassLevelUpReward(
+          prevLevel,
+          player.level,
+          {
+            maxHp: player.maxHp,
+            maxMp: player.maxMp,
+            hp: player.hp,
+            mp: player.mp,
+          },
+          curve
+        );
+        player.maxHp = rewarded.maxHp;
+        player.maxMp = rewarded.maxMp;
+        player.hp = rewarded.hp;
+        player.mp = rewarded.mp;
+        stored.maxHp = rewarded.maxHp;
+        stored.maxMp = rewarded.maxMp;
+        stored.hp = rewarded.hp;
+        stored.mp = rewarded.mp;
+      }
+    }
+  }
+
+  private applyDelevelVitals(
+    player: PlayerState,
+    stored: Character,
+    prevLevel: number,
+    newLevel: number
+  ): void {
+    if (newLevel >= prevLevel) return;
+    const curve = this.classVitalsByClassId.get(player.classId);
+    if (!curve) return;
+    const atLevel = classVitalsAtLevel(curve, newLevel);
+    player.maxHp = atLevel.maxHp;
+    player.maxMp = atLevel.maxMp;
+    stored.maxHp = atLevel.maxHp;
+    stored.maxMp = atLevel.maxMp;
   }
 
   private loadClassTemplateData(): void {
@@ -1363,6 +1531,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
   private loadCombatData(): void {
     this.experienceCurve = this.db.select().from(experience).all();
+    this.experienceLossTable = this.db.select().from(experienceLoss).all();
     this.dropsByNpcId.clear();
     for (const row of this.db.select().from(mobDrops).all()) {
       const list = this.dropsByNpcId.get(row.npcId) ?? [];
@@ -1591,6 +1760,8 @@ export class TownRoom extends Room<{ state: TownState }> {
       tickCombatEffects(combat, this.mobEffects, now);
     }
 
+    tickPvpFlagsForPlayers(this.state.players.values(), now);
+
     for (const [sessionId, combat] of this.playerCombat.entries()) {
       const player = this.state.players.get(sessionId);
       if (!player) continue;
@@ -1636,6 +1807,50 @@ export class TownRoom extends Room<{ state: TownState }> {
         if (result.killed) {
           this.handleMobKill(sessionId, runtime);
         }
+      }
+    }
+
+    for (const [sessionId, combat] of this.playerCombat.entries()) {
+      if (!combat.attackPending || !combat.targetPlayerSessionId) continue;
+      const player = this.state.players.get(sessionId);
+      const target = this.state.players.get(combat.targetPlayerSessionId);
+      if (!player || !target) continue;
+
+      const result = resolvePlayerVsPlayerMeleeAttack({
+        sessionId,
+        playerX: player.x,
+        playerZ: player.z,
+        combat,
+        attacker: {
+          pvpFlag: player.pvpFlag,
+          karma: player.karma,
+          pAtk: this.getPlayerPAtk(sessionId, player),
+        },
+        target: {
+          sessionId: combat.targetPlayerSessionId,
+          pvpFlag: target.pvpFlag,
+          karma: target.karma,
+          pDef: this.getPlayerPDef(target),
+          hp: target.hp,
+          x: target.x,
+          z: target.z,
+        },
+        nowMs: now,
+        rng: this.combatRng,
+      });
+
+      if (result.damage > 0) {
+        const attackerStored = this.characters.get(sessionId);
+        if (attackerStored) {
+          extendAttackerPvpFlag(player, attackerStored, now);
+        }
+        this.emitPlayerAction(player, EntityAction.Attack);
+        target.hp = Math.max(0, target.hp - result.damage);
+        if (result.killed) {
+          this.pendingPlayerKiller.set(combat.targetPlayerSessionId!, sessionId);
+        }
+        this.scheduleDebouncedSave(sessionId);
+        this.scheduleDebouncedSave(combat.targetPlayerSessionId!);
       }
     }
 
@@ -1697,7 +1912,47 @@ export class TownRoom extends Room<{ state: TownState }> {
     const stored = this.characters.get(sessionId);
     if (!player || !stored) return;
 
+    const killerSessionId = this.pendingPlayerKiller.get(sessionId);
+    this.pendingPlayerKiller.delete(sessionId);
+    const killerKind = killerSessionId ? 'player' : 'mob';
+
     this.emitPlayerAction(player, EntityAction.Die);
+
+    const prevLevel = player.level;
+    const penalty = calcDeathXpLoss(
+      {
+        level: player.level,
+        xp: player.xp,
+        karma: player.karma,
+        killerKind,
+      },
+      this.experienceCurve,
+      this.experienceLossTable
+    );
+
+    player.xp = penalty.newXp;
+    player.expBeforeDeath = penalty.expBeforeDeath;
+    stored.xp = penalty.newXp;
+    stored.expBeforeDeath = penalty.expBeforeDeath;
+
+    let newLevel = levelFromCumulativeXp(penalty.newXp, this.experienceCurve);
+    if (newLevel < 10) {
+      newLevel = 10;
+      player.xp = xpForLevel(10, this.experienceCurve);
+      stored.xp = player.xp;
+    }
+    player.level = newLevel;
+    stored.level = newLevel;
+
+    this.applyDelevelVitals(player, stored, prevLevel, newLevel);
+
+    if (killerSessionId) {
+      const killer = this.state.players.get(killerSessionId);
+      const killerStored = this.characters.get(killerSessionId);
+      if (killer && killerStored) {
+        applyPlayerKillKarma(killer, killerStored, player);
+      }
+    }
 
     const death = resolvePlayerDeath({
       level: player.level,
@@ -1706,14 +1961,12 @@ export class TownRoom extends Room<{ state: TownState }> {
       maxMp: player.maxMp,
     });
 
-    player.xp = death.xp;
     player.x = death.x;
     player.y = death.y;
     player.z = death.z;
     player.hp = death.hp;
     player.mp = death.mp;
 
-    stored.xp = death.xp;
     stored.x = death.x;
     stored.y = death.y;
     stored.z = death.z;
@@ -1723,6 +1976,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     const combat = this.playerCombat.get(sessionId);
     if (combat) {
       combat.targetMobId = null;
+      combat.targetPlayerSessionId = null;
       combat.attackPending = false;
       combat.skillPending = false;
     }
@@ -1778,6 +2032,7 @@ export class TownRoom extends Room<{ state: TownState }> {
           mobX: runtime.x,
           mobZ: runtime.z,
           mobExp: runtime.exp,
+          mobSp: runtime.sp,
           mobNpcId: runtime.npcId,
           mobId: runtime.id,
           members,
@@ -1814,10 +2069,15 @@ export class TownRoom extends Room<{ state: TownState }> {
         npcId: runtime.npcId,
         killerSessionId,
         exp: runtime.exp,
+        sp: runtime.sp,
         drops: [],
       };
 
       applyKillRewards(killer, kill, this.experienceCurve, dropRows, this.combatRng);
+      killerStored.sp = killer.sp;
+      killerStored.karma = killer.karma;
+      killerStored.level = killer.level;
+      killerStored.xp = killer.xp;
 
       if (kill.drops.length > 0) {
         const inventory = { ...(this.playerItems.get(killerSessionId) ?? {}) };
@@ -1828,35 +2088,7 @@ export class TownRoom extends Room<{ state: TownState }> {
         this.syncItemsToPlayerState(killerSessionId);
       }
 
-      if (killer.level > prevLevel) {
-        const curve = this.classVitalsByClassId.get(killer.classId);
-        const rewarded = curve
-          ? applyClassLevelUpReward(
-              prevLevel,
-              killer.level,
-              {
-                maxHp: killer.maxHp,
-                maxMp: killer.maxMp,
-                hp: killer.hp,
-                mp: killer.mp,
-              },
-              curve
-            )
-          : {
-              maxHp: killer.maxHp,
-              maxMp: killer.maxMp,
-              hp: killer.hp,
-              mp: killer.mp,
-            };
-        killer.maxHp = rewarded.maxHp;
-        killer.maxMp = rewarded.maxMp;
-        killer.hp = rewarded.hp;
-        killer.mp = rewarded.mp;
-        killerStored.maxHp = rewarded.maxHp;
-        killerStored.maxMp = rewarded.maxMp;
-        killerStored.hp = rewarded.hp;
-        killerStored.mp = rewarded.mp;
-      }
+      this.applyLevelChangeRewards(killerSessionId, killer, killerStored, prevLevel);
 
       this.persistCharacter(killerSessionId);
       onMobKilledForQuests(this.createQuestContext(killerSessionId), runtime.npcId);
@@ -1952,6 +2184,19 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.adena = character.adena;
     player.connected = true;
     player.characterName = character.name;
+    player.sp = character.sp;
+    player.karma = character.karma;
+    player.expBeforeDeath = character.expBeforeDeath;
+    player.unspentStatPoints = character.unspentStatPoints;
+    player.bonusStr = character.bonusStr;
+    player.bonusDex = character.bonusDex;
+    player.bonusCon = character.bonusCon;
+    player.bonusInt = character.bonusInt;
+    player.bonusWit = character.bonusWit;
+    player.bonusMen = character.bonusMen;
+    player.pvpFlagEndMs = character.pvpFlagEndMs;
+    player.pvpFlag =
+      character.pvpFlagEndMs > this.nowMs() && character.pvpFlagEndMs > 0 ? 1 : 0;
     migrateLegacyWeapon(this.db, character.id, character.equippedWeaponItemId);
     const equipmentRows = loadEquipment(this.db, character.id);
     this.playerEquipment.set(client.sessionId, equipmentRows);
@@ -2063,6 +2308,19 @@ export class TownRoom extends Room<{ state: TownState }> {
       x: player.x,
       y: player.y,
       z: player.z,
+      sp: player.sp,
+      karma: player.karma,
+      pvpKills: stored.pvpKills,
+      pkKills: stored.pkKills,
+      expBeforeDeath: player.expBeforeDeath,
+      unspentStatPoints: player.unspentStatPoints,
+      bonusStr: player.bonusStr,
+      bonusDex: player.bonusDex,
+      bonusCon: player.bonusCon,
+      bonusInt: player.bonusInt,
+      bonusWit: player.bonusWit,
+      bonusMen: player.bonusMen,
+      pvpFlagEndMs: player.pvpFlagEndMs,
     });
     saveCharacterItems(this.db, characterId, this.playerItems.get(sessionId) ?? {});
     saveAllEquipment(this.db, characterId, this.playerEquipment.get(sessionId) ?? []);
