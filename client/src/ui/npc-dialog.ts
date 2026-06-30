@@ -34,11 +34,13 @@ export type NpcAction =
   | 'heal'
   | 'starterKit'
   | 'resurrect'
-  | 'bless';
+  | 'bless'
+  | 'restoreExp';
 
 export interface NpcDialogHandlers {
   sendNpcAction: (payload: { npcId: number; action: NpcAction }) => void;
   sendLearnSkill?: (payload: { skillId: number }) => void;
+  sendResetStats?: () => void;
   sendQuestAction?: (payload: { npcId: number; action: string }) => void;
   sendTeleport?: (payload: { destinationId: string }) => void;
   sendClassTransfer?: (payload: { targetClassId: number }) => void;
@@ -213,6 +215,10 @@ export function renderNpcDialog(options: NpcDialogRenderOptions): void {
     appendActionButton(actions, 'Bless', 'bless', {
       onClick: () => options.handlers.sendNpcAction({ npcId: options.npcId, action: 'bless' }),
     });
+    appendActionButton(actions, 'Restore XP', 'restoreExp', {
+      onClick: () =>
+        options.handlers.sendNpcAction({ npcId: options.npcId, action: 'restoreExp' }),
+    });
     for (const opt of options.classTransferOptions ?? []) {
       appendActionButton(actions, `Change Class: ${opt.label}`, `class-${opt.targetClassId}`, {
         onClick: () => options.handlers.sendClassTransfer?.({ targetClassId: opt.targetClassId }),
@@ -234,6 +240,9 @@ export function renderNpcDialog(options: NpcDialogRenderOptions): void {
         onClick: () => options.handlers.sendClassTransfer?.({ targetClassId: opt.targetClassId }),
       });
     }
+    appendActionButton(actions, 'Reset stats', 'resetStats', {
+      onClick: () => options.handlers.sendResetStats?.(),
+    });
   }
 
   const closeBtn = panel.querySelector('[data-action="close"]');
