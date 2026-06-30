@@ -125,6 +125,7 @@ export const items = sqliteTable('items', {
   recipeId: integer('recipe_id'),
   isStackable: integer('is_stackable', { mode: 'boolean' }).notNull().default(false),
   isQuestItem: integer('is_quest_item', { mode: 'boolean' }).notNull().default(false),
+  weight: integer('weight').notNull().default(0),
 });
 
 export const recipes = sqliteTable('recipes', {

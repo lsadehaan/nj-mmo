@@ -110,4 +110,14 @@ describe('items seeding', () => {
     const sword = db.select().from(items).where(eq(items.itemId, 2369)).get();
     expect(sword?.pAtk).toBe(6);
   });
+
+  it('seeds item weight anchors 2369 and 1060 (UI28-22)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const db = getDb(dbPath);
+    const sword = db.select().from(items).where(eq(items.itemId, 2369)).get();
+    const potion = db.select().from(items).where(eq(items.itemId, 1060)).get();
+    expect(sword?.weight).toBe(1600);
+    expect(potion?.weight).toBe(5);
+  });
 });

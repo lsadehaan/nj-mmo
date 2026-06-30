@@ -402,6 +402,7 @@ function migrateItemsColumns(sqlite: Database.Database): void {
     ['enchant_enabled', 'INTEGER NOT NULL DEFAULT 0'],
     ['recipe_id', 'INTEGER'],
     ['is_stackable', 'INTEGER NOT NULL DEFAULT 0'],
+    ['weight', 'INTEGER NOT NULL DEFAULT 0'],
   ];
   for (const [col, def] of adds) {
     if (!names.has(col)) {

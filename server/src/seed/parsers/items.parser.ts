@@ -116,6 +116,7 @@ export function parseItemsXml(xml: string, itemIds: readonly number[] = TI_ITEM_
       enchantEnabled: parseBool(sets.get('enchant_enabled')),
       recipeId: sets.get('recipe_id') ? Number(sets.get('recipe_id')) : null,
       isStackable: parseBool(sets.get('is_stackable')),
+      weight: sets.get('weight') ? Number(sets.get('weight')) : 0,
     };
     results.push(row);
   }
