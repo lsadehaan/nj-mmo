@@ -1,0 +1,1 @@
+Talking Island landmark props — hand-authored with Three.js for NJ Phase 23.
