@@ -4,6 +4,7 @@ import { NpcState } from './NpcState';
 import { ItemStackState } from './ItemStackState';
 import { QuestEntryState } from './QuestEntryState';
 import { PartyState } from './PartyState';
+import { EffectState } from './EffectState';
 
 export class PlayerState extends Schema {
   @type('number') x = 0;
@@ -37,6 +38,7 @@ export class PlayerState extends Schema {
   @type('number') castEndMs = 0;
   /** Active self-buff skill id (0 = none) — render hook for client effects list */
   @type('number') activeBuffSkillId = 0;
+  @type([EffectState]) activeEffects = new ArraySchema<EffectState>();
   /** @deprecated alias for skill 3 cooldown — synced from skillCooldownEndMs */
   @type('number') powerStrikeCooldownEndMs = 0;
   @type('number') healingPotionCooldownEndMs = 0;

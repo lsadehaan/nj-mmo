@@ -86,6 +86,7 @@ import { eq, and } from 'drizzle-orm';
 import { FIXTURE_DATA_DIR } from '../seed/seed';
 import { seedSkills } from '../seed/seeders/skills.seeder';
 import { TownState, PlayerState } from './schema/TownState';
+import { EffectState } from './schema/EffectState';
 import { MobState } from './schema/MobState';
 import { NpcState } from './schema/NpcState';
 import { ItemStackState } from './schema/ItemStackState';
@@ -683,6 +684,27 @@ export class TownRoom extends Room<{ state: TownState }> {
     const buff = combat?.activeEffect;
     player.activeBuffSkillId =
       buff && buff.kind === 'buff_self' ? buff.skillId : 0;
+    this.syncActiveEffectsToPlayerState(sessionId);
+  }
+
+  private syncActiveEffectsToPlayerState(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    const combat = this.playerCombat.get(sessionId);
+    if (!player) return;
+
+    player.activeEffects.clear();
+    const now = this.nowMs();
+    const candidates = [];
+    if (combat?.activeEffect && combat.activeEffect.expiresAtMs > now) {
+      candidates.push(combat.activeEffect);
+    }
+    for (const fx of candidates.slice(0, 12)) {
+      const entry = new EffectState();
+      entry.skillId = fx.skillId;
+      entry.kind = fx.kind;
+      entry.expiresAtMs = fx.expiresAtMs;
+      player.activeEffects.push(entry);
+    }
   }
 
   private handleUseSkill(sessionId: string, skillId: number): void {
@@ -1953,6 +1975,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       const buff = combat.activeEffect;
       player.activeBuffSkillId =
         buff && buff.kind === 'buff_self' ? buff.skillId : 0;
+      this.syncActiveEffectsToPlayerState(sessionId);
     }
 
     this.resolveCastingSkills(now);

@@ -126,6 +126,7 @@ export function syncMobState(mobState: MobState, runtime: MobRuntime): void {
   mobState.z = runtime.z;
   mobState.hp = runtime.hp;
   mobState.maxHp = runtime.maxHp;
+  mobState.aggroTargetSessionId = runtime.targetSessionId ?? '';
 }
 
 export function loadMobSpawnRow(

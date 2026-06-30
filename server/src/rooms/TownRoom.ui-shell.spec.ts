@@ -13,6 +13,9 @@ import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { TownState } from './schema/TownState';
 import { acquireTownRoomTestServer, releaseTownRoomTestServer } from './town-room-harness';
 
+import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
+import type { MobRuntime } from './spawn-manager';
+
 const SQUIRES_SWORD = 2369;
 
 let colyseus: ColyseusTestServer;
@@ -44,6 +47,17 @@ async function leaveRoom(
   await client.leave(true);
   await room.disconnect();
   await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+function tick(room: Awaited<ReturnType<ColyseusTestServer['createRoom']>>): void {
+  (room as unknown as { simulate(deltaMs: number): void }).simulate(DEFAULT_SIM_INTERVAL_MS);
+}
+
+function findMobByNpcId(
+  room: Awaited<ReturnType<ColyseusTestServer['createRoom']>>,
+  npcId: number
+) {
+  return [...room.state.mobs.values()].find((m) => m.npcId === npcId);
 }
 
 describe('TownRoom ui-shell', () => {
@@ -100,6 +114,81 @@ describe('TownRoom ui-shell', () => {
       expect(player.inventoryWeight).toBe(1600);
       expect(player.maxLoad).toBe(2967);
       expect(player.inventorySlotsUsed).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('replicates activeEffects after self-buff applied', async () => {
+    const { dbPath, cleanup } = seededDb();
+    const clock = { now: () => 1_000_000 };
+    try {
+      const db = getDb(dbPath);
+      const char = createCharacter(db, {
+        accountName: 'hero1',
+        name: 'Buffer',
+        classId: 0,
+        sex: 0,
+      });
+      const room = await colyseus.createRoom('town', {
+        instanceKey: randomUUID(),
+        dbPath,
+        nowMs: () => clock.now(),
+      });
+      const client = await colyseus.sdk.joinById(
+        room.roomId,
+        { characterId: char.id, accountName: 'hero1' },
+        TownState
+      );
+      const combat = (room as {
+        playerCombat: Map<string, { activeEffect: { kind: string; skillId: number; multiplier: number; expiresAtMs: number } | null }>;
+      }).playerCombat.get(client.sessionId)!;
+      combat.activeEffect = {
+        kind: 'buff_self',
+        skillId: 1068,
+        multiplier: 1.15,
+        expiresAtMs: clock.now() + 120_000,
+      };
+      tick(room);
+      const player = room.state.players.get(client.sessionId)!;
+      expect(player.activeEffects.length).toBe(1);
+      expect(player.activeEffects[0]?.skillId).toBe(1068);
+      expect(player.activeEffects[0]?.kind).toBe('buff_self');
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('mob aggro sets aggroTargetSessionId on MobState', async () => {
+    const { dbPath, cleanup } = seededDb();
+    try {
+      const db = getDb(dbPath);
+      const char = createCharacter(db, {
+        accountName: 'hero1',
+        name: 'Hunter',
+        classId: 0,
+        sex: 0,
+      });
+      const room = await colyseus.createRoom('town', {
+        instanceKey: randomUUID(),
+        dbPath,
+      });
+      const client = await colyseus.sdk.joinById(
+        room.roomId,
+        { characterId: char.id, accountName: 'hero1' },
+        TownState
+      );
+      const gremlin = findMobByNpcId(room, 20001);
+      expect(gremlin).toBeDefined();
+      const runtime = (room as { mobRuntime: Map<string, MobRuntime> }).mobRuntime.get(
+        gremlin!.id
+      )!;
+      runtime.targetSessionId = client.sessionId;
+      tick(room);
+      const mobState = room.state.mobs.get(gremlin!.id)!;
+      expect(mobState.aggroTargetSessionId).toBe(client.sessionId);
       await leaveRoom(room, client);
     } finally {
       cleanup();

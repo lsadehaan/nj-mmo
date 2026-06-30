@@ -12,4 +12,5 @@ export class MobState extends Schema {
   @type('number') action = 0;
   /** Render-only; not persisted (AD-015). */
   @type('number') actionSeq = 0;
+  @type('string') aggroTargetSessionId = '';
 }
