@@ -1,20 +1,48 @@
 export const ROXXY_NPC_ID = 30006;
 export const WILFORD_NPC_ID = 30005;
 export const BITZ_NPC_ID = 30026;
+export const BIOTIN_NPC_ID = 30031;
 export const GWINTER_NPC_ID = 30027;
 export const BAULRO_NPC_ID = 30033;
 
-export type NpcDialogVariant = 'helper' | 'warehouse' | 'trainer' | 'folkTrainer' | 'quest';
+export type NpcDialogVariant =
+  | 'helper'
+  | 'gatekeeper'
+  | 'warehouse'
+  | 'trainer'
+  | 'folkTrainer'
+  | 'priest'
+  | 'quest';
+
+export interface TeleportDestinationButton {
+  destinationId: string;
+  label: string;
+  feeAdena: number;
+}
+
+export interface ClassTransferOption {
+  targetClassId: number;
+  label: string;
+}
 
 export interface QuestDialogButton {
   action: string;
   label: string;
 }
 
+export type NpcAction =
+  | 'heal'
+  | 'starterKit'
+  | 'resurrect'
+  | 'bless';
+
 export interface NpcDialogHandlers {
-  sendNpcAction: (payload: { npcId: number; action: 'heal' | 'starterKit' }) => void;
+  sendNpcAction: (payload: { npcId: number; action: NpcAction }) => void;
   sendLearnSkill?: (payload: { skillId: number }) => void;
   sendQuestAction?: (payload: { npcId: number; action: string }) => void;
+  sendTeleport?: (payload: { destinationId: string }) => void;
+  sendClassTransfer?: (payload: { targetClassId: number }) => void;
+  openWarehouse?: () => void;
 }
 
 export interface NpcDialogRenderOptions {
@@ -23,18 +51,42 @@ export interface NpcDialogRenderOptions {
   variant: NpcDialogVariant;
   visible: boolean;
   learnableSkillIds?: number[];
+  teleportDestinations?: TeleportDestinationButton[];
+  classTransferOptions?: ClassTransferOption[];
   questBody?: string;
   questButtons?: QuestDialogButton[];
   handlers: NpcDialogHandlers;
 }
 
+/** Roxxy TI teleport list (fees mirror server seed). */
+export const ROXXY_TELEPORT_DESTINATIONS: TeleportDestinationButton[] = [
+  { destinationId: 'obelisk', label: 'Obelisk of Victory', feeAdena: 200 },
+  { destinationId: 'northern_ti', label: 'Northern Territory of TI', feeAdena: 450 },
+  { destinationId: 'southern_ti', label: 'Southern Territory of TI', feeAdena: 140 },
+  { destinationId: 'elven_ruins', label: 'Elven Ruins', feeAdena: 590 },
+  { destinationId: 'singing_waterfall', label: 'Singing Waterfall', feeAdena: 330 },
+];
+
+export const FIGHTER_CLASS_TRANSFER_OPTIONS: ClassTransferOption[] = [
+  { targetClassId: 1, label: 'Warrior' },
+  { targetClassId: 4, label: 'Knight' },
+  { targetClassId: 7, label: 'Rogue' },
+];
+
+export const MYSTIC_CLASS_TRANSFER_OPTIONS: ClassTransferOption[] = [
+  { targetClassId: 11, label: 'Wizard' },
+  { targetClassId: 15, label: 'Cleric' },
+];
+
 const ELEMENT_ID = 'npc-dialog';
 
 const VARIANT_TITLES: Record<NpcDialogVariant, string> = {
   helper: 'Newbie Helper',
+  gatekeeper: 'Gatekeeper',
   warehouse: 'Warehouse Keeper',
   trainer: 'Grand Master',
   folkTrainer: 'Folk Trainer',
+  priest: 'High Priest',
   quest: 'Quest',
 };
 
@@ -125,7 +177,14 @@ export function renderNpcDialog(options: NpcDialogRenderOptions): void {
           options.handlers.sendQuestAction?.({ npcId: options.npcId, action: btn.action }),
       });
     }
-  } else if (options.variant === 'helper') {
+  } else if (options.variant === 'helper' || options.variant === 'gatekeeper') {
+    if (options.variant === 'gatekeeper') {
+      for (const dest of options.teleportDestinations ?? ROXXY_TELEPORT_DESTINATIONS) {
+        appendActionButton(actions, `${dest.label} (${dest.feeAdena} adena)`, dest.destinationId, {
+          onClick: () => options.handlers.sendTeleport?.({ destinationId: dest.destinationId }),
+        });
+      }
+    }
     appendActionButton(actions, 'Heal', 'heal', {
       onClick: () => {
         options.handlers.sendNpcAction({ npcId: options.npcId, action: 'heal' });
@@ -138,13 +197,27 @@ export function renderNpcDialog(options: NpcDialogRenderOptions): void {
     });
   } else if (options.variant === 'warehouse') {
     appendActionButton(actions, 'Deposit', 'deposit', {
-      disabled: true,
-      disabledLabel: 'Coming soon',
+      onClick: () => options.handlers.openWarehouse?.(),
     });
     appendActionButton(actions, 'Withdraw', 'withdraw', {
-      disabled: true,
-      disabledLabel: 'Coming soon',
+      onClick: () => options.handlers.openWarehouse?.(),
     });
+  } else if (options.variant === 'priest') {
+    appendActionButton(actions, 'Resurrect', 'resurrect', {
+      onClick: () =>
+        options.handlers.sendNpcAction({ npcId: options.npcId, action: 'resurrect' }),
+    });
+    appendActionButton(actions, 'Heal', 'heal', {
+      onClick: () => options.handlers.sendNpcAction({ npcId: options.npcId, action: 'heal' }),
+    });
+    appendActionButton(actions, 'Bless', 'bless', {
+      onClick: () => options.handlers.sendNpcAction({ npcId: options.npcId, action: 'bless' }),
+    });
+    for (const opt of options.classTransferOptions ?? []) {
+      appendActionButton(actions, `Change Class: ${opt.label}`, `class-${opt.targetClassId}`, {
+        onClick: () => options.handlers.sendClassTransfer?.({ targetClassId: opt.targetClassId }),
+      });
+    }
   } else if (options.variant === 'trainer' || options.variant === 'folkTrainer') {
     const learnable = options.learnableSkillIds ?? [];
     if (learnable.length === 0) {
@@ -155,6 +228,11 @@ export function renderNpcDialog(options: NpcDialogRenderOptions): void {
           onClick: () => options.handlers.sendLearnSkill?.({ skillId }),
         });
       }
+    }
+    for (const opt of options.classTransferOptions ?? []) {
+      appendActionButton(actions, `Change Class: ${opt.label}`, `class-${opt.targetClassId}`, {
+        onClick: () => options.handlers.sendClassTransfer?.({ targetClassId: opt.targetClassId }),
+      });
     }
   }
 
@@ -182,11 +260,11 @@ export function resolveNpcDialogVariant(
   npcId: number,
   type: string
 ): NpcDialogVariant | null {
+  if (type === 'Guard') return null;
   if (type === 'Warehouse' || npcId === WILFORD_NPC_ID) return 'warehouse';
   if (type === 'VillageMasterFighter' || npcId === BITZ_NPC_ID) return 'trainer';
-  if (type === 'Folk' || npcId === GWINTER_NPC_ID || npcId === BAULRO_NPC_ID) {
-    return 'folkTrainer';
-  }
-  if (type === 'Teleporter' || npcId === ROXXY_NPC_ID) return 'helper';
+  if (type === 'VillageMasterPriest' || npcId === BIOTIN_NPC_ID) return 'priest';
+  if (type === 'Folk') return 'folkTrainer';
+  if (type === 'Teleporter' || npcId === ROXXY_NPC_ID) return 'gatekeeper';
   return null;
 }
