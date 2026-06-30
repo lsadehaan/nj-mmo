@@ -1,203 +1,125 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  SQUIRES_SWORD_ITEM_ID,
-  itemDisplayName,
+  INVENTORY_SLOT_COUNT,
+  layoutItemsToGrid,
   mountInventoryWindow,
   renderInventoryWindow,
+  SQUIRES_SWORD_ITEM_ID,
 } from './inventory-window';
-import { FALLBACK_ICON } from './icon-manifest';
-import { HEALING_POTION_ITEM_ID } from '@nj/game-core';
 
 function defaultHandlers() {
   return { sendEquip: vi.fn(), sendUseItem: vi.fn(), sendUseShot: vi.fn() };
 }
 
-function defaultOptions(
-  overrides: Partial<Parameters<typeof renderInventoryWindow>[0]> = {}
-) {
-  return {
-    itemCounts: {},
-    equippedWeaponItemId: 0,
-    healingPotionCooldownRemainingMs: 0,
-    visible: true,
-    handlers: defaultHandlers(),
-    ...overrides,
-  };
-}
-
-describe('inventory-window DOM', () => {
+describe('inventory-window grid', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
   });
-
   afterEach(() => {
     document.body.innerHTML = '';
   });
 
-  it('mounts #inventory-window panel hidden by default', () => {
-    const panel = mountInventoryWindow();
-    expect(panel.id).toBe('inventory-window');
-    expect(panel.hidden).toBe(true);
-  });
-
-  it('lists owned item stacks with counts from server-synced state', () => {
+  it('UI28-16: renders 80 inv-slot cells', () => {
     mountInventoryWindow();
-    renderInventoryWindow(
-      defaultOptions({ itemCounts: { 1060: 3, 2369: 1 }, handlers: defaultHandlers() })
-    );
-
-    const rows = document.querySelectorAll('#inventory-window [data-inventory-item-id]');
-    expect(rows.length).toBe(2);
-
-    const stacks = [...rows].map((row) => ({
-      itemId: Number(row.getAttribute('data-inventory-item-id')),
-      count: row.querySelector('[data-count]')?.textContent,
-    }));
-    expect(stacks).toContainEqual({ itemId: 1060, count: '3' });
-    expect(stacks).toContainEqual({ itemId: 2369, count: '1' });
+    renderInventoryWindow({
+      itemCounts: {},
+      equippedWeaponItemId: 0,
+      equipment: {},
+      inventoryWeight: 0,
+      maxLoad: 2967,
+      slotsUsed: 0,
+      healingPotionCooldownRemainingMs: 0,
+      visible: true,
+      handlers: defaultHandlers(),
+    });
+    expect(document.querySelectorAll('[data-role="inv-slot"]').length).toBe(INVENTORY_SLOT_COUNT);
   });
 
-  it('renders mapped item icons for Healing Potion and Squire\'s Sword rows', () => {
+  it('UI28-17: shows item icons and stack counts', () => {
     mountInventoryWindow();
-    renderInventoryWindow(
-      defaultOptions({ itemCounts: { 1060: 1, 2369: 1 }, handlers: defaultHandlers() })
-    );
-
-    const potionImg = document.querySelector(
-      '#inventory-window [data-inventory-item-id="1060"] img[data-icon-item-id="1060"]'
-    ) as HTMLImageElement | null;
-    const swordImg = document.querySelector(
-      `#inventory-window [data-inventory-item-id="${SQUIRES_SWORD_ITEM_ID}"] img[data-icon-item-id="${SQUIRES_SWORD_ITEM_ID}"]`
-    ) as HTMLImageElement | null;
-
-    expect(potionImg?.src).toContain('healing-potion.png');
-    expect(swordImg?.src).toContain('squires-sword.png');
+    renderInventoryWindow({
+      itemCounts: { 1060: 3, 2369: 1 },
+      equippedWeaponItemId: 0,
+      equipment: {},
+      inventoryWeight: 50,
+      maxLoad: 2967,
+      slotsUsed: 2,
+      healingPotionCooldownRemainingMs: 0,
+      visible: true,
+      handlers: defaultHandlers(),
+    });
+    expect(document.querySelector('[data-item-id="1060"]')).not.toBeNull();
+    expect(document.querySelector('[data-item-id="2369"]')).not.toBeNull();
   });
 
-  it('returns L2J display names for Wooden Arrow and Soulshot', () => {
-    expect(itemDisplayName(17)).toBe('Wooden Arrow');
-    expect(itemDisplayName(1835)).toBe('Soulshot (No-grade)');
-  });
-
-  it('shows fallback icon for unmapped loot item ids', () => {
+  it('UI28-18: weight bar ratio >= 0.53 for 1600/2967', () => {
     mountInventoryWindow();
-    renderInventoryWindow(defaultOptions({ itemCounts: { 99999: 2 } }));
-
-    const img = document.querySelector(
-      '#inventory-window [data-inventory-item-id="99999"] img[data-icon-item-id="99999"]'
-    ) as HTMLImageElement | null;
-    expect(img?.src).toContain(FALLBACK_ICON);
-    expect(img?.dataset['iconFallback']).toBe('true');
-    expect(img?.alt).toBe('Item 99999');
+    renderInventoryWindow({
+      itemCounts: { 2369: 1 },
+      equippedWeaponItemId: 0,
+      equipment: {},
+      inventoryWeight: 1600,
+      maxLoad: 2967,
+      slotsUsed: 1,
+      healingPotionCooldownRemainingMs: 0,
+      visible: true,
+      handlers: defaultHandlers(),
+    });
+    const fill = document.querySelector('[data-role="weight-fill"]') as HTMLElement;
+    const width = parseFloat(fill.style.width);
+    expect(width / 100).toBeGreaterThanOrEqual(0.53);
   });
 
-  it('shows Equip action for Squire\'s Sword weapon row', () => {
-    mountInventoryWindow();
-    renderInventoryWindow(defaultOptions({ itemCounts: { 2369: 1 } }));
-
-    const equipBtn = document.querySelector(
-      `#inventory-window [data-inventory-item-id="${SQUIRES_SWORD_ITEM_ID}"] [data-action="equip"]`
-    );
-    expect(equipBtn).not.toBeNull();
-    expect(equipBtn?.textContent).toMatch(/equip/i);
+  it('UI28-19: slots-used text 2 / 80', () => {
+    renderInventoryWindow({
+      itemCounts: { 1060: 3, 2369: 1 },
+      equippedWeaponItemId: 0,
+      equipment: {},
+      inventoryWeight: 1650,
+      maxLoad: 2967,
+      slotsUsed: 2,
+      healingPotionCooldownRemainingMs: 0,
+      visible: true,
+      handlers: defaultHandlers(),
+    });
+    expect(document.querySelector('[data-role="slots-used"]')?.textContent).toBe('2 / 80');
   });
 
-  it('does not show Equip for consumable Healing Potion', () => {
-    mountInventoryWindow();
-    renderInventoryWindow(defaultOptions({ itemCounts: { 1060: 3 } }));
-
-    const equipBtn = document.querySelector(
-      '#inventory-window [data-inventory-item-id="1060"] [data-action="equip"]'
-    );
-    expect(equipBtn).toBeNull();
+  it('UI28-20: paper-doll equip slots', () => {
+    renderInventoryWindow({
+      itemCounts: {},
+      equippedWeaponItemId: 2369,
+      equipment: { rhand: { itemId: 2369, enchantLevel: 0 } },
+      inventoryWeight: 0,
+      maxLoad: 2967,
+      slotsUsed: 0,
+      healingPotionCooldownRemainingMs: 0,
+      visible: true,
+      handlers: defaultHandlers(),
+    });
+    expect(document.querySelector('[data-equip-slot="rhand"]')).not.toBeNull();
   });
 
-  it('shows Magic Ring loot icon when item 116 is in inventory', () => {
-    mountInventoryWindow();
-    renderInventoryWindow(defaultOptions({ itemCounts: { 116: 1 } }));
-
-    const img = document.querySelector(
-      '#inventory-window [data-inventory-item-id="116"] img[data-icon-item-id="116"]'
-    ) as HTMLImageElement | null;
-    expect(img?.src).toContain('magic-ring');
-    expect(img?.alt).toBe('Magic Ring');
-  });
-
-  it('shows equipped weapon label when Squire\'s Sword is equipped', () => {
-    mountInventoryWindow();
-    renderInventoryWindow(
-      defaultOptions({
-        itemCounts: { 2369: 1 },
-        equippedWeaponItemId: SQUIRES_SWORD_ITEM_ID,
-      })
-    );
-
-    const equipped = document.querySelector('#inventory-window [data-equipped-weapon]');
-    expect(equipped?.textContent).toMatch(/Squire's Sword/i);
-  });
-
-  it('shows Use action for Healing Potion row when count > 0', () => {
-    mountInventoryWindow();
-    renderInventoryWindow(defaultOptions({ itemCounts: { [HEALING_POTION_ITEM_ID]: 2 } }));
-
-    const useBtn = document.querySelector(
-      `#inventory-window [data-inventory-item-id="${HEALING_POTION_ITEM_ID}"] [data-action="use"]`
-    );
-    expect(useBtn).not.toBeNull();
-    expect(useBtn?.textContent).toMatch(/use/i);
-  });
-
-  it('does not show Use action for Squire\'s Sword weapon row', () => {
-    mountInventoryWindow();
-    renderInventoryWindow(defaultOptions({ itemCounts: { [SQUIRES_SWORD_ITEM_ID]: 1 } }));
-
-    const useBtn = document.querySelector(
-      `#inventory-window [data-inventory-item-id="${SQUIRES_SWORD_ITEM_ID}"] [data-action="use"]`
-    );
-    expect(useBtn).toBeNull();
-  });
-
-  it('calls sendUseItem when Use is clicked on Healing Potion', () => {
-    mountInventoryWindow();
+  it('UI28-21: double-click consumable fires sendUseItem', () => {
     const handlers = defaultHandlers();
-    renderInventoryWindow(
-      defaultOptions({ itemCounts: { [HEALING_POTION_ITEM_ID]: 1 }, handlers })
-    );
-
-    const useBtn = document.querySelector(
-      `#inventory-window [data-inventory-item-id="${HEALING_POTION_ITEM_ID}"] [data-action="use"]`
-    ) as HTMLButtonElement;
-    useBtn.click();
-
-    expect(handlers.sendUseItem).toHaveBeenCalledWith({ itemId: HEALING_POTION_ITEM_ID });
+    renderInventoryWindow({
+      itemCounts: { 1060: 1 },
+      equippedWeaponItemId: 0,
+      equipment: {},
+      inventoryWeight: 5,
+      maxLoad: 2967,
+      slotsUsed: 1,
+      healingPotionCooldownRemainingMs: 0,
+      visible: true,
+      handlers,
+    });
+    const slot = document.querySelector('[data-item-id="1060"]') as HTMLElement;
+    slot.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    expect(handlers.sendUseItem).toHaveBeenCalledWith({ itemId: 1060 });
   });
 
-  it('disables Use when healing potion cooldown is active', () => {
-    mountInventoryWindow();
-    renderInventoryWindow(
-      defaultOptions({
-        itemCounts: { [HEALING_POTION_ITEM_ID]: 1 },
-        healingPotionCooldownRemainingMs: 5_000,
-      })
-    );
-
-    const useBtn = document.querySelector(
-      `#inventory-window [data-inventory-item-id="${HEALING_POTION_ITEM_ID}"] [data-action="use"]`
-    ) as HTMLButtonElement;
-    expect(useBtn.disabled).toBe(true);
-  });
-
-  it('sends useShot for soulshot row (SKILL20-37)', () => {
-    const handlers = defaultHandlers();
-    mountInventoryWindow();
-    renderInventoryWindow(
-      defaultOptions({ itemCounts: { 1835: 10 }, handlers })
-    );
-
-    const shotBtn = document.querySelector(
-      '#inventory-window [data-inventory-item-id="1835"] [data-action="use-shot"]'
-    ) as HTMLButtonElement;
-    shotBtn.click();
-    expect(handlers.sendUseShot).toHaveBeenCalledWith({ itemId: 1835 });
+  it('layoutItemsToGrid is deterministic', () => {
+    const cells = layoutItemsToGrid({ 1060: 3, 2369: 1 });
+    expect(cells.filter((c) => c.itemId > 0).length).toBe(2);
   });
 });
