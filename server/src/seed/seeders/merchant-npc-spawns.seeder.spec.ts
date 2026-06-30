@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
@@ -135,17 +135,9 @@ describe('NPC spawn seeding', () => {
     return dbPath;
   }
 
-  const SPAWN_TABLE = [
-    { npcId: 30001, x: -14, z: -2 },
-    { npcId: 30002, x: -16, z: 4 },
-    { npcId: 30003, x: -8, z: 2 },
-    { npcId: 30004, x: -6, z: -8 },
-    { npcId: 30005, x: 16, z: 0 },
-    { npcId: 30006, x: 4, z: 10 },
-    { npcId: 30026, x: 2, z: -4 },
-    { npcId: 30027, x: 6, z: -6 },
-    { npcId: 30033, x: 8, z: -8 },
-  ] as const;
+  const SPAWN_TABLE = JSON.parse(
+    readFileSync(join(FIXTURE_DATA_DIR, 'npc_spawns.json'), 'utf-8')
+  ) as { npcId: number; x: number; z: number }[];
 
   it('seeds nine npc_spawns rows matching anchor table (TINPC-11, SKILL20-10)', () => {
     const dbPath = tempDbPath();
@@ -158,26 +150,28 @@ describe('NPC spawn seeding', () => {
     }
   });
 
-  it('seeds Katerina (30004) at local x=-6, z=-8', () => {
+  it('seeds Katerina (30004) from L2J fixture', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const expected = SPAWN_TABLE.find((r) => r.npcId === 30004)!;
     const row = getDb(dbPath)
       .select()
       .from(npcSpawns)
       .where(eq(npcSpawns.npcId, 30004))
       .get();
-    expect(row).toMatchObject({ npcId: 30004, x: -6, z: -8 });
+    expect(row).toMatchObject({ npcId: 30004, x: expected.x, z: expected.z });
   });
 
-  it('seeds Roxxy (30006) at local x=4, z=10', () => {
+  it('seeds Roxxy (30006) from L2J fixture', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const expected = SPAWN_TABLE.find((r) => r.npcId === 30006)!;
     const row = getDb(dbPath)
       .select()
       .from(npcSpawns)
       .where(eq(npcSpawns.npcId, 30006))
       .get();
-    expect(row).toMatchObject({ npcId: 30006, x: 4, z: 10 });
+    expect(row).toMatchObject({ npcId: 30006, x: expected.x, z: expected.z });
   });
 
   it('seed is idempotent for npc spawn rows (TINPC-14)', () => {
