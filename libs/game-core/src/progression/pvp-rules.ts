@@ -37,6 +37,7 @@ export function tickPvpFlag(
   endMs: number
 ): number {
   if (flag === 0) return 0;
+  if (endMs <= 0) return flag;
   if (nowMs >= endMs) return 0;
   return flag;
 }
