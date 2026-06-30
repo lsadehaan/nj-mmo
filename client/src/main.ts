@@ -13,6 +13,8 @@ import { mountChatPanel } from './ui/chat-panel';
 import { mountPartyPanel } from './ui/party-panel';
 import { mountTradeWindow } from './ui/trade-window';
 import { mountFriendsPanel } from './ui/friends-panel';
+import { mountPvpToggle, wirePvpToggle } from './ui/pvp-toggle';
+import { mountStatAllocate, wireStatAllocate } from './ui/stat-allocate';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 import { renderHotbar } from './ui/hotbar';
 import { updateCastBar } from './ui/cast-bar';
@@ -30,6 +32,14 @@ async function boot(): Promise<void> {
   mountPartyPanel();
   mountTradeWindow();
   mountFriendsPanel();
+  mountPvpToggle();
+  mountStatAllocate();
+
+  wirePvpToggle({ togglePvp: () => window.__togglePvp__?.() });
+  wireStatAllocate({
+    allocateStat: (stat) => window.__allocateStat__?.(stat),
+    resetStats: () => window.__resetStats__?.(),
+  });
 
   const startSkillUiLoop = (): (() => void) => {
     const tick = (): void => {
