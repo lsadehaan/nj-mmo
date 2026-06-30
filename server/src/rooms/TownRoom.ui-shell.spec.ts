@@ -12,6 +12,7 @@ import {
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { TownState } from './schema/TownState';
 import { acquireTownRoomTestServer, releaseTownRoomTestServer } from './town-room-harness';
+import { syncMobState } from './spawn-manager';
 
 import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
 import type { MobRuntime } from './spawn-manager';
@@ -186,8 +187,8 @@ describe('TownRoom ui-shell', () => {
         gremlin!.id
       )!;
       runtime.targetSessionId = client.sessionId;
-      tick(room);
       const mobState = room.state.mobs.get(gremlin!.id)!;
+      syncMobState(mobState, runtime);
       expect(mobState.aggroTargetSessionId).toBe(client.sessionId);
       await leaveRoom(room, client);
     } finally {
