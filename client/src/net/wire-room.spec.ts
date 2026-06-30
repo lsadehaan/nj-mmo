@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as THREE from 'three';
 import {
   initGameState,
@@ -9,7 +9,7 @@ import {
   setWarehouse,
   setNpcs,
 } from '../test-hook';
-import { getZoneAt } from '@nj/game-core';
+import { getZoneAt, EQUIP_SLOTS } from '@nj/game-core';
 import { getNpcEntry, TI_NPC_MANIFEST_IDS } from '../scene/creature/npc-manifest';
 import {
   createNpcInstanceMap,
@@ -17,6 +17,19 @@ import {
   npcStateToVisual,
   syncNpcVisual,
 } from '../scene/npc-renderer';
+
+const { mockCallbacksGet } = vi.hoisted(() => ({
+  mockCallbacksGet: vi.fn(),
+}));
+
+vi.mock('@colyseus/sdk', () => ({
+  Callbacks: {
+    get: mockCallbacksGet,
+  },
+}));
+
+import { wireRoom } from './room';
+import type { GameRenderer } from '../scene/renderer';
 
 describe('wireRoom mob sync (unit)', () => {
   beforeEach(() => {
@@ -174,5 +187,99 @@ describe('wireRoom zone sync (unit)', () => {
     setZone({ id: 'obelisk', type: obelisk.type, displayName: obelisk.displayName });
     expect(getGameState().zone.id).toBe('obelisk');
     expect(getGameState().zone.type).toBe('combat');
+  });
+});
+
+describe('wireRoom equipment sync (unit)', () => {
+  let localPlayer: Record<string, unknown>;
+  let onLocalChange: (() => void) | undefined;
+
+  const game = {
+    syncLocalPlayer: vi.fn(),
+    syncRemotePlayer: vi.fn(),
+    removeRemotePlayer: vi.fn(),
+    syncMob: vi.fn(),
+    removeMob: vi.fn(),
+    syncNpc: vi.fn(),
+    removeNpc: vi.fn(),
+    triggerNpcGreet: vi.fn(),
+    getNpcHookEntries: vi.fn(() => []),
+    setAfterTick: vi.fn(),
+    syncPlayerVfx: vi.fn(),
+    syncMobVfx: vi.fn(),
+    setVfxTargetMobId: vi.fn(),
+    getCurrentAnimationClip: () => 'idle' as const,
+  } as unknown as GameRenderer;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    initGameState();
+    onLocalChange = undefined;
+
+    const chestIdx = EQUIP_SLOTS.indexOf('chest');
+    const equipItemIds = Array(EQUIP_SLOTS.length).fill(0);
+    const equipEnchantLevels = Array(EQUIP_SLOTS.length).fill(0);
+    equipItemIds[chestIdx] = 23;
+
+    localPlayer = {
+      x: 0,
+      y: 4.26,
+      z: 0,
+      xp: 0,
+      level: 1,
+      hp: 100,
+      maxHp: 100,
+      mp: 50,
+      maxMp: 50,
+      adena: 1000,
+      equippedWeaponItemId: 0,
+      equipSlotIds: EQUIP_SLOTS.map((_, i) => i),
+      equipItemIds,
+      equipEnchantLevels,
+      pDef: 47,
+      powerStrikeCooldownEndMs: 0,
+      healingPotionCooldownEndMs: 0,
+      items: { entries: () => [] as const },
+    };
+
+    mockCallbacksGet.mockReturnValue({
+      onAdd: (
+        collectionOrPlayer: string | Record<string, unknown>,
+        handlerOrProperty: string | ((entity: unknown, id: string) => void)
+      ) => {
+        if (collectionOrPlayer === 'players' && typeof handlerOrProperty === 'function') {
+          (handlerOrProperty as (entity: unknown, id: string) => void)(
+            localPlayer,
+            'local-session'
+          );
+        }
+      },
+      onChange: (target: unknown, handlerOrProperty?: string | (() => void)) => {
+        if (target === localPlayer && typeof handlerOrProperty === 'function') {
+          onLocalChange = handlerOrProperty;
+        }
+      },
+      onRemove: vi.fn(),
+      listen: vi.fn(),
+    });
+
+    wireRoom(
+      {
+        sessionId: 'local-session',
+        send: vi.fn(),
+        state: {
+          players: new Map([['local-session', localPlayer]]),
+          mobs: new Map(),
+          npcs: new Map(),
+        },
+        onMessage: vi.fn(),
+      } as never,
+      game
+    );
+  });
+
+  it('ITEM25-32: syncs chest slot item 23 to __GAME_STATE__.equipment', () => {
+    onLocalChange?.();
+    expect(getGameState().equipment.chest).toEqual({ itemId: 23, enchantLevel: 0 });
   });
 });

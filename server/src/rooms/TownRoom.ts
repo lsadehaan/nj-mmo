@@ -1604,6 +1604,15 @@ export class TownRoom extends Room<{ state: TownState }> {
     const dropRows = this.dropsByNpcId.get(runtime.npcId) ?? [];
     applyKillRewards(player, kill, this.experienceCurve, dropRows, this.combatRng);
 
+    if (kill.drops.length > 0) {
+      const inventory = { ...(this.playerItems.get(killerSessionId) ?? {}) };
+      for (const drop of kill.drops) {
+        inventory[drop.itemId] = (inventory[drop.itemId] ?? 0) + drop.count;
+      }
+      this.playerItems.set(killerSessionId, inventory);
+      this.syncItemsToPlayerState(killerSessionId);
+    }
+
     if (player.level > prevLevel) {
       const curve = this.classVitalsByClassId.get(player.classId);
       const rewarded = curve

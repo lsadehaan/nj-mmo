@@ -55,8 +55,8 @@ describe('phase 25 merchant buylists', () => {
       .from(merchantItems)
       .where(eq(merchantItems.npcId, 30003))
       .all().length;
-    // L2J Classic 3000301.xml has 13 rows (spec approximated 18)
-    expect(count).toBeGreaterThanOrEqual(13);
+    // Spec deviation: ITEM25-13 asks ≥15; L2J Classic buylist_30003.xml fixture has 13 rows.
+    expect(count).toBe(13);
   });
 
   it('seeds Pinter 30298 as Merchant with scrolls 955 and 956 (ITEM25-15)', () => {

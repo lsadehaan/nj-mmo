@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
-import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT, getZoneAt } from '@nj/game-core';
+import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT, getZoneAt, EQUIP_SLOTS, type EquipSlot } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
 import { classLevelVitals, classTemplates, classSkillTree } from '../db/schema';
@@ -4252,6 +4252,353 @@ describe('Phase 24 town services', () => {
       const after = room.state.players.get(client.sessionId)!;
       expect(after.hp).toBe(hpBefore);
       expect(after.activeBuffSkillId).toBe(buffBefore);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('Phase 25 equipment/craft/enchant', () => {
+  const BROADSWORD = 3;
+  const WOODEN_BREASTPLATE = 23;
+  const WOODEN_GAITERS = 2386;
+  const WOODEN_HELMET = 43;
+  const MAGIC_RING = 116;
+  const NECKLACE_OF_MAGIC = 118;
+  const APPRENTICE_EARRING = 112;
+  const HEALING_POTION = 1060;
+  const BASTARD_SWORD = 69;
+  const MITHRIL_BREASTPLATE = 58;
+  const ENCHANT_WEAPON_SCROLL_D = 955;
+  const ENCHANT_ARMOR_SCROLL_D = 956;
+  const RECIPE_BROADSWORD = 1786;
+  const LECTOR_NPC = 30001;
+  const ELDER_KELTIR = 20544;
+  const KELTIR_SHIRT = 21;
+  const BROADSWORD_PRICE = 14375;
+
+  function alwaysWinDropRng() {
+    return {
+      nextFloat: () => 0,
+      nextInt: (min: number) => min,
+      nextDamageOffset: () => 0,
+    };
+  }
+
+  function seedInventory(
+    room: TestRoom,
+    sessionId: string,
+    items: Record<number, number>
+  ): void {
+    room['playerItems'].set(sessionId, { ...items });
+    room['syncItemsToPlayerState'](sessionId);
+  }
+
+  function getEquipItemId(room: TestRoom, sessionId: string, slot: EquipSlot): number {
+    const player = room.state.players.get(sessionId)!;
+    const idx = EQUIP_SLOTS.indexOf(slot);
+    return player.equipItemIds[idx] ?? 0;
+  }
+
+  function getEquipEnchantLevel(room: TestRoom, sessionId: string, slot: EquipSlot): number {
+    const player = room.state.players.get(sessionId)!;
+    const idx = EQUIP_SLOTS.indexOf(slot);
+    return player.equipEnchantLevels[idx] ?? 0;
+  }
+
+  async function killMob(
+    room: TestRoom,
+    client: TestClient,
+    sessionId: string,
+    npcId: number
+  ): Promise<void> {
+    const mob = findMobByNpcId(room, npcId)!;
+    placePlayerAndMobForCombat(room, sessionId, mob, { fortifyPlayer: true });
+    await deliver(room, client, [['setTarget', { mobId: mob.id }]]);
+    while (room.state.mobs.has(mob.id)) {
+      const combat = room['playerCombat'].get(sessionId)!;
+      combat.nextAttackAtMs = 0;
+      await deliverAndTick(room, client, [['attack', {}]]);
+    }
+  }
+
+  // ITEM25-14
+  it('buy Broadsword 3 at Lector deducts 14375 adena and grants item', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      player.adena = 20_000;
+      placePlayerAtNpc(room, client.sessionId, LECTOR_NPC);
+
+      await deliver(room, client, [
+        ['buy', { npcId: LECTOR_NPC, itemId: BROADSWORD, quantity: 1 }],
+      ]);
+
+      expect(player.adena).toBe(20_000 - BROADSWORD_PRICE);
+      expect(getPlayerItemCount(room, client.sessionId, BROADSWORD)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-19
+  it('equip Broadsword 3 to rhand decrements inventory by 1', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, { [BROADSWORD]: 2 });
+
+      await deliver(room, client, [['equip', { itemId: BROADSWORD }]]);
+
+      expect(getEquipItemId(room, client.sessionId, 'rhand')).toBe(BROADSWORD);
+      expect(getPlayerItemCount(room, client.sessionId, BROADSWORD)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-20
+  it('equip Wooden Breastplate 23 replicates on PlayerState equip arrays', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, { [WOODEN_BREASTPLATE]: 1 });
+
+      await deliver(room, client, [['equip', { itemId: WOODEN_BREASTPLATE }]]);
+
+      expect(getEquipItemId(room, client.sessionId, 'chest')).toBe(WOODEN_BREASTPLATE);
+      expect(getPlayerItemCount(room, client.sessionId, WOODEN_BREASTPLATE)).toBe(0);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-21
+  it('equip Wooden Gaiters 2386 and Helmet 43 populate legs and head slots', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, {
+        [WOODEN_GAITERS]: 1,
+        [WOODEN_HELMET]: 1,
+      });
+
+      await deliver(room, client, [
+        ['equip', { itemId: WOODEN_GAITERS }],
+        ['equip', { itemId: WOODEN_HELMET }],
+      ]);
+
+      expect(getEquipItemId(room, client.sessionId, 'legs')).toBe(WOODEN_GAITERS);
+      expect(getEquipItemId(room, client.sessionId, 'head')).toBe(WOODEN_HELMET);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-22
+  it('equip ring 116, neck 118, and earring 112 populate jewelry slots', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, {
+        [MAGIC_RING]: 1,
+        [NECKLACE_OF_MAGIC]: 1,
+        [APPRENTICE_EARRING]: 1,
+      });
+
+      await deliver(room, client, [
+        ['equip', { itemId: MAGIC_RING }],
+        ['equip', { itemId: NECKLACE_OF_MAGIC }],
+        ['equip', { itemId: APPRENTICE_EARRING }],
+      ]);
+
+      expect(getEquipItemId(room, client.sessionId, 'ring')).toBe(MAGIC_RING);
+      expect(getEquipItemId(room, client.sessionId, 'neck')).toBe(NECKLACE_OF_MAGIC);
+      expect(getEquipItemId(room, client.sessionId, 'earring')).toBe(APPRENTICE_EARRING);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-23
+  it('rejects equip of consumable Healing Potion 1060', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, { [HEALING_POTION]: 1 });
+
+      await deliver(room, client, [['equip', { itemId: HEALING_POTION }]]);
+
+      expect(getEquipItemId(room, client.sessionId, 'chest')).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, HEALING_POTION)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-24
+  it('unequip chest returns Wooden Breastplate to inventory and clears slot', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, { [WOODEN_BREASTPLATE]: 1 });
+
+      await deliver(room, client, [
+        ['equip', { itemId: WOODEN_BREASTPLATE }],
+        ['unequip', { slot: 'chest' }],
+      ]);
+
+      expect(getEquipItemId(room, client.sessionId, 'chest')).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, WOODEN_BREASTPLATE)).toBe(1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-31
+  it('armored player takes less mob damage than naked with same rng', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    const rng = zeroOffsetRng();
+    try {
+      const room = await createIsolatedTownRoom({
+        dbPath,
+        combatRng: rng,
+        nowMs: () => 1000,
+      });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, 20001)!;
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
+
+      const runtime = room['mobRuntime'].get(gremlin.id)!;
+      runtime.targetSessionId = client.sessionId;
+      runtime.nextAttackAtMs = 0;
+      const hpBeforeNaked = player.hp;
+      tick(room);
+      const nakedDamage = hpBeforeNaked - player.hp;
+
+      seedInventory(room, client.sessionId, { [WOODEN_BREASTPLATE]: 1 });
+      await deliver(room, client, [['equip', { itemId: WOODEN_BREASTPLATE }]]);
+      player.hp = 50_000;
+      runtime.nextAttackAtMs = 0;
+      const hpBeforeArmored = player.hp;
+      tick(room);
+      const armoredDamage = hpBeforeArmored - player.hp;
+
+      expect(nakedDamage).toBeGreaterThan(0);
+      expect(armoredDamage).toBeLessThan(nakedDamage);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-37, ITEM25-38, ITEM25-39
+  it('dwarf craft recipe 2 grants Broadsword and consumes ingredients plus 30 MP', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await joinWithClass(room, { classId: 53, sex: 0 });
+      const player = room.state.players.get(client.sessionId)!;
+      player.mp = 50;
+      seedInventory(room, client.sessionId, {
+        [RECIPE_BROADSWORD]: 1,
+        2005: 1,
+        1869: 18,
+        1870: 18,
+      });
+
+      await deliver(room, client, [['craft', { recipeId: 2 }]]);
+
+      expect(getPlayerItemCount(room, client.sessionId, BROADSWORD)).toBe(1);
+      expect(getPlayerItemCount(room, client.sessionId, RECIPE_BROADSWORD)).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, 2005)).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, 1869)).toBe(0);
+      expect(getPlayerItemCount(room, client.sessionId, 1870)).toBe(0);
+      expect(player.mp).toBe(20);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-43
+  it('enchant scroll 955 on D weapon at +0 becomes +1 and consumes scroll', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, {
+        [BASTARD_SWORD]: 1,
+        [ENCHANT_WEAPON_SCROLL_D]: 1,
+      });
+
+      await deliver(room, client, [
+        ['equip', { itemId: BASTARD_SWORD }],
+        ['enchant', { scrollItemId: ENCHANT_WEAPON_SCROLL_D, slot: 'rhand' }],
+      ]);
+
+      expect(getEquipEnchantLevel(room, client.sessionId, 'rhand')).toBe(1);
+      expect(getPlayerItemCount(room, client.sessionId, ENCHANT_WEAPON_SCROLL_D)).toBe(0);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-44
+  it('enchant scroll 956 on armor +2 becomes +3 with seeded rng', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      seedInventory(room, client.sessionId, {
+        [MITHRIL_BREASTPLATE]: 1,
+        [ENCHANT_ARMOR_SCROLL_D]: 3,
+      });
+
+      await deliver(room, client, [
+        ['equip', { itemId: MITHRIL_BREASTPLATE }],
+        ['enchant', { scrollItemId: ENCHANT_ARMOR_SCROLL_D, slot: 'chest' }],
+        ['enchant', { scrollItemId: ENCHANT_ARMOR_SCROLL_D, slot: 'chest' }],
+        ['enchant', { scrollItemId: ENCHANT_ARMOR_SCROLL_D, slot: 'chest' }],
+      ]);
+
+      expect(getEquipEnchantLevel(room, client.sessionId, 'chest')).toBe(3);
+      expect(getPlayerItemCount(room, client.sessionId, ENCHANT_ARMOR_SCROLL_D)).toBe(0);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  // ITEM25-51
+  it('mob kill drops armor shirt 21 to inventory with seeded rng', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await createIsolatedTownRoom({ dbPath, combatRng: alwaysWinDropRng() });
+      const client = await colyseus.connectTo(room);
+      expect(getPlayerItemCount(room, client.sessionId, KELTIR_SHIRT)).toBe(0);
+
+      await killMob(room, client, client.sessionId, ELDER_KELTIR);
+
+      expect(getPlayerItemCount(room, client.sessionId, KELTIR_SHIRT)).toBe(1);
       await leaveRoom(room, client);
     } finally {
       cleanup();
