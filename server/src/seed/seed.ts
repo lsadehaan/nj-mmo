@@ -15,6 +15,8 @@ import {
   questObjectives,
   questRewards,
   quests,
+  warehouseItems,
+  teleportDestinations,
 } from '../db/schema';
 import { seedClassTemplates } from './seeders/class-templates.seeder';
 import { seedMonsters } from './seeders/monsters.seeder';
@@ -28,6 +30,7 @@ import { seedMerchantItems } from './seeders/merchant-items.seeder';
 import { seedNpcSpawns } from './seeders/npc-spawns.seeder';
 import { seedItems } from './seeders/items.seeder';
 import { seedQuests } from './seeders/quests.seeder';
+import { seedTeleportDestinations } from './seeders/teleport-destinations.seeder';
 import { FIXTURE_DATA_DIR, resolveDataDir } from './paths';
 
 export interface SeedOptions {
@@ -48,6 +51,7 @@ export interface SeedReport {
   merchantItems: number;
   npcSpawns: number;
   quests: number;
+  teleportDestinations: number;
 }
 
 export function runSeed(options: SeedOptions): SeedReport {
@@ -65,6 +69,8 @@ export function runSeed(options: SeedOptions): SeedReport {
     tx.delete(mobDrops).run();
     tx.delete(merchantItems).run();
     tx.delete(npcSpawns).run();
+    tx.delete(warehouseItems).run();
+    tx.delete(teleportDestinations).run();
     tx.delete(experience).run();
     tx.delete(skills).run();
     tx.delete(npcs).run();
@@ -84,6 +90,7 @@ export function runSeed(options: SeedOptions): SeedReport {
       experience: seedExperience(tx as unknown as AppDatabase, dataDir),
       items: seedItems(tx as unknown as AppDatabase, dataDir),
       quests: seedQuests(tx as unknown as AppDatabase, dataDir),
+      teleportDestinations: seedTeleportDestinations(tx as unknown as AppDatabase),
     };
 
     return report;
