@@ -41,6 +41,8 @@ export class PlayerState extends Schema {
   @type('number') actionSeq = 0;
   @type({ map: ItemStackState }) items = new MapSchema<ItemStackState>();
   @type([QuestEntryState]) questEntries = new ArraySchema<QuestEntryState>();
+  @type(['number']) warehouseItemIds = new ArraySchema<number>();
+  @type(['number']) warehouseItemCounts = new ArraySchema<number>();
 }
 
 export class TownState extends Schema {
