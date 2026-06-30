@@ -61,6 +61,11 @@ export interface GameStatePlayer {
   healingPotionCooldownEndMs: number;
   healingPotionCooldownRemainingMs: number;
   action: AnimationClip;
+  sp: number;
+  karma: number;
+  pvpFlag: number;
+  expBeforeDeath: number;
+  unspentStatPoints: number;
 }
 
 /** Server snapshot input — remaining cooldowns are derived client-side. */
@@ -84,6 +89,11 @@ export type GameStatePlayerInput = Omit<
   | 'castingSkillId'
   | 'castEndMs'
   | 'effects'
+  | 'sp'
+  | 'karma'
+  | 'pvpFlag'
+  | 'expBeforeDeath'
+  | 'unspentStatPoints'
 > & {
   action?: AnimationClip;
   healingPotionCooldownEndMs?: number;
@@ -101,6 +111,11 @@ export type GameStatePlayerInput = Omit<
   castingSkillId?: number;
   castEndMs?: number;
   effects?: string[];
+  sp?: number;
+  karma?: number;
+  pvpFlag?: number;
+  expBeforeDeath?: number;
+  unspentStatPoints?: number;
 };
 
 export interface GameStateMob {
@@ -243,13 +258,16 @@ declare global {
     __partyLeave__?: () => void;
     __tradeConfirm__?: () => void;
     __friendAdd__?: (targetSessionId: string) => void;
+    __togglePvp__?: () => void;
+    __allocateStat__?: (stat: string) => void;
+    __resetStats__?: () => void;
   }
 }
 
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, classId: 0, sex: 0, str: 40, dex: 30, con: 43, int: 21, wit: 11, men: 25, avatarModel: '/models/characters/Knight.glb', knownSkillIds: [], skillCooldownEndMs: [], castingSkillId: 0, castEndMs: 0, effects: [], powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle' },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, classId: 0, sex: 0, str: 40, dex: 30, con: 43, int: 21, wit: 11, men: 25, avatarModel: '/models/characters/Knight.glb', knownSkillIds: [], skillCooldownEndMs: [], castingSkillId: 0, castEndMs: 0, effects: [], powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle', sp: 0, karma: 0, pvpFlag: 0, expBeforeDeath: 0, unspentStatPoints: 0 },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -420,6 +438,13 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
   );
   if (player.action !== undefined) {
     state.player.action = player.action;
+  }
+  if (player.sp !== undefined) state.player.sp = player.sp;
+  if (player.karma !== undefined) state.player.karma = player.karma;
+  if (player.pvpFlag !== undefined) state.player.pvpFlag = player.pvpFlag;
+  if (player.expBeforeDeath !== undefined) state.player.expBeforeDeath = player.expBeforeDeath;
+  if (player.unspentStatPoints !== undefined) {
+    state.player.unspentStatPoints = player.unspentStatPoints;
   }
   if (typeof document !== 'undefined') {
     updatePowerStrikeCooldown(player.powerStrikeCooldownEndMs, nowMs);

@@ -136,6 +136,11 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     pDef?: number;
     powerStrikeCooldownEndMs: number;
     healingPotionCooldownEndMs: number;
+    sp?: number;
+    karma?: number;
+    pvpFlag?: number;
+    expBeforeDeath?: number;
+    unspentStatPoints?: number;
     knownSkillIds?: { length: number; [index: number]: number };
     skillCooldownEndMs?: { length: number; [index: number]: number };
     castingSkillId?: number;
@@ -455,6 +460,11 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       effects: effectsFromBuffSkillId(activeBuffSkillId),
       powerStrikeCooldownEndMs: player.powerStrikeCooldownEndMs,
       healingPotionCooldownEndMs: player.healingPotionCooldownEndMs ?? 0,
+      sp: player.sp ?? 0,
+      karma: player.karma ?? 0,
+      pvpFlag: player.pvpFlag ?? 0,
+      expBeforeDeath: player.expBeforeDeath ?? 0,
+      unspentStatPoints: player.unspentStatPoints ?? 0,
       action: game.getCurrentAnimationClip(),
     });
     refreshHotbarDom(player);
@@ -619,6 +629,15 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   window.__learnSkill__ = (skillId) => {
     room.send('learnSkill', { skillId });
   };
+  window.__togglePvp__ = () => {
+    room.send('togglePvp', {});
+  };
+  window.__allocateStat__ = (stat: string) => {
+    room.send('allocateStat', { stat });
+  };
+  window.__resetStats__ = () => {
+    room.send('resetStats', {});
+  };
 
   window.__openInventory__ = () => {
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
@@ -761,6 +780,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
           handlers: {
             sendNpcAction: (payload) => room.send('npcAction', payload),
             sendLearnSkill: (payload) => room.send('learnSkill', payload),
+            sendResetStats: () => room.send('resetStats', {}),
             sendTeleport: (payload) => room.send('teleport', { npcId, destinationId: payload.destinationId }),
             sendClassTransfer: (payload) =>
               room.send('classTransfer', { npcId, targetClassId: payload.targetClassId }),
