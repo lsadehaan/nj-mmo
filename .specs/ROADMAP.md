@@ -704,7 +704,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 23 — Full Talking Island world & zones `[ ]`
+## Phase 23 — Full Talking Island world & zones `[x]`
 
 > Done when: the playable area covers TI Village, eastern fields, Elven Ruins,
 > Obelisk, Harbor, and Cave of Souls / Maze — named zones (peace/combat/water)

@@ -151,10 +151,16 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 23.**
+**Loop status: RUNNING — next unchecked phase: Phase 24.**
 
-**Next step:** **Phase 23 — Full Talking Island world & zones** (`.specs/ROADMAP.md`). Planner
-sub-agent writes `.specs/features/phase-23-ti-world/`.
+**Next step:** **Phase 24 — Town services & full NPC roster** (`.specs/ROADMAP.md`). Planner
+sub-agent writes `.specs/features/phase-24-town-services/`.
+
+**Phase 23 — Full Talking Island world & zones: COMPLETE (Verifier PASS, 2026-06-29).**
+`.specs/features/phase-23-ti-world/validation.md` records PASS: 50/50 ACs (TIW23-38 indirect only),
+sensor 3/3 killed, gate 790 tests + visual 50/50. 640m world, 6 named zones, L2J territory
+spawns (613 rows), landmark GLBs, `zoneId` replication + `__GAME_STATE__.zone`. Branch
+`feat/phase-23-ti-world` merged at `5ffc550`. ROADMAP Phase 23 flipped to `[x]`.
 
 **Phase 22 — Complete TI bestiary: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
 `.specs/features/phase-22-ti-bestiary/validation.md` records PASS: 55/55 ACs (4 non-blocking
