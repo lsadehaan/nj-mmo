@@ -322,7 +322,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     this.onMessage('attack', (client) => {
       const combat = this.playerCombat.get(client.sessionId);
-      if (!combat || !combat.targetMobId) return;
+      if (!combat || (!combat.targetMobId && !combat.targetPlayerSessionId)) return;
       combat.attackPending = true;
     });
 
@@ -1936,10 +1936,9 @@ export class TownRoom extends Room<{ state: TownState }> {
     stored.expBeforeDeath = penalty.expBeforeDeath;
 
     let newLevel = levelFromCumulativeXp(penalty.newXp, this.experienceCurve);
-    if (newLevel < 10) {
-      newLevel = 10;
-      player.xp = xpForLevel(10, this.experienceCurve);
-      stored.xp = player.xp;
+    const delevelMin = 10;
+    if (prevLevel >= delevelMin && newLevel < delevelMin) {
+      newLevel = delevelMin;
     }
     player.level = newLevel;
     stored.level = newLevel;
