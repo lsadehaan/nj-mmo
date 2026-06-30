@@ -782,7 +782,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 26 — Social & multiplayer systems `[ ]`
+## Phase 26 — Social & multiplayer systems `[x]`
 
 > Done when: chat (all/local/trade/party), party invite + shared XP/loot rules,
 > player trade window, friend list; room tests for two-session party + trade.

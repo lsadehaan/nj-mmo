@@ -118,9 +118,17 @@ describe('TI NPC spawn placement', () => {
     }
   });
 
-  it('every NPC is in ti_village peace (TIW23-33)', () => {
+  it('every NPC is in ti_village peace (TOWN24-07)', () => {
     for (const { npcId, x, z } of npcSpawns) {
+      expect(getZoneAt(x, z).zoneId, `npc ${npcId}`).toBe('ti_village');
       expect(getZoneAt(x, z).type, `npc ${npcId}`).toBe('peace');
+    }
+  });
+
+  it('every NPC spawn is on walkable terrain (TOWN24-08)', () => {
+    for (const { npcId, x, z } of npcSpawns) {
+      const pos = { x, z };
+      expect(isWalkable(pos, pos), `npcId ${npcId} at (${x}, ${z})`).toBe(true);
     }
   });
 

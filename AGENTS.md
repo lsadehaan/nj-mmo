@@ -9,8 +9,7 @@ Lineage 2 — a Talking Island vertical slice. Authoritative Colyseus server,
 Three.js client, Nx monorepo (`server/` + `client/`), SQLite first.
 
 L2J_Mobius **Classic** (`~/Dev/L2J_Mobius/L2J_Mobius_Classic_1.0`) is a
-**reference only**: parse its open-source XML data to seed our own DB, and
-translate combat _rules_ from its `.java` into TypeScript. Never a dependency, never the real L2 protocol.
+**reference only**: parse its open-source XML data to seed our own DB, and translate combat and game mechanics _rules_ from its `.java` into TypeScript, don't reinvent the wheel, copy and adapt. Never a dependency, never the real L2 protocol.
 
 ## How we work
 
@@ -39,19 +38,19 @@ versions live with each project; this is the contract.
 - **Seed/data** — the L2J XML → SQLite seed produced the expected Classic
   values (mobs, NPCs, skill, XP curve).
 
-4. **WebGL is not directly testable in Vitest.** Assert HUD/DOM in client unit
+1. **WebGL is not directly testable in Vitest.** Assert HUD/DOM in client unit
    tests, and assert logical game state through `window.__GAME_STATE__` and
    `wireRoom` tests. Do not anchor correctness on pixel screenshots in the test
    gate.
-5. **Determinism.** Anything random (drop chance, damage variance) runs through
+2. **Determinism.** Anything random (drop chance, damage variance) runs through
    an **injected seeded RNG** so tests and the Verifier's fault-injection are
    reliable.
-6. **Independent verification.** After implementation, a fresh Verifier
+3. **Independent verification.** After implementation, a fresh Verifier
    (author ≠ verifier) re-checks against the spec and injects behavior-level
    faults to confirm the tests actually catch regressions.
-7. **Run only what changed.** Use `nx affected` and Nx caching so the gate is
+4. **Run only what changed.** Use `nx affected` and Nx caching so the gate is
    fast every time; never disable the cache to force a pass.
-8. **Tests are the source of confidence — keep them HIGH QUALITY and FAST.**
+5. **Tests are the source of confidence — keep them HIGH QUALITY and FAST.**
    The test suite is what lets agents (and humans) trust a change without
    re-reading everything. Treat tests as first-class code: clear, deterministic,
    isolated, and quick. **Fast feedback is a hard requirement, not a

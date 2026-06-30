@@ -86,6 +86,60 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: CONS-25 (spec/client)
 - last seen: 2026-06-29T02:39:49Z
 
+### L-015 — Room-integration tests must reject useSkill when the skill is not in knownSkillIds so learned-skill gates cannot regress silently
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `server/room-integration` · harmful: 0
+- features: phase-20-skills-combat
+- evidence: combat-resolver.ts:120 | sensor mut4 (server/room-integration)
+- last seen: 2026-06-29T22:07:24Z
+
+### L-016 — When tasks.md maps a block of room ACs to one task, verify each AC has its own named test before Done — helper shortcuts do not satisfy evidence-or-zero.
+- signal: `ac_gap` · recurrence: 1 feature(s) · harmful: 0
+- features: phase-21-quests
+- evidence: QUEST21-15,19,20,22,28,30,33-35,37
+- last seen: 2026-06-29T22:39:42Z
+
+### L-017 — When deferring spawn mechanics (e.g. Nerkas), document SPEC_DEVIATION and still assert the player-visible turn-in outcome, not only the pure kill hook.
+- signal: `spec_deviation` · recurrence: 1 feature(s) · harmful: 0
+- features: phase-21-quests
+- evidence: QUEST21-36 / quest-handlers.ts
+- last seen: 2026-06-29T22:39:42Z
+
+### L-018 — Room-integration quest tests that share one Colyseus boot must not rely on prior test side effects; isolate state per case or split the block so nx/vitest file workers cannot race interact delivery.
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `server/room-tests` · harmful: 0
+- features: phase-21-quests
+- evidence: TownRoom.spec.ts TownRoom quests block — quest 155/157 flake in full suite (server/room-tests)
+- last seen: 2026-06-29T23:03:31Z
+
+### L-019 — When vendoring new GLB assets, update the pack LICENSE.txt in the same commit as the binary — AD-004 requires source attribution before the phase gate passes.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `assets` · harmful: 0
+- features: phase-22-ti-bestiary
+- evidence: BEST22-41 — client/public/models/monsters/LICENSE.txt (assets)
+- last seen: 2026-06-29T23:34:46Z
+
+### L-020 — Seed test anchors must match the fixture XML values actually ingested — if the planner table diverges from L2J fixture, update the spec table before Execute, not at verify time.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `seed` · harmful: 0
+- features: phase-22-ti-bestiary
+- evidence: BEST22-09/12/13 — monsters.seeder.spec.ts vs spec.md anchor table (seed)
+- last seen: 2026-06-29T23:34:50Z
+
+### L-021 — Town-service ACs need explicit tests per NPC id and __GAME_STATE__ renderKind — generic trainer-range tests do not satisfy evidence-or-zero.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `validation` · harmful: 0
+- features: phase-24-town-services
+- evidence: validation.md (validation)
+- last seen: 2026-06-30T01:43:26Z
+
+### L-022 — When spec ACs declare test layer room, add TownRoom.spec.ts blocks — pure/unit tests do not satisfy evidence-or-zero even if handlers exist.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `server/src/rooms/TownRoom.spec.ts` · harmful: 0
+- features: phase-25-items-economy
+- evidence: ITEM25-19..24,31,37-39,43-44,51 (server/src/rooms/TownRoom.spec.ts)
+- last seen: 2026-06-30T04:07:42Z
+
+### L-023 — Silvia buylist L2J Classic 3000301.xml has 13 rows not 18/15 — update spec AC or fixture before weakening assertion to >=13.
+- signal: `spec_deviation` · recurrence: 1 feature(s) · scope: `seed` · harmful: 0
+- features: phase-25-items-economy
+- evidence: ITEM25-13:merchant-items.seeder.spec.ts:50 (seed)
+- last seen: 2026-06-30T04:07:43Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

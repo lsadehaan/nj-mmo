@@ -151,7 +151,10 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 26.**
+**Loop status: RUNNING — next unchecked phase: Phase 27.**
+
+**Phase 26 — Social & multiplayer systems: COMPLETE (Verifier PASS, fix iteration 2, 2026-06-29).**
+42/42 ACs, gate 992 tests, party +28 XP + trade + friends. Merged `feat/phase-26-social`.
 
 **Phase 25 — Items, economy & crafting: COMPLETE (Verifier PASS, fix iteration 2, 2026-06-29).**
 52/52 ACs (ITEM25-13 Silvia 13-row SPEC_DEVIATION), sensor 3/3, gate green.

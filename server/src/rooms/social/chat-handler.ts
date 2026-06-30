@@ -55,12 +55,18 @@ export function handleChat(
     case 'trade':
       deps.broadcastAll(payload);
       break;
-    case 'party':
+    case 'party': {
       if (player.partyId === 0) return;
-      for (const memberId of deps.getPartyMemberSessionIds(player.partyId)) {
+      const senderPartyId = player.partyId;
+      const targets = new Set(deps.getPartyMemberSessionIds(senderPartyId));
+      deps.forEachPlayer((memberId, member) => {
+        if (member.partyId === senderPartyId) targets.add(memberId);
+      });
+      for (const memberId of targets) {
         deps.sendTo(memberId, payload);
       }
       break;
+    }
     case 'local':
       deps.sendTo(sessionId, payload);
       deps.forEachPlayer((otherId, other) => {
