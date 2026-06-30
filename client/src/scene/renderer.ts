@@ -40,6 +40,7 @@ import { createPlayerAvatar } from './player-avatar';
 import type { AnimationClip } from '@nj/game-core';
 import { EntityAction } from '@nj/game-core';
 import { buildEnvironmentScene } from './environment-renderer';
+import type { AudioManager } from '../audio/audio-manager';
 
 const WORLD_SEED = TERRAIN_CONFIG.seed;
 const TERRAIN_OPTS = TERRAIN_CONFIG;
@@ -128,6 +129,7 @@ export interface GameRenderer {
     actionSeq: number;
   }) => void;
   setAfterTick: (handler: (() => void) | null) => void;
+  setAudioManager: (manager: AudioManager | null) => void;
   dispose: () => void;
 }
 
@@ -183,6 +185,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     scene.add(playerAvatar.group);
   };
   const vfxManager: VfxManager = createVfxManager(scene);
+  let audioManager: AudioManager | null = null;
 
   const localPosition = { x: 0, y: terrainData.sampleHeight(0, 0) + 1, z: 0 };
   let currentAnimationClip: AnimationClip = 'idle';
@@ -266,6 +269,10 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     afterTickHandler = handler;
   };
 
+  const setAudioManager = (manager: AudioManager | null): void => {
+    audioManager = manager;
+  };
+
 
   const syncPlayerVfx = (snapshot: {
     hp: number;
@@ -333,6 +340,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
       ])
     );
     vfxManager.setTargetMobId(mobId, snapshots);
+    audioManager?.syncCombat(mobId);
     vfxManager.publishHook(getGameState().vfx);
   };
 
@@ -512,6 +520,9 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     tickNpcVisuals(npcInstances, dt, nowMs);
     vfxManager.tick(nowMs);
     vfxManager.publishHook(getGameState().vfx);
+    const { zone } = getGameState();
+    audioManager?.tickFootsteps({ x: player.x, z: player.z, zoneType: zone.type }, nowMs);
+    audioManager?.publishHook();
     afterTickHandler?.();
   };
 
@@ -574,6 +585,8 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
 
   const dispose = (): void => {
     clearPathPreview();
+    audioManager?.dispose();
+    audioManager = null;
     vfxManager.dispose();
     renderer.dispose();
   };
@@ -606,6 +619,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     syncPlayerVfx,
     syncMobVfx,
     setAfterTick,
+    setAudioManager,
     dispose,
   };
 }

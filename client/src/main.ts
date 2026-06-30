@@ -42,11 +42,16 @@ import {
   bindGlobalHotkeys,
   openPanel,
   publishUiState,
+  setUiAudioHooks,
 } from './ui/window-manager';
+import { createAudioManager, type AudioManager } from './audio/audio-manager';
+import { createDomAudioBackend } from './audio/audio-backend';
+import { loadAudioSettings, type AudioSettings } from './audio/audio-settings';
 
 let gameUiMounted = false;
+let activeAudioManager: AudioManager | null = null;
 
-function mountGameUi(): void {
+function mountGameUi(audioSettings: AudioSettings): void {
   if (gameUiMounted) return;
   gameUiMounted = true;
 
@@ -82,6 +87,9 @@ function mountGameUi(): void {
     onQuestLog: () => openPanel('quest-log'),
     onWorldMap: () => openPanel('world-map'),
     onLogout: () => void handleLogout(),
+    initialAudioSettings: audioSettings,
+    onAudioSettingsChange: (settings) => activeAudioManager?.applySettings(settings),
+    onUiClick: () => activeAudioManager?.playUiClick(),
   });
   bindGlobalHotkeys();
   publishUiState();
@@ -95,6 +103,9 @@ function mountGameUi(): void {
 
 async function handleLogout(): Promise<void> {
   await window.__consentLeave__?.();
+  activeRenderer?.dispose();
+  activeRenderer = null;
+  activeAudioManager = null;
   gameUiMounted = false;
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;
   if (canvas) canvas.hidden = true;
@@ -161,11 +172,21 @@ async function finishWorldEntry(room: NonNullable<Awaited<ReturnType<typeof conn
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;
   if (!canvas) throw new Error('Canvas #game not found');
   const game = await createRenderer(canvas);
+  const audioSettings = loadAudioSettings();
+  activeAudioManager = createAudioManager({
+    backend: createDomAudioBackend(),
+    settings: audioSettings,
+  });
+  game.setAudioManager(activeAudioManager);
+  setUiAudioHooks({
+    onOpen: () => activeAudioManager?.playUiOpen(),
+    onClose: () => activeAudioManager?.playUiClose(),
+  });
   activeRenderer = game;
   startRenderLoop(game);
-  mountGameUi();
+  mountGameUi(audioSettings);
   wireCombatControls(room, game);
-  wireRoom(room, game);
+  wireRoom(room, game, { audioManager: activeAudioManager });
   window.__consentLeave__ = async () => {
     await room.leave(true);
   };

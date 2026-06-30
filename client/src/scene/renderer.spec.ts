@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as THREE from 'three';
 import { initGameState } from '../test-hook';
+import { createMockAudioBackend } from '../audio/audio-backend';
+import { createAudioManager } from '../audio/audio-manager';
 
-const { mockVfxTick, mockVfxPublishHook } = vi.hoisted(() => ({
+const { mockVfxTick, mockVfxPublishHook, mockTickFootsteps } = vi.hoisted(() => ({
   mockVfxTick: vi.fn(),
   mockVfxPublishHook: vi.fn(),
+  mockTickFootsteps: vi.fn(),
 }));
 
 vi.mock('three', async (importOriginal) => {
@@ -87,5 +90,19 @@ describe('renderer', () => {
     expect(mockVfxTick).toHaveBeenCalledTimes(1);
     expect(typeof mockVfxTick.mock.calls[0]?.[0]).toBe('number');
     expect(mockVfxPublishHook).toHaveBeenCalledTimes(1);
+  });
+
+  it('AUD29-45: tickFootsteps invoked when audio manager attached', async () => {
+    const canvas = document.createElement('canvas');
+    const game = await createRenderer(canvas);
+    const mock = createMockAudioBackend();
+    const mgr = createAudioManager({ backend: mock.backend });
+    const tickSpy = vi.spyOn(mgr, 'tickFootsteps');
+    game.setAudioManager(mgr);
+
+    game.tick(0.016);
+
+    expect(tickSpy).toHaveBeenCalledTimes(1);
+    expect(tickSpy.mock.calls[0]?.[0]).toMatchObject({ x: expect.any(Number), z: expect.any(Number) });
   });
 });
