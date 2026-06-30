@@ -171,6 +171,7 @@ export interface GameState {
   environment: GameStateEnvironment;
   zone: GameStateZone;
   quests: GameStateQuests;
+  warehouse: Record<number, number>;
 }
 
 declare global {
@@ -186,7 +187,11 @@ declare global {
     __interact__?: (npcId: number) => void;
     __buyItem__?: (npcId: number, itemId: number, quantity?: number) => void;
     __sellItem__?: (npcId: number, itemId: number, quantity?: number) => void;
-    __npcAction__?: (npcId: number, action: 'heal' | 'starterKit') => void;
+    __npcAction__?: (npcId: number, action: 'heal' | 'starterKit' | 'resurrect' | 'bless') => void;
+    __warehouseDeposit__?: (npcId: number, itemId: number, quantity: number) => void;
+    __warehouseWithdraw__?: (npcId: number, itemId: number, quantity: number) => void;
+    __teleport__?: (npcId: number, destinationId: string) => void;
+    __classTransfer__?: (npcId: number, targetClassId: number) => void;
     __equipItem__?: (itemId: number) => void;
     __useItem__?: (itemId: number) => void;
     __openInventory__?: () => void;
@@ -231,6 +236,7 @@ const initialState: GameState = {
   },
   zone: { id: '', type: 'unknown', displayName: '' },
   quests: { active: [], completed: [], defs: {} },
+  warehouse: {},
 };
 
 export function initGameState(): GameState {
@@ -268,6 +274,7 @@ export function initGameState(): GameState {
     },
     zone: { id: '', type: 'unknown', displayName: '' },
     quests: { active: [], completed: [], defs: buildQuestDefs() },
+    warehouse: {},
   };
   return window.__GAME_STATE__;
 }
@@ -408,6 +415,10 @@ export function setAdena(adena: number): void {
 
 export function setItems(items: Record<number, number>): void {
   getGameState().items = { ...items };
+}
+
+export function setWarehouse(warehouse: Record<number, number>): void {
+  getGameState().warehouse = { ...warehouse };
 }
 
 export function setNpcs(npcs: GameStateNpc[]): void {

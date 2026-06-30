@@ -1,7 +1,7 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { EntityAction } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone } from '../test-hook';
 import { getZoneAt } from '@nj/game-core';
 import type { GameRenderer } from '../scene/renderer';
 import {
@@ -16,7 +16,18 @@ import {
   setInventoryVisible,
   isInventoryVisible,
 } from '../ui/inventory-window';
-import { mountNpcDialog, renderNpcDialog, setNpcDialogVisible } from '../ui/npc-dialog';
+import {
+  mountNpcDialog,
+  renderNpcDialog,
+  setNpcDialogVisible,
+  ROXXY_TELEPORT_DESTINATIONS,
+  FIGHTER_CLASS_TRANSFER_OPTIONS,
+  MYSTIC_CLASS_TRANSFER_OPTIONS,
+  BITZ_NPC_ID,
+  BIOTIN_NPC_ID,
+  WILFORD_NPC_ID,
+} from '../ui/npc-dialog';
+import { renderWarehouseWindow } from '../ui/warehouse-window';
 import { mountQuestLog, renderQuestLog, isQuestLogVisible, setQuestLogVisible, entriesFromQuestState } from '../ui/quest-log';
 import { getLearnableSkillIds } from '../ui/trainer-skills';
 import { renderHotbar } from '../ui/hotbar';
@@ -125,6 +136,8 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     action?: number;
     actionSeq?: number;
     zoneId?: string;
+    warehouseItemIds?: { length: number; [index: number]: number };
+    warehouseItemCounts?: { length: number; [index: number]: number };
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
     questEntries?: {
       length: number;
@@ -398,6 +411,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     localItemCounts = readItemCounts(player);
     setAdena(player.adena ?? 0);
     setItems(localItemCounts);
+    const warehouseCounts: Record<number, number> = {};
+    const whIds = readNumberArray(player.warehouseItemIds);
+    const whCounts = readNumberArray(player.warehouseItemCounts);
+    for (let i = 0; i < whIds.length; i++) {
+      warehouseCounts[whIds[i]!] = whCounts[i] ?? 0;
+    }
+    setWarehouse(warehouseCounts);
     refreshShopDom(player);
     refreshInventoryDom(player);
     const zoneHit = getZoneAt(player.x, player.z);
@@ -625,6 +645,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         const knownSkillIds = local
           ? readNumberArray(local.knownSkillIds)
           : hookPlayer.knownSkillIds;
+        const level = local?.level ?? hookPlayer.level;
+        const classTransferOptions =
+          variant === 'trainer' && classId === 0 && level >= 20
+            ? FIGHTER_CLASS_TRANSFER_OPTIONS
+            : variant === 'priest' && classId === 10 && level >= 20
+              ? MYSTIC_CLASS_TRANSFER_OPTIONS
+              : undefined;
         renderNpcDialog({
           npcId,
           name,
@@ -634,9 +661,39 @@ export function wireRoom(room: Room, game: GameRenderer): void {
             variant === 'trainer' || variant === 'folkTrainer'
               ? getLearnableSkillIds(npcId, classId, knownSkillIds)
               : undefined,
+          teleportDestinations:
+            variant === 'gatekeeper' ? ROXXY_TELEPORT_DESTINATIONS : undefined,
+          classTransferOptions,
           handlers: {
             sendNpcAction: (payload) => room.send('npcAction', payload),
             sendLearnSkill: (payload) => room.send('learnSkill', payload),
+            sendTeleport: (payload) => room.send('teleport', { npcId, destinationId: payload.destinationId }),
+            sendClassTransfer: (payload) =>
+              room.send('classTransfer', { npcId, targetClassId: payload.targetClassId }),
+            openWarehouse: () => {
+              if (npcId !== WILFORD_NPC_ID) return;
+              setNpcDialogVisible(false);
+              const inv = Object.entries(localItemCounts).map(([itemId, count]) => ({
+                itemId: Number(itemId),
+                count,
+              }));
+              const wh = Object.entries(getGameState().warehouse).map(([itemId, count]) => ({
+                itemId: Number(itemId),
+                count,
+              }));
+              renderWarehouseWindow({
+                npcId,
+                inventory: inv,
+                warehouse: wh,
+                visible: true,
+                handlers: {
+                  sendDeposit: ({ itemId, quantity }) =>
+                    room.send('warehouseDeposit', { npcId, itemId, quantity }),
+                  sendWithdraw: ({ itemId, quantity }) =>
+                    room.send('warehouseWithdraw', { npcId, itemId, quantity }),
+                },
+              });
+            },
           },
         });
         fireNpcGreet(npcId);
