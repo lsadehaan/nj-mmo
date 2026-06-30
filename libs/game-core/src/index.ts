@@ -1,6 +1,7 @@
 export * from './class/stat-bonus';
 export * from './class/class-combat';
 export * from './class/class-vitals';
+export * from './class/class-transfer';
 export * from './l2-coords';
 export * from './ti-zones';
 export * from './movement-system';
@@ -27,6 +28,8 @@ export * from './level-up-reward';
 export * from './player-death';
 export * from './drop-roll';
 export * from './peace-zone';
+export * from './npc/npc-interact';
+export * from './warehouse/warehouse-transaction';
 export * from './consumable/healing-potion';
 export * from './animation/entity-action';
 export * from './animation/animation-state';
