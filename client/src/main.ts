@@ -9,6 +9,10 @@ import { mountInventoryWindow } from './ui/inventory-window';
 import { mountNpcDialog } from './ui/npc-dialog';
 import { mountInteractPrompt } from './npc-interaction';
 import { mountCharacterCreation } from './ui/character-creation';
+import { mountChatPanel } from './ui/chat-panel';
+import { mountPartyPanel } from './ui/party-panel';
+import { mountTradeWindow } from './ui/trade-window';
+import { mountFriendsPanel } from './ui/friends-panel';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 import { renderHotbar } from './ui/hotbar';
 import { updateCastBar } from './ui/cast-bar';
@@ -22,6 +26,10 @@ async function boot(): Promise<void> {
   mountInventoryWindow();
   mountNpcDialog();
   mountInteractPrompt();
+  mountChatPanel();
+  mountPartyPanel();
+  mountTradeWindow();
+  mountFriendsPanel();
 
   const startSkillUiLoop = (): (() => void) => {
     const tick = (): void => {
