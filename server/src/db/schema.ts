@@ -189,6 +189,33 @@ export const characterItems = sqliteTable(
   })
 );
 
+export const warehouseItems = sqliteTable(
+  'warehouse_items',
+  {
+    characterId: text('character_id').notNull(),
+    itemId: integer('item_id').notNull(),
+    count: integer('count').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.characterId, table.itemId] }),
+  })
+);
+
+export const teleportDestinations = sqliteTable(
+  'teleport_destinations',
+  {
+    npcId: integer('npc_id').notNull(),
+    destinationId: text('destination_id').notNull(),
+    displayName: text('display_name').notNull(),
+    localX: real('local_x').notNull(),
+    localZ: real('local_z').notNull(),
+    feeAdena: integer('fee_adena').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.npcId, table.destinationId] }),
+  })
+);
+
 export const classTemplates = sqliteTable('class_templates', {
   classId: integer('class_id').primaryKey(),
   name: text('name').notNull(),
@@ -278,6 +305,10 @@ export type ClassLevelVital = typeof classLevelVitals.$inferSelect;
 export type NewClassLevelVital = typeof classLevelVitals.$inferInsert;
 export type CharacterItem = typeof characterItems.$inferSelect;
 export type NewCharacterItem = typeof characterItems.$inferInsert;
+export type WarehouseItem = typeof warehouseItems.$inferSelect;
+export type NewWarehouseItem = typeof warehouseItems.$inferInsert;
+export type TeleportDestination = typeof teleportDestinations.$inferSelect;
+export type NewTeleportDestination = typeof teleportDestinations.$inferInsert;
 export type Character = typeof characters.$inferSelect;
 export type NewCharacter = typeof characters.$inferInsert;
 
@@ -296,6 +327,8 @@ export const schema = {
   merchantItems,
   npcSpawns,
   characterItems,
+  warehouseItems,
+  teleportDestinations,
   characters,
   quests,
   questObjectives,

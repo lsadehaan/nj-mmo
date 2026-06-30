@@ -214,6 +214,27 @@ function applySchema(sqlite: Database.Database): void {
   migrateClassTables(sqlite);
   migrateClassTemplateColumns(sqlite);
   migrateItemsColumns(sqlite);
+  migrateTownServiceTables(sqlite);
+}
+
+function migrateTownServiceTables(sqlite: Database.Database): void {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS warehouse_items (
+      character_id TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      count INTEGER NOT NULL,
+      PRIMARY KEY (character_id, item_id)
+    );
+    CREATE TABLE IF NOT EXISTS teleport_destinations (
+      npc_id INTEGER NOT NULL,
+      destination_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      local_x REAL NOT NULL,
+      local_z REAL NOT NULL,
+      fee_adena INTEGER NOT NULL,
+      PRIMARY KEY (npc_id, destination_id)
+    );
+  `);
 }
 
 function migrateClassTables(sqlite: Database.Database): void {
