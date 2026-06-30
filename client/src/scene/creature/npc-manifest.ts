@@ -216,6 +216,13 @@ const NPC_MANIFEST: Record<number, NpcEntry> = {
     feetOffsetY: 0.75,
     displayName: 'Hanks',
   },
+  30298: {
+    model: '/models/npcs/Jackson.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.88,
+    feetOffsetY: 0.75,
+    displayName: 'Pinter',
+  },
 };
 
 export function getNpcEntry(npcId: number): NpcEntry | null {
@@ -225,7 +232,7 @@ export function getNpcEntry(npcId: number): NpcEntry | null {
 export const TI_NPC_MANIFEST_IDS = [
   30001, 30002, 30003, 30004, 30005, 30006, 30026, 30027, 30028, 30029, 30030,
   30031, 30032, 30033, 30034, 30035, 30036, 30039, 30040, 30041, 30042, 30043,
-  30044, 30045, 30046,
+  30044, 30045, 30046, 30298,
 ] as const;
 
 /** Folk trainers that expose learnSkill (excludes Biotin 30031). */

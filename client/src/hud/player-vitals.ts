@@ -6,6 +6,7 @@ export interface PlayerVitalsHudState {
   maxHp: number;
   mp: number;
   maxMp: number;
+  pDef?: number;
 }
 
 export function mountPlayerVitalsHud(): HTMLElement {
@@ -40,6 +41,10 @@ export function mountPlayerVitalsHud(): HTMLElement {
   mpEl.dataset['role'] = 'mp';
   hud.appendChild(mpEl);
 
+  const pDefEl = document.createElement('div');
+  pDefEl.dataset['role'] = 'pdef';
+  hud.appendChild(pDefEl);
+
   document.body.appendChild(hud);
   updatePlayerVitalsHud({ level: 1, hp: 0, maxHp: 0, mp: 0, maxMp: 0 });
   return hud;
@@ -50,8 +55,12 @@ export function updatePlayerVitalsHud(state: PlayerVitalsHudState): void {
   const levelEl = hud.querySelector('[data-role="level"]');
   const hpEl = hud.querySelector('[data-role="hp"]');
   const mpEl = hud.querySelector('[data-role="mp"]');
+  const pDefEl = hud.querySelector('[data-role="pdef"]');
 
   if (levelEl) levelEl.textContent = `Lv.${state.level}`;
   if (hpEl) hpEl.textContent = `HP ${state.hp}/${state.maxHp}`;
   if (mpEl) mpEl.textContent = `MP ${state.mp}/${state.maxMp}`;
+  if (pDefEl) {
+    pDefEl.textContent = state.pDef != null && state.pDef > 0 ? `P.Def ${state.pDef}` : '';
+  }
 }

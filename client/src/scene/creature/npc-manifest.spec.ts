@@ -42,11 +42,11 @@ describe('npc-manifest', () => {
     }
   });
 
-  it('uses unique model paths for 25 TI NPCs with guard variant groups (TOWN24-12)', () => {
+  it('uses unique model paths for 26 TI NPCs with guard variant groups (TOWN24-12)', () => {
     const paths = TI_NPC_MANIFEST_IDS.map((id) => getNpcEntry(id)?.model);
     const unique = new Set(paths);
     expect(unique.size).toBeGreaterThanOrEqual(18);
-    expect(TI_NPC_MANIFEST_IDS).toHaveLength(25);
+    expect(TI_NPC_MANIFEST_IDS).toHaveLength(26);
   });
 
   it('maps vocabulary keys to real track names for all manifest clip maps (TINPC-18)', () => {
@@ -68,6 +68,10 @@ describe('npc-manifest', () => {
     expect(KATERINA_CLIP_MAP.cast).toBe('Interact');
     expect(ROXXY_CLIP_MAP.idle).toBe('CharacterArmature|Idle');
     expect(ROXXY_CLIP_MAP.cast).toBe('CharacterArmature|Interact');
+  });
+
+  it('returns Pinter blacksmith entry (ITEM25-15)', () => {
+    expect(getNpcEntry(30298)?.displayName).toBe('Pinter');
   });
 
   it('returns null for unknown npcId', () => {

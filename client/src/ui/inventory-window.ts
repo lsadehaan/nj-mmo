@@ -3,8 +3,11 @@ import { HEALING_POTION_ITEM_ID } from '@nj/game-core';
 
 export const SQUIRES_SWORD_ITEM_ID = 2369;
 
-/** MVP weapon ids eligible for Equip — server validates ownership and type (AD-001). */
-const WEAPON_ITEM_IDS = new Set<number>([SQUIRES_SWORD_ITEM_ID]);
+/** Items that show Equip — server validates type and slot (AD-001). */
+const EQUIPPABLE_ITEM_IDS = new Set<number>([
+  SQUIRES_SWORD_ITEM_ID,
+  3, 13, 23, 28, 43, 112, 116, 118, 2386, 58, 59, 47,
+]);
 
 /** MVP consumable ids with inventory Use action — server validates on useItem intent. */
 const CONSUMABLE_ITEM_IDS = new Set<number>([HEALING_POTION_ITEM_ID]);
@@ -151,7 +154,7 @@ export function renderInventoryWindow(options: InventoryRenderOptions): void {
     label.appendChild(countSpan);
     row.appendChild(label);
 
-    if (WEAPON_ITEM_IDS.has(itemId)) {
+    if (EQUIPPABLE_ITEM_IDS.has(itemId)) {
       const equipBtn = document.createElement('button');
       equipBtn.type = 'button';
       equipBtn.dataset['action'] = 'equip';
