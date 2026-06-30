@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { snapEntityY } from '@nj/game-core';
@@ -27,8 +27,11 @@ describe('spawn-manager', () => {
     const state = new TownState();
     const runtime = initializeMobs(db, state);
 
-    expect(state.mobs.size).toBe(60);
-    expect(runtime.size).toBe(60);
+    const fixtureRows = JSON.parse(
+      readFileSync(join(FIXTURE_DATA_DIR, 'mob_spawns.json'), 'utf-8')
+    ) as unknown[];
+    expect(state.mobs.size).toBe(fixtureRows.length);
+    expect(runtime.size).toBe(fixtureRows.length);
   });
 
   it('sets npcId, position, and maxHp from monster template', () => {
