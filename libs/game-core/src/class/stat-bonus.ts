@@ -18,6 +18,11 @@ const DEX_BONUS: Record<number, number> = {
   30: 1.35,
 };
 
+/** CON bonus table subset from L2J statBonus.xml. */
+const CON_BONUS: Record<number, number> = {
+  43: 1.41,
+};
+
 export function lookupStrBonus(str: number): number {
   const bonus = STR_BONUS[str];
   if (bonus === undefined) {
@@ -38,6 +43,14 @@ export function lookupDexBonus(dex: number): number {
   const bonus = DEX_BONUS[dex];
   if (bonus === undefined) {
     throw new Error(`No DEX bonus entry for value ${dex}`);
+  }
+  return bonus;
+}
+
+export function lookupConBonus(con: number): number {
+  const bonus = CON_BONUS[con];
+  if (bonus === undefined) {
+    throw new Error(`No CON bonus entry for value ${con}`);
   }
   return bonus;
 }
