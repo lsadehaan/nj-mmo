@@ -3,7 +3,8 @@ import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.LAB_BASE ?? 'http://localhost:4200';
 const outDir = process.env.LAB_OUT ?? '/tmp/environment-shots';
-const outFile = `${outDir}/town-overview.png`;
+const shot = process.argv[2] ?? 'town-overview';
+const outFile = `${outDir}/${shot}.png`;
 
 mkdirSync(outDir, { recursive: true });
 
@@ -14,7 +15,8 @@ const page = await browser.newPage({
 });
 page.on('console', (m) => console.log(`[page] ${m.text()}`));
 
-const url = `${BASE}/environment-lab.html`;
+const query = shot === 'map-overview' ? '?shot=map-overview' : '';
+const url = `${BASE}/environment-lab.html${query}`;
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForFunction(() => window.__SHOT_READY__ === true, { timeout: 30_000 });
 await page.screenshot({ path: outFile });

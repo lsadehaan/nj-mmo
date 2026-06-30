@@ -17,9 +17,21 @@ renderer.setSize(1280, 720);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-const camera = new THREE.PerspectiveCamera(55, 1280 / 720, 0.1, 500);
-camera.position.set(0, 65, 55);
-camera.lookAt(0, 0, 0);
+const isMapOverview = new URLSearchParams(location.search).get('shot') === 'map-overview';
+
+const camera = new THREE.PerspectiveCamera(
+  isMapOverview ? 40 : 55,
+  1280 / 720,
+  0.1,
+  isMapOverview ? 2000 : 500
+);
+if (isMapOverview) {
+  camera.position.set(0, 520, 0);
+  camera.lookAt(0, 0, 0);
+} else {
+  camera.position.set(0, 65, 55);
+  camera.lookAt(0, 0, 0);
+}
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const sun = new THREE.DirectionalLight(0xffffff, 0.9);
