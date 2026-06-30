@@ -76,7 +76,9 @@ describe('character-creation', () => {
     (panel.querySelector('[data-sex="1"]') as HTMLButtonElement).click();
     (panel.querySelector('[data-role="create"]') as HTMLButtonElement).click();
 
-    expect(onCreate).toHaveBeenCalledWith({ classId: 10, sex: 1 });
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ classId: 10, sex: 1, name: 'Adventurer' })
+    );
     expect(resolveClassId('human', 'mystic')).toBe(10);
   });
 

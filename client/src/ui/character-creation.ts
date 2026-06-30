@@ -5,6 +5,8 @@ export type CreationSex = 0 | 1;
 export interface CharacterCreatePayload {
   classId: number;
   sex: CreationSex;
+  name?: string;
+  accountName?: string;
 }
 
 const CLASS_ID_BY_RACE: Record<
@@ -32,7 +34,8 @@ export function resolveClassId(race: CreationRace, archetype: CreationArchetype)
 const ELEMENT_ID = 'character-creation';
 
 export function mountCharacterCreation(
-  onCreate: (payload: CharacterCreatePayload) => void | Promise<void>
+  onCreate: (payload: CharacterCreatePayload) => void | Promise<void>,
+  options: { accountName?: string } = {}
 ): HTMLElement {
   const existing = document.getElementById(ELEMENT_ID);
   if (existing) return existing;
@@ -113,6 +116,16 @@ export function mountCharacterCreation(
   genderGroup.append(maleBtn, femaleBtn);
   card.appendChild(genderGroup);
 
+  const nameGroup = document.createElement('label');
+  nameGroup.textContent = 'Name ';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.dataset['role'] = 'character-name';
+  nameInput.maxLength = 16;
+  nameInput.value = 'Adventurer';
+  nameGroup.appendChild(nameInput);
+  card.appendChild(nameGroup);
+
   const createBtn = document.createElement('button');
   createBtn.type = 'button';
   createBtn.textContent = 'Enter World';
@@ -160,7 +173,12 @@ export function mountCharacterCreation(
 
   createBtn.addEventListener('click', () => {
     const classId = resolveClassId(race, archetype);
-    void onCreate({ classId, sex });
+    void onCreate({
+      classId,
+      sex,
+      name: nameInput.value.trim(),
+      accountName: options.accountName,
+    });
   });
 
   panel.appendChild(card);

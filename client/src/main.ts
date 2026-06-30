@@ -1,5 +1,10 @@
 import { initGameState, setReady, getGameState, refreshPlayerCooldownRemaining } from './test-hook';
-import { connectSafe, wireRoom, getStoredCharacterId } from './net/room';
+import {
+  connectSafe,
+  wireRoom,
+  storeCharacterId,
+  DEFAULT_COLYSEUS_ENDPOINT,
+} from './net/room';
 import { wireCombatControls } from './combat-input';
 import { mountHotbar } from './ui/hotbar';
 import { mountCastBar } from './ui/cast-bar';
@@ -18,14 +23,45 @@ import { mountStatAllocate, wireStatAllocate } from './ui/stat-allocate';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 import { renderHotbar } from './ui/hotbar';
 import { updateCastBar } from './ui/cast-bar';
+import { mountLoginScreen, hideLoginScreen, ACCOUNT_NAME_STORAGE_KEY } from './ui/login-screen';
+import {
+  mountCharacterSelect,
+  hideCharacterSelect,
+  fetchCharacters,
+} from './ui/character-select';
+import { mountSkillWindow } from './ui/skill-window';
+import { mountQuestLog } from './ui/quest-log';
+import { mountQuestTracker } from './ui/quest-tracker';
+import { mountMinimap } from './ui/minimap';
+import { mountWorldMap } from './ui/world-map';
+import { mountTargetFrame } from './ui/target-frame';
+import { mountSystemMenu } from './ui/system-menu';
+import {
+  initWindowManagerRegistry,
+  registerPanel,
+  bindGlobalHotkeys,
+  openPanel,
+  publishUiState,
+} from './ui/window-manager';
 
-async function boot(): Promise<void> {
-  initGameState();
+let gameUiMounted = false;
+
+function mountGameUi(): void {
+  if (gameUiMounted) return;
+  gameUiMounted = true;
+
+  initWindowManagerRegistry();
   mountHotbar();
   mountCastBar();
   mountPlayerVitalsHud();
   mountShopWindow();
   mountInventoryWindow();
+  mountSkillWindow();
+  mountQuestLog();
+  mountQuestTracker();
+  mountMinimap();
+  mountWorldMap();
+  mountTargetFrame();
   mountNpcDialog();
   mountInteractPrompt();
   mountChatPanel();
@@ -35,10 +71,123 @@ async function boot(): Promise<void> {
   mountPvpToggle();
   mountStatAllocate();
 
+  registerPanel('inventory-window', { mount: mountInventoryWindow, hotkey: 'I' });
+  registerPanel('skill-window', { mount: mountSkillWindow, hotkey: 'K' });
+  registerPanel('quest-log', { mount: mountQuestLog, hotkey: 'L', aliasHotkeys: ['Q'] });
+  registerPanel('world-map', { mount: mountWorldMap, hotkey: 'M' });
+
+  mountSystemMenu({
+    onInventory: () => openPanel('inventory-window'),
+    onSkills: () => openPanel('skill-window'),
+    onQuestLog: () => openPanel('quest-log'),
+    onWorldMap: () => openPanel('world-map'),
+    onLogout: () => void handleLogout(),
+  });
+  bindGlobalHotkeys();
+  publishUiState();
+
   wirePvpToggle({ togglePvp: () => window.__togglePvp__?.() });
   wireStatAllocate({
     allocateStat: (stat) => window.__allocateStat__?.(stat),
     resetStats: () => window.__resetStats__?.(),
+  });
+}
+
+async function handleLogout(): Promise<void> {
+  await window.__consentLeave__?.();
+  gameUiMounted = false;
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (canvas) canvas.hidden = true;
+  const accountName = localStorage.getItem(ACCOUNT_NAME_STORAGE_KEY) ?? '';
+  if (accountName) await showCharacterSelect(accountName);
+}
+
+async function showCharacterSelect(accountName: string): Promise<void> {
+  try {
+    const characters = await fetchCharacters(accountName, DEFAULT_COLYSEUS_ENDPOINT);
+    mountCharacterSelect(accountName, characters, {
+      onSelect: (characterId) => void enterWorld(accountName, characterId),
+      onCreate: () => openCharacterCreation(accountName),
+    });
+  } catch {
+    mountCharacterSelect(accountName, [], {
+      onSelect: (characterId) => void enterWorld(accountName, characterId),
+      onCreate: () => openCharacterCreation(accountName),
+    });
+    const err = document.querySelector('[data-role="select-error"]');
+    if (!err) {
+      const msg = document.createElement('p');
+      msg.dataset['role'] = 'select-error';
+      msg.textContent = 'Could not load characters';
+      document.getElementById('character-select-screen')?.appendChild(msg);
+    }
+  }
+}
+
+function openCharacterCreation(accountName: string): void {
+  hideCharacterSelect();
+  mountCharacterCreation(async (payload) => {
+    document.getElementById('character-creation')?.remove();
+    const room = await connectSafe(DEFAULT_COLYSEUS_ENDPOINT, {
+      create: {
+        classId: payload.classId,
+        sex: payload.sex,
+        accountName: payload.accountName ?? accountName,
+        name: payload.name,
+      },
+      accountName,
+    });
+    if (room) {
+      const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+      if (canvas) canvas.hidden = false;
+      await finishWorldEntry(room);
+    }
+    await showCharacterSelect(accountName);
+  }, { accountName });
+}
+
+async function enterWorld(accountName: string, characterId: string): Promise<void> {
+  storeCharacterId(characterId);
+  hideCharacterSelect();
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (canvas) canvas.hidden = false;
+  const room = await connectSafe(DEFAULT_COLYSEUS_ENDPOINT, { characterId, accountName });
+  if (room) await finishWorldEntry(room);
+}
+
+let activeRenderer: Awaited<ReturnType<typeof createRenderer>> | null = null;
+
+async function finishWorldEntry(room: NonNullable<Awaited<ReturnType<typeof connectSafe>>>): Promise<void> {
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (!canvas) throw new Error('Canvas #game not found');
+  const game = await createRenderer(canvas);
+  activeRenderer = game;
+  startRenderLoop(game);
+  mountGameUi();
+  wireCombatControls(room, game);
+  wireRoom(room, game);
+  window.__consentLeave__ = async () => {
+    await room.leave(true);
+  };
+  setReady(true);
+}
+
+async function boot(): Promise<void> {
+  initGameState();
+
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (!canvas) throw new Error('Canvas #game not found');
+  canvas.hidden = true;
+
+  canvas.addEventListener('click', (ev) => {
+    activeRenderer?.handleClick({ clientX: ev.clientX, clientY: ev.clientY });
+  });
+
+  window.addEventListener('resize', () => {
+    if (!activeRenderer) return;
+    activeRenderer.camera.aspect = window.innerWidth / window.innerHeight;
+    activeRenderer.camera.updateProjectionMatrix();
+    activeRenderer.renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
   const startSkillUiLoop = (): (() => void) => {
@@ -59,56 +208,21 @@ async function boot(): Promise<void> {
       });
       requestAnimationFrame(tick);
     };
-    const rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
+    return () => cancelAnimationFrame(requestAnimationFrame(tick));
   };
   startSkillUiLoop();
 
-  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
-  if (!canvas) {
-    throw new Error('Canvas #game not found');
-  }
-
-  const game = await createRenderer(canvas);
-  startRenderLoop(game);
-
-  canvas.addEventListener('click', (ev) =>
-    game.handleClick({ clientX: ev.clientX, clientY: ev.clientY })
-  );
-
-  window.__handleGroundClick__ = (clientX, clientY) =>
-    game.handleClick({ clientX, clientY });
-
-  window.addEventListener('resize', () => {
-    game.camera.aspect = window.innerWidth / window.innerHeight;
-    game.camera.updateProjectionMatrix();
-    game.renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  const beginSession = async (create?: { classId: number; sex: 0 | 1 }): Promise<void> => {
-    const room = await connectSafe(undefined, create ? { create } : {});
-    if (room) {
-      wireCombatControls(room, game);
-      wireRoom(room, game);
-      window.__consentLeave__ = async () => {
-        await room.leave(true);
-      };
-    } else {
-      console.warn('Failed to connect to game server');
-    }
-    setReady(true);
-  };
-
-  if (!getStoredCharacterId()) {
-    mountCharacterCreation(async (payload) => {
-      const overlay = document.getElementById('character-creation');
-      overlay?.remove();
-      await beginSession(payload);
+  const accountName = localStorage.getItem(ACCOUNT_NAME_STORAGE_KEY);
+  if (!accountName) {
+    mountLoginScreen((name) => {
+      localStorage.setItem(ACCOUNT_NAME_STORAGE_KEY, name);
+      hideLoginScreen();
+      void showCharacterSelect(name);
     });
     return;
   }
 
-  await beginSession();
+  await showCharacterSelect(accountName);
 }
 
 boot();
