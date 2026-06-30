@@ -52,14 +52,9 @@ function noise2D(seed: number, x: number, z: number): number {
   return a * (1 - ux) * (1 - uz) + b * ux * (1 - uz) + c * (1 - ux) * uz + d * ux * uz;
 }
 
-function regionFactor(zoneId: string): number {
-  if (zoneId === 'ti_village') return 0.03;
-  return 1;
-}
-
 function regionOffset(zoneId: string, type: string): number {
-  if (type === 'water' || zoneId === 'harbor') return -1.5;
-  if (zoneId === 'elven_ruins' || zoneId === 'cave_of_souls') return 2;
+  if (type === 'water' || zoneId === 'harbor') return -0.35;
+  if (zoneId === 'elven_ruins' || zoneId === 'cave_of_souls') return 0.45;
   return 0;
 }
 
@@ -81,7 +76,7 @@ export function sampleHeight(
       noise2D(seed + 2, nx * 32, nz * 32) * 0.1) *
     heightScale;
   const { zoneId, type } = getZoneAt(x, z);
-  return base * regionFactor(zoneId) + regionOffset(zoneId, type);
+  return base + regionOffset(zoneId, type);
 }
 
 export function snapEntityY(x: number, z: number, config?: TerrainConfig): number {

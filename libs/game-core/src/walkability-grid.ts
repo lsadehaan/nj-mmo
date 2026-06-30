@@ -1,6 +1,6 @@
 import { WORLD_MIN, WORLD_MAX } from './world-constants';
 import { sampleHeight } from './terrain';
-import { isBlocked } from './world-blockers';
+import { isBlocked, BUILDING_AABBS, LANDMARK_AABBS, isPointInAabb } from './world-blockers';
 import { MAX_SLOPE_TANGENT } from './walkability';
 import { isWaterZone } from './ti-zones';
 
@@ -19,6 +19,16 @@ export function cellIndex(cx: number, cz: number): number {
   return cz * GRID_SIZE + cx;
 }
 
+function isStaticBlocked(x: number, z: number): boolean {
+  for (const aabb of BUILDING_AABBS) {
+    if (isPointInAabb(x, z, aabb)) return true;
+  }
+  for (const aabb of LANDMARK_AABBS) {
+    if (isPointInAabb(x, z, aabb)) return true;
+  }
+  return false;
+}
+
 function isCellCentreWalkable(cx: number, cz: number): boolean {
   const x = cellToWorld(cx);
   const z = cellToWorld(cz);
@@ -26,7 +36,7 @@ function isCellCentreWalkable(cx: number, cz: number): boolean {
   if (x < WORLD_MIN || x > WORLD_MAX || z < WORLD_MIN || z > WORLD_MAX) {
     return false;
   }
-  if (isBlocked(x, z)) return false;
+  if (isStaticBlocked(x, z)) return false;
   if (isWaterZone(x, z)) return false;
 
   const h = sampleHeight(x, z);
@@ -52,9 +62,11 @@ function isCellCentreWalkable(cx: number, cz: number): boolean {
 }
 
 let cachedGrid: Uint8Array | null = null;
+let cachedGridRevision = 0;
+const GRID_REVISION = 3;
 
 export function getWalkabilityGrid(): Uint8Array {
-  if (cachedGrid) return cachedGrid;
+  if (cachedGrid && cachedGridRevision === GRID_REVISION) return cachedGrid;
 
   const grid = new Uint8Array(GRID_SIZE * GRID_SIZE);
   for (let cz = 0; cz < GRID_SIZE; cz++) {
@@ -63,6 +75,7 @@ export function getWalkabilityGrid(): Uint8Array {
     }
   }
   cachedGrid = grid;
+  cachedGridRevision = GRID_REVISION;
   return grid;
 }
 
@@ -85,4 +98,5 @@ export function cellToWorldCoords(cx: number, cz: number): { x: number; z: numbe
 /** Reset cached grid (tests only). */
 export function resetWalkabilityGridCache(): void {
   cachedGrid = null;
+  cachedGridRevision = 0;
 }
