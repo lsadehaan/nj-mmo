@@ -37,3 +37,8 @@ export * from './quest/quest-types';
 export * from './quest/quest-engine';
 export * from './quest/quest-rewards';
 export * from './quest/quest-markers';
+export * from './items/equip-slots';
+export * from './items/equipment-stats';
+export * from './items/enchant';
+export * from './items/craft';
+export * from './items/armor-sets';
