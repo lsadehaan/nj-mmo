@@ -139,11 +139,11 @@ describe('NPC spawn seeding', () => {
     readFileSync(join(FIXTURE_DATA_DIR, 'npc_spawns.json'), 'utf-8')
   ) as { npcId: number; x: number; z: number }[];
 
-  it('seeds nine npc_spawns rows matching anchor table (TINPC-11, SKILL20-10)', () => {
+  it('seeds 25 npc_spawns rows matching anchor table (TOWN24-06)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const rows = getDb(dbPath).select().from(npcSpawns).all();
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(25);
     for (const anchor of SPAWN_TABLE) {
       const row = rows.find((r) => r.npcId === anchor.npcId);
       expect(row).toMatchObject({ x: anchor.x, z: anchor.z });

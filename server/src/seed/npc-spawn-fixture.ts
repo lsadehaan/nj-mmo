@@ -68,6 +68,47 @@ function nudgeNpcSpawn(x: number, z: number): { x: number; z: number } {
   throw new Error(`Could not place NPC at (${x}, ${z}) in ti_village`);
 }
 
+function tryPlaceNpc(x: number, z: number): { x: number; z: number } | null {
+  try {
+    return nudgeNpcSpawn(x, z);
+  } catch {
+    return null;
+  }
+}
+
+/** L2J Gludio TI cluster coords for NPCs missing or misplaced in source XML. */
+const FALLBACK_L2: Record<number, { x: number; y: number; heading?: number }> = {
+  // Vivyan's Gludio row points at Gludin; place beside Minia in the temple cluster.
+  30030: { x: -83400, y: 243200, heading: 45956 },
+  // Iris lives in Gludin XML only; place with the magister folk group.
+  30034: { x: -85200, y: 245100, heading: 57000 },
+};
+
+function placeNpcFromL2(
+  npcId: number,
+  l2x: number,
+  l2y: number,
+  heading?: number
+): NpcSpawnFixtureRow {
+  const local = l2ToLocal(l2x, l2y);
+  const placed = tryPlaceNpc(local.x, local.z);
+  if (placed) {
+    return { npcId, x: placed.x, z: placed.z, heading };
+  }
+  const fallback = FALLBACK_L2[npcId];
+  if (fallback) {
+    const fbLocal = l2ToLocal(fallback.x, fallback.y);
+    const fbPlaced = nudgeNpcSpawn(fbLocal.x, fbLocal.z);
+    return {
+      npcId,
+      x: fbPlaced.x,
+      z: fbPlaced.z,
+      heading: fallback.heading ?? heading,
+    };
+  }
+  throw new Error(`Could not place NPC ${npcId} at (${local.x}, ${local.z}) in ti_village`);
+}
+
 export function buildNpcSpawnFixture(
   gludioXmlPath: string
 ): NpcSpawnFixtureRow[] {
@@ -76,20 +117,25 @@ export function buildNpcSpawnFixture(
   const nodes = collectGludioNpcs(doc);
   const idSet = new Set(TI_NPC_IDS.map(String));
   const rows: NpcSpawnFixtureRow[] = [];
+  const seen = new Set<number>();
 
   for (const node of nodes) {
     const npcId = Number(node['@_id']);
     if (!idSet.has(String(npcId))) continue;
+    seen.add(npcId);
     const l2x = Number(node['@_x']);
     const l2y = Number(node['@_y']);
-    const local = l2ToLocal(l2x, l2y);
-    const placed = nudgeNpcSpawn(local.x, local.z);
-    rows.push({
-      npcId,
-      x: placed.x,
-      z: placed.z,
-      heading: node['@_heading'] ? Number(node['@_heading']) : undefined,
-    });
+    const heading = node['@_heading'] ? Number(node['@_heading']) : undefined;
+    rows.push(placeNpcFromL2(npcId, l2x, l2y, heading));
+  }
+
+  for (const npcId of TI_NPC_IDS) {
+    if (seen.has(npcId)) continue;
+    const fallback = FALLBACK_L2[npcId];
+    if (!fallback) {
+      throw new Error(`Missing Gludio spawn and no fallback for npcId ${npcId}`);
+    }
+    rows.push(placeNpcFromL2(npcId, fallback.x, fallback.y, fallback.heading));
   }
 
   rows.sort((a, b) => a.npcId - b.npcId);
