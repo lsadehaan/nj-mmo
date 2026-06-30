@@ -1,7 +1,7 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { EntityAction, EQUIP_SLOTS } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setEquipment, setPlayerPDef, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setEquipment, setPlayerPDef, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone, appendChatLine, setParty, setTrade, setFriends } from '../test-hook';
 import { getZoneAt } from '@nj/game-core';
 import type { GameRenderer } from '../scene/renderer';
 import {
@@ -30,6 +30,10 @@ import {
 } from '../ui/npc-dialog';
 import { renderWarehouseWindow } from '../ui/warehouse-window';
 import { mountQuestLog, renderQuestLog, isQuestLogVisible, setQuestLogVisible, entriesFromQuestState } from '../ui/quest-log';
+import { mountChatPanel, wireChatPanel, renderChatLog } from '../ui/chat-panel';
+import { mountPartyPanel, wirePartyPanel, renderPartyPanel } from '../ui/party-panel';
+import { mountTradeWindow, wireTradeWindow, renderTradeWindow } from '../ui/trade-window';
+import { mountFriendsPanel, wireFriendsPanel, renderFriendsPanel } from '../ui/friends-panel';
 import { getLearnableSkillIds } from '../ui/trainer-skills';
 import { renderHotbar } from '../ui/hotbar';
 import { updateCastBar } from '../ui/cast-bar';
@@ -140,6 +144,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     action?: number;
     actionSeq?: number;
     zoneId?: string;
+    partyId?: number;
     warehouseItemIds?: { length: number; [index: number]: number };
     warehouseItemCounts?: { length: number; [index: number]: number };
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
@@ -219,6 +224,51 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   let activeShopMerchantName = 'Katerina';
   const npcPresences: NpcPresence[] = [];
   let greetUiEpoch = 0;
+  let tradePartnerSessionId: string | null = null;
+  let tradeMyOffer: { items: { itemId: number; count: number }[]; adena: number } | null = null;
+  let tradePartnerOffer: { items: { itemId: number; count: number }[]; adena: number } | null = null;
+  let tradeMyConfirmed = false;
+  let tradePartnerConfirmed = false;
+
+  const syncPartyFromState = (player: PlayerSchema): void => {
+    const partyId = player.partyId ?? 0;
+    if (partyId === 0) {
+      setParty(null);
+      renderPartyPanel([], '');
+      return;
+    }
+    const parties = (room.state as { parties?: Map<string, { leaderSessionId: string; memberSessionIds: { length: number; [i: number]: string } }> }).parties;
+    const party = parties?.get(String(partyId));
+    if (!party) {
+      setParty(null);
+      return;
+    }
+    const memberSessionIds = readStringArray(party.memberSessionIds);
+    setParty({ partyId, leaderSessionId: party.leaderSessionId, memberSessionIds });
+    renderPartyPanel(memberSessionIds, party.leaderSessionId);
+  };
+
+  const readStringArray = (arr: { length: number; [index: number]: string } | undefined): string[] => {
+    if (!arr) return [];
+    const out: string[] = [];
+    for (let i = 0; i < arr.length; i++) out.push(arr[i] as string);
+    return out;
+  };
+
+  const publishTradeState = (status: string): void => {
+    const snapshot = tradePartnerSessionId
+      ? {
+          status,
+          partnerSessionId: tradePartnerSessionId,
+          myOffer: tradeMyOffer,
+          partnerOffer: tradePartnerOffer,
+          myConfirmed: tradeMyConfirmed,
+          partnerConfirmed: tradePartnerConfirmed,
+        }
+      : null;
+    setTrade(snapshot);
+    renderTradeWindow(status, status !== 'closed');
+  };
 
   const fireNpcGreet = (npcId: number): void => {
     greetUiEpoch += 1;
@@ -445,6 +495,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       type: zoneHit.type,
       displayName: zoneHit.displayName,
     });
+    syncPartyFromState(player);
     updateInteractPrompt();
   };
 
@@ -504,6 +555,30 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   mountNpcDialog();
   mountQuestLog();
   mountInteractPrompt();
+  mountChatPanel();
+  mountPartyPanel();
+  mountTradeWindow();
+  mountFriendsPanel();
+
+  wireChatPanel({ sendChat: (p) => room.send('chat', p) });
+  wirePartyPanel({
+    sendPartyInvite: (p) => room.send('partyInvite', p),
+    sendPartyLeave: () => room.send('partyLeave', {}),
+  });
+  wireTradeWindow({
+    sendTradeConfirm: () => room.send('tradeConfirm', {}),
+    sendTradeCancel: () => room.send('tradeCancel', {}),
+  });
+  wireFriendsPanel({
+    sendFriendAdd: (p) => room.send('friendAdd', p),
+    sendFriendRemove: (p) => room.send('friendRemove', p),
+  });
+
+  window.__sendChat__ = (channel, text) => room.send('chat', { channel, text });
+  window.__partyInvite__ = (targetSessionId) => room.send('partyInvite', { targetSessionId });
+  window.__partyLeave__ = () => room.send('partyLeave', {});
+  window.__tradeConfirm__ = () => room.send('tradeConfirm', {});
+  window.__friendAdd__ = (targetSessionId) => room.send('friendAdd', { targetSessionId });
 
   window.__questAction__ = (npcId, action) => {
     room.send('questAction', { npcId, action });
@@ -899,5 +974,70 @@ export function wireRoom(room: Room, game: GameRenderer): void {
 
   game.setAfterTick(() => {
     publishNpcsToHook();
+  });
+
+  room.onMessage('chat', (message: {
+    channel: 'all' | 'local' | 'trade' | 'party';
+    text: string;
+    senderSessionId: string;
+    senderName: string;
+    timestampMs: number;
+  }) => {
+    appendChatLine(message);
+    renderChatLog(getGameState().chat);
+  });
+
+  room.onMessage('friendsList', (message: { friends: { characterId: string; name: string; online: boolean }[] }) => {
+    setFriends(message.friends);
+    renderFriendsPanel(message.friends);
+  });
+
+  room.onMessage('tradeOpen', (message: { status: string; partnerSessionId: string }) => {
+    tradePartnerSessionId = message.partnerSessionId;
+    tradeMyOffer = null;
+    tradePartnerOffer = null;
+    tradeMyConfirmed = false;
+    tradePartnerConfirmed = false;
+    publishTradeState(message.status);
+  });
+
+  room.onMessage('tradeOfferAck', (message: { offer: { items: { itemId: number; count: number }[]; adena: number } }) => {
+    tradeMyOffer = message.offer;
+    tradeMyConfirmed = false;
+    publishTradeState('open');
+  });
+
+  room.onMessage('tradePartnerOffer', (message: { offer: { items: { itemId: number; count: number }[]; adena: number } }) => {
+    tradePartnerOffer = message.offer;
+    tradePartnerConfirmed = false;
+    publishTradeState('open');
+  });
+
+  room.onMessage('tradeComplete', () => {
+    tradePartnerSessionId = null;
+    tradeMyOffer = null;
+    tradePartnerOffer = null;
+    tradeMyConfirmed = false;
+    tradePartnerConfirmed = false;
+    publishTradeState('closed');
+  });
+
+  room.onMessage('tradeClosed', () => {
+    tradePartnerSessionId = null;
+    publishTradeState('closed');
+  });
+
+  callbacks.onAdd('parties', (party, partyId) => {
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    if (local) syncPartyFromState(local);
+    callbacks.onChange(party, () => {
+      const lp = room.state.players.get(localId) as PlayerSchema | undefined;
+      if (lp) syncPartyFromState(lp);
+    });
+  });
+
+  callbacks.onRemove('parties', () => {
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    if (local) syncPartyFromState(local);
   });
 }

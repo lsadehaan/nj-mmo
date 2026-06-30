@@ -147,6 +147,40 @@ export interface GameStateQuests {
   defs: Record<number, GameStateQuestDef>;
 }
 
+export interface GameStateChatLine {
+  channel: 'all' | 'local' | 'trade' | 'party';
+  text: string;
+  senderSessionId: string;
+  senderName: string;
+  timestampMs: number;
+}
+
+export interface GameStateParty {
+  partyId: number;
+  leaderSessionId: string;
+  memberSessionIds: string[];
+}
+
+export interface GameStateTradeOffer {
+  items: { itemId: number; count: number }[];
+  adena: number;
+}
+
+export interface GameStateTrade {
+  status: string;
+  partnerSessionId: string;
+  myOffer: GameStateTradeOffer | null;
+  partnerOffer: GameStateTradeOffer | null;
+  myConfirmed: boolean;
+  partnerConfirmed: boolean;
+}
+
+export interface GameStateFriend {
+  characterId: string;
+  name: string;
+  online: boolean;
+}
+
 export interface GameState {
   connected: boolean;
   ready: boolean;
@@ -174,6 +208,10 @@ export interface GameState {
   zone: GameStateZone;
   quests: GameStateQuests;
   warehouse: Record<number, number>;
+  chat: GameStateChatLine[];
+  party: GameStateParty | null;
+  trade: GameStateTrade | null;
+  friends: GameStateFriend[];
 }
 
 declare global {
@@ -200,6 +238,11 @@ declare global {
     __consentLeave__?: () => Promise<void>;
     __questAction__?: (npcId: number, action: string) => void;
     __toggleQuestLog__?: () => void;
+    __sendChat__?: (channel: string, text: string) => void;
+    __partyInvite__?: (targetSessionId: string) => void;
+    __partyLeave__?: () => void;
+    __tradeConfirm__?: () => void;
+    __friendAdd__?: (targetSessionId: string) => void;
   }
 }
 
@@ -241,6 +284,10 @@ const initialState: GameState = {
   zone: { id: '', type: 'unknown', displayName: '' },
   quests: { active: [], completed: [], defs: {} },
   warehouse: {},
+  chat: [],
+  party: null,
+  trade: null,
+  friends: [],
 };
 
 export function initGameState(): GameState {
@@ -281,6 +328,10 @@ export function initGameState(): GameState {
     zone: { id: '', type: 'unknown', displayName: '' },
     quests: { active: [], completed: [], defs: buildQuestDefs() },
     warehouse: {},
+    chat: [],
+    party: null,
+    trade: null,
+    friends: [],
   };
   return window.__GAME_STATE__;
 }
@@ -549,4 +600,31 @@ export function setQuests(
     }
   }
   state.quests = { active, completed, defs: buildQuestDefs() };
+}
+
+const CHAT_HISTORY_MAX = 20;
+
+export function appendChatLine(line: GameStateChatLine): void {
+  const state = getGameState();
+  state.chat = [...state.chat, line].slice(-CHAT_HISTORY_MAX);
+}
+
+export function setParty(party: GameStateParty | null): void {
+  getGameState().party = party ? { ...party, memberSessionIds: [...party.memberSessionIds] } : null;
+}
+
+export function setTrade(trade: GameStateTrade | null): void {
+  getGameState().trade = trade
+    ? {
+        ...trade,
+        myOffer: trade.myOffer ? { ...trade.myOffer, items: [...trade.myOffer.items] } : null,
+        partnerOffer: trade.partnerOffer
+          ? { ...trade.partnerOffer, items: [...trade.partnerOffer.items] }
+          : null,
+      }
+    : null;
+}
+
+export function setFriends(friends: GameStateFriend[]): void {
+  getGameState().friends = friends.map((f) => ({ ...f }));
 }
