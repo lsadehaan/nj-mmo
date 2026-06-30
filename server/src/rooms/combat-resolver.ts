@@ -44,6 +44,7 @@ export interface PlayerCombatState {
   castingSkillId: number;
   castEndMs: number;
   castTargetMobId: string | null;
+  castTargetPlayerSessionId: string | null;
   armedShot: ArmedShotKind | null;
   activeEffect: ActiveEffect | null;
   openTrainerNpcId: number | null;
@@ -108,6 +109,7 @@ export function createPlayerCombatState(): PlayerCombatState {
     castingSkillId: 0,
     castEndMs: 0,
     castTargetMobId: null,
+    castTargetPlayerSessionId: null,
     armedShot: null,
     activeEffect: null,
     openTrainerNpcId: null,
@@ -136,13 +138,15 @@ export function canUseSkill(
 export function beginSkillCast(
   combat: PlayerCombatState,
   skillId: number,
-  targetMobId: string,
+  targetMobId: string | null,
   hitTime: number,
-  nowMs: number
+  nowMs: number,
+  targetPlayerSessionId: string | null = null
 ): void {
   combat.castingSkillId = skillId;
   combat.castEndMs = nowMs + hitTime;
-  combat.castTargetMobId = targetMobId;
+  combat.castTargetMobId = targetPlayerSessionId ? null : targetMobId;
+  combat.castTargetPlayerSessionId = targetPlayerSessionId;
   combat.skillPending = false;
   combat.pendingSkillId = 0;
 }
@@ -151,6 +155,7 @@ export function cancelSkillCast(combat: PlayerCombatState): void {
   combat.castingSkillId = 0;
   combat.castEndMs = 0;
   combat.castTargetMobId = null;
+  combat.castTargetPlayerSessionId = null;
 }
 
 export function resolveSkillUse(params: {
@@ -267,6 +272,145 @@ export function resolveSkillUse(params: {
   }
 
   const killed = mob.hp <= 0;
+  return {
+    ok: true,
+    damage,
+    mpCost: skill.mpConsumeL1,
+    killed,
+    cooldownEndMs,
+    consumedShot,
+  };
+}
+
+export function resolvePlayerVsPlayerSkillUse(params: {
+  sessionId: string;
+  playerX: number;
+  playerZ: number;
+  playerMp: number;
+  playerMAtk: number;
+  playerPAtk: number;
+  playerCritRate: number;
+  combat: PlayerCombatState;
+  attacker: { pvpFlag: number; karma: number };
+  target: {
+    sessionId: string;
+    pvpFlag: number;
+    karma: number;
+    pDef: number;
+    hp: number;
+    x: number;
+    z: number;
+  };
+  skill: Skill;
+  nowMs: number;
+  rng: SeededRng;
+}): SkillUseResult {
+  const {
+    playerX,
+    playerZ,
+    playerMp,
+    playerMAtk,
+    playerPAtk,
+    playerCritRate,
+    combat,
+    attacker,
+    target,
+    skill,
+    nowMs,
+    rng,
+  } = params;
+
+  const reject = (): SkillUseResult => ({
+    ok: false,
+    damage: 0,
+    mpCost: 0,
+    killed: false,
+    cooldownEndMs: getSkillCooldownEnd(combat, skill.skillId),
+    consumedShot: false,
+  });
+
+  if (
+    isInPeaceZone(playerX, playerZ) ||
+    isInPeaceZone(target.x, target.z)
+  ) {
+    return reject();
+  }
+  if (nowMs < getSkillCooldownEnd(combat, skill.skillId)) return reject();
+  if (playerMp < skill.mpConsumeL1) return reject();
+  if (target.hp <= 0) return reject();
+
+  const castRangeWorld = skill.castRange / 10;
+  if (!isInMeleeRange(playerX, playerZ, target.x, target.z, castRangeWorld)) {
+    return reject();
+  }
+
+  if (
+    skill.effectKind !== 'physical_damage' &&
+    skill.effectKind !== 'magic_damage'
+  ) {
+    return reject();
+  }
+
+  const zonePeace = false;
+  const allowed = resolvePlayerVsPlayerAttack({
+    attacker: {
+      pvpFlag: attacker.pvpFlag,
+      karma: attacker.karma,
+      pAtk: playerPAtk,
+    },
+    target: {
+      pvpFlag: target.pvpFlag,
+      karma: target.karma,
+      pDef: target.pDef,
+      alive: target.hp > 0,
+    },
+    zonePeace,
+    rng,
+  });
+
+  if (!allowed.allowed) {
+    return reject();
+  }
+
+  const patkMult = getPatkMultiplier(combat);
+  let damage: number;
+  let consumedShot = false;
+
+  if (skill.effectKind === 'physical_damage') {
+    const effectivePAtk = playerPAtk * patkMult;
+    damage = calcPhysicalSkillDamage(
+      { pAtk: effectivePAtk, randomDamage: STARTER_COMBAT.randomDamage },
+      { pDef: target.pDef },
+      skill.powerL1,
+      { rng }
+    );
+    const isCrit = rollCrit({ critRate: playerCritRate }, rng);
+    damage = applyCritMultiplier(damage, isCrit);
+    if (combat.armedShot === 'soul') {
+      damage = applyShotMultiplier(damage, 2);
+      combat.armedShot = null;
+      consumedShot = true;
+    }
+  } else {
+    damage = calcMagicSkillDamage(
+      { mAtk: playerMAtk },
+      { mDef: target.pDef },
+      skill.powerL1,
+      { rng }
+    );
+    const isCrit = rollCrit({ critRate: playerCritRate }, rng);
+    damage = applyCritMultiplier(damage, isCrit);
+    if (combat.armedShot === 'spirit') {
+      damage = applyShotMultiplier(damage, 2);
+      combat.armedShot = null;
+      consumedShot = true;
+    }
+  }
+
+  const cooldownEndMs = nowMs + skill.reuseDelay;
+  combat.skillCooldownEndMs[skill.skillId] = cooldownEndMs;
+
+  const killed = target.hp - damage <= 0;
   return {
     ok: true,
     damage,

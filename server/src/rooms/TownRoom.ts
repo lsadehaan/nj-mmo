@@ -95,6 +95,7 @@ import {
   resolveMobAttack,
   applyKillRewards,
   resolvePlayerVsPlayerMeleeAttack,
+  resolvePlayerVsPlayerSkillUse,
   beginSkillCast,
   cancelSkillCast,
   canUseSkill,
@@ -658,21 +659,39 @@ export class TownRoom extends Room<{ state: TownState }> {
   private handleUseSkill(sessionId: string, skillId: number): void {
     const combat = this.playerCombat.get(sessionId);
     const player = this.state.players.get(sessionId);
-    if (!combat || !player || !combat.targetMobId) return;
+    if (!combat || !player) return;
+
+    const targetMobId = combat.targetMobId;
+    const targetPlayerSessionId = combat.targetPlayerSessionId;
+    if (!targetMobId && !targetPlayerSessionId) return;
 
     const known = this.getKnownSkillSet(sessionId);
     if (!known.has(skillId)) return;
 
     const skill = this.skillsById.get(skillId);
-    const mob = this.mobRuntime.get(combat.targetMobId);
-    if (!skill || !mob || mob.hp <= 0) return;
+    if (!skill) return;
+
+    if (targetMobId) {
+      const mob = this.mobRuntime.get(targetMobId);
+      if (!mob || mob.hp <= 0) return;
+    } else {
+      const target = this.state.players.get(targetPlayerSessionId!);
+      if (!target || target.hp <= 0) return;
+    }
 
     const now = this.nowMs();
     if (!canUseSkill(combat, skillId, known, now)) return;
 
     if (skill.hitTime > 0 && (skill.isMagic || skill.effectKind === 'buff_self' || skill.effectKind === 'debuff_enemy')) {
       if (player.mp < skill.mpConsumeL1) return;
-      beginSkillCast(combat, skillId, combat.targetMobId, skill.hitTime, now);
+      beginSkillCast(
+        combat,
+        skillId,
+        targetMobId,
+        skill.hitTime,
+        now,
+        targetPlayerSessionId
+      );
       player.castingSkillId = combat.castingSkillId;
       player.castEndMs = combat.castEndMs;
       return;
@@ -1586,11 +1605,19 @@ export class TownRoom extends Room<{ state: TownState }> {
     now: number
   ): void {
     const skillId = combat.pendingSkillId || 3;
-    if (!combat.skillPending || !combat.targetMobId) return;
+    if (!combat.skillPending) return;
+    if (!combat.targetMobId && !combat.targetPlayerSessionId) return;
 
     const skill = this.skillsById.get(skillId);
-    const runtime = this.mobRuntime.get(combat.targetMobId);
-    if (!skill || !runtime) return;
+    if (!skill) return;
+
+    if (combat.targetPlayerSessionId) {
+      this.resolvePendingPlayerSkill(sessionId, player, combat, skill, now);
+      return;
+    }
+
+    const runtime = this.mobRuntime.get(combat.targetMobId!);
+    if (!runtime) return;
 
     const mobEffect = this.mobEffects.get(runtime.id) ?? { activeEffect: null };
     this.mobEffects.set(runtime.id, mobEffect);
@@ -1632,13 +1659,142 @@ export class TownRoom extends Room<{ state: TownState }> {
     }
   }
 
+  private resolvePendingPlayerSkill(
+    sessionId: string,
+    player: PlayerState,
+    combat: PlayerCombatState,
+    skill: Skill,
+    now: number
+  ): void {
+    const targetSessionId = combat.targetPlayerSessionId;
+    if (!targetSessionId) return;
+    const target = this.state.players.get(targetSessionId);
+    if (!target || target.hp <= 0) return;
+
+    const template = this.classTemplatesById.get(player.classId);
+    const result = resolvePlayerVsPlayerSkillUse({
+      sessionId,
+      playerX: player.x,
+      playerZ: player.z,
+      playerMp: player.mp,
+      playerMAtk: this.getSkillMAtk(player, skill),
+      playerPAtk: this.getPlayerPAtk(sessionId, player),
+      playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
+      combat,
+      attacker: { pvpFlag: player.pvpFlag, karma: player.karma },
+      target: {
+        sessionId: targetSessionId,
+        pvpFlag: target.pvpFlag,
+        karma: target.karma,
+        pDef: this.getPlayerPDef(target),
+        hp: target.hp,
+        x: target.x,
+        z: target.z,
+      },
+      skill,
+      nowMs: now,
+      rng: this.combatRng,
+    });
+
+    combat.skillPending = false;
+    combat.pendingSkillId = 0;
+
+    if (result.ok && result.mpCost > 0) {
+      player.mp -= result.mpCost;
+      this.emitPlayerAction(player, EntityAction.Cast);
+      this.syncPlayerSkillsToState(sessionId);
+      this.scheduleDebouncedSave(sessionId);
+    }
+
+    if (result.ok && result.damage > 0) {
+      const attackerStored = this.characters.get(sessionId);
+      if (attackerStored) {
+        extendAttackerPvpFlag(player, attackerStored, now);
+      }
+      this.emitPlayerAction(player, EntityAction.Cast);
+      target.hp = Math.max(0, target.hp - result.damage);
+      if (result.killed) {
+        this.pendingPlayerKiller.set(targetSessionId, sessionId);
+      }
+      this.scheduleDebouncedSave(sessionId);
+      this.scheduleDebouncedSave(targetSessionId);
+    }
+  }
+
   private resolveCastingSkills(now: number): void {
     for (const [sessionId, combat] of this.playerCombat.entries()) {
       if (combat.castingSkillId === 0 || combat.castEndMs > now) continue;
       const player = this.state.players.get(sessionId);
       const skill = this.skillsById.get(combat.castingSkillId);
+      if (!player || !skill) {
+        cancelSkillCast(combat);
+        continue;
+      }
+
+      const playerTargetId = combat.castTargetPlayerSessionId;
+      if (playerTargetId) {
+        const target = this.state.players.get(playerTargetId);
+        if (!target || target.hp <= 0) {
+          cancelSkillCast(combat);
+          player.castingSkillId = 0;
+          player.castEndMs = 0;
+          continue;
+        }
+
+        const template = this.classTemplatesById.get(player.classId);
+        const result = resolvePlayerVsPlayerSkillUse({
+          sessionId,
+          playerX: player.x,
+          playerZ: player.z,
+          playerMp: player.mp,
+          playerMAtk: this.getSkillMAtk(player, skill),
+          playerPAtk: this.getPlayerPAtk(sessionId, player),
+          playerCritRate: template?.baseCritRate ?? STARTER_COMBAT.critRate,
+          combat,
+          attacker: { pvpFlag: player.pvpFlag, karma: player.karma },
+          target: {
+            sessionId: playerTargetId,
+            pvpFlag: target.pvpFlag,
+            karma: target.karma,
+            pDef: this.getPlayerPDef(target),
+            hp: target.hp,
+            x: target.x,
+            z: target.z,
+          },
+          skill,
+          nowMs: now,
+          rng: this.combatRng,
+        });
+
+        cancelSkillCast(combat);
+        player.castingSkillId = 0;
+        player.castEndMs = 0;
+
+        if (result.ok && result.mpCost > 0) {
+          player.mp -= result.mpCost;
+          this.emitPlayerAction(player, EntityAction.Cast);
+          this.syncPlayerSkillsToState(sessionId);
+          this.scheduleDebouncedSave(sessionId);
+        }
+
+        if (result.ok && result.damage > 0) {
+          const attackerStored = this.characters.get(sessionId);
+          if (attackerStored) {
+            extendAttackerPvpFlag(player, attackerStored, now);
+          }
+          this.emitPlayerAction(player, EntityAction.Cast);
+          target.hp = Math.max(0, target.hp - result.damage);
+          if (result.killed) {
+            this.pendingPlayerKiller.set(playerTargetId, sessionId);
+          }
+          this.scheduleDebouncedSave(sessionId);
+          this.scheduleDebouncedSave(playerTargetId);
+        }
+        continue;
+      }
+
       const targetId = combat.castTargetMobId;
-      if (!player || !skill || !targetId) {
+      if (!targetId) {
         cancelSkillCast(combat);
         continue;
       }
@@ -1773,7 +1929,8 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.resolveCastingSkills(now);
 
     for (const [sessionId, combat] of this.playerCombat.entries()) {
-      if (!combat.skillPending || !combat.targetMobId) continue;
+      if (!combat.skillPending) continue;
+      if (!combat.targetMobId && !combat.targetPlayerSessionId) continue;
       const player = this.state.players.get(sessionId);
       if (!player) continue;
       this.resolvePendingSkill(sessionId, player, combat, now);

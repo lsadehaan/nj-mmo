@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { SPAWN_X, SPAWN_Z, snapEntityY, getZoneAt } from '@nj/game-core';
+import { SPAWN_X, SPAWN_Z, snapEntityY, getZoneAt, registerStrBonusEntries } from '@nj/game-core';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
 import type { MobRuntime } from './spawn-manager';
@@ -168,6 +168,44 @@ function openTrainerNearBitz(room: TestRoom, sessionId: string) {
   (room as { playerCombat: Map<string, { openTrainerNpcId: number }> }).playerCombat.get(
     sessionId
   )!.openTrainerNpcId = BITZ_NPC_ID;
+}
+
+async function learnPowerStrike(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string
+): Promise<void> {
+  setPlayerProgress(room, sessionId, { sp: 5000 });
+  openTrainerNearBitz(room, sessionId);
+  await deliver(room, client, [['learnSkill', { skillId: POWER_STRIKE_SKILL_ID }]]);
+}
+
+async function dealMeleeHitToMob(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string,
+  mobId: string
+): Promise<number> {
+  const mob = room.state.mobs.get(mobId)!;
+  const hpBefore = mob.hp;
+  const combat = (room as {
+    playerCombat: Map<string, { nextAttackAtMs: number }>;
+  }).playerCombat.get(sessionId)!;
+  combat.nextAttackAtMs = 0;
+  await deliver(room, client, [
+    ['setTarget', { mobId }],
+    ['attack', {}],
+  ]);
+  tick(room);
+  return hpBefore - mob.hp;
+}
+
+function prepareMobForHits(room: TestRoom, sessionId: string, mobId: string) {
+  const runtime = (room as { mobRuntime: Map<string, MobRuntime> }).mobRuntime.get(mobId)!;
+  runtime.hp = 50_000;
+  runtime.maxHp = 50_000;
+  room.state.mobs.get(mobId)!.hp = 50_000;
+  placePlayerAndMobForCombat(room, sessionId, mobId);
 }
 
 describe('TownRoom progression (PROG27)', () => {
@@ -384,6 +422,58 @@ describe('TownRoom progression (PROG27)', () => {
     }
   });
 
+  it('PROG27-28: stat reset lowers melee damage on next hit', async () => {
+    registerStrBonusEntries({ 41: 1.24, 42: 1.29, 43: 1.33 });
+    const { dbPath, cleanup } = seededDb();
+    try {
+      const room = await createRoom(dbPath);
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const stored = (room as { characters: Map<string, Record<string, number>> }).characters.get(
+        client.sessionId
+      )!;
+      player.level = 12;
+      player.unspentStatPoints = 3;
+      player.adena = 20_000;
+      stored.level = 12;
+      stored.unspentStatPoints = 3;
+      stored.adena = 20_000;
+
+      const gremlin = findMobByNpcId(room, GREMLIN_NPC_ID)!;
+      prepareMobForHits(room, client.sessionId, gremlin.id);
+
+      for (let i = 0; i < 3; i++) {
+        await deliver(room, client, [['allocateStat', { stat: 'str' }]]);
+      }
+      expect(player.bonusStr).toBe(3);
+
+      const damageWithBonus = await dealMeleeHitToMob(
+        room,
+        client,
+        client.sessionId,
+        gremlin.id
+      );
+      expect(damageWithBonus).toBeGreaterThan(0);
+
+      openTrainerNearBitz(room, client.sessionId);
+      await deliver(room, client, [['resetStats', {}]]);
+      expect(player.bonusStr).toBe(0);
+
+      prepareMobForHits(room, client.sessionId, gremlin.id);
+      const damageAfterReset = await dealMeleeHitToMob(
+        room,
+        client,
+        client.sessionId,
+        gremlin.id
+      );
+      expect(damageAfterReset).toBeLessThan(damageWithBonus);
+
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('PROG27-29: togglePvp sets flag for 120s', async () => {
     const clock = { now: 1000 };
     const { dbPath, cleanup } = seededDb();
@@ -559,6 +649,77 @@ describe('TownRoom progression (PROG27)', () => {
         if (room.state.players.get(flagged.sessionId)!.hp < hpBefore) break;
       }
       expect(room.state.players.get(flagged.sessionId)!.hp).toBeLessThan(hpBefore);
+      await leaveRoom(room, attacker);
+      await leaveRoom(room, flagged);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('PROG27-39: PvP kill records killer through combat', async () => {
+    const clock = { now: 1000 };
+    const { dbPath, cleanup } = seededDb();
+    try {
+      const room = await createRoom(dbPath, { nowMs: () => clock.now });
+      const killer = await colyseus.connectTo(room);
+      const victim = await colyseus.connectTo(room);
+      placePlayerNear(room, killer.sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      placePlayerNear(room, victim.sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      await deliver(room, victim, [['togglePvp', {}]]);
+      const victimPlayer = room.state.players.get(victim.sessionId)!;
+      victimPlayer.hp = 30;
+      victimPlayer.level = 1;
+
+      const killerCombat = (room as {
+        playerCombat: Map<string, { nextAttackAtMs: number }>;
+      }).playerCombat.get(killer.sessionId)!;
+      killerCombat.nextAttackAtMs = 0;
+      await deliver(room, killer, [
+        ['setTargetPlayer', { sessionId: victim.sessionId }],
+        ['attack', {}],
+      ]);
+
+      for (let i = 0; i < 20; i++) {
+        tick(room);
+        if (room.state.players.get(victim.sessionId)!.x === SPAWN_X) break;
+        killerCombat.nextAttackAtMs = 0;
+        killerCombat.attackPending = true;
+      }
+
+      expect(victimPlayer.x).toBe(SPAWN_X);
+      expect(victimPlayer.z).toBe(SPAWN_Z);
+      expect(victimPlayer.hp).toBe(victimPlayer.maxHp);
+      const killerStored = (room as { characters: Map<string, { pvpKills: number }> }).characters.get(
+        killer.sessionId
+      )!;
+      expect(killerStored.pvpKills).toBe(1);
+      await leaveRoom(room, killer);
+      await leaveRoom(room, victim);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('PROG27-42: useSkill damages flagged PvP player', async () => {
+    const clock = { now: 1000 };
+    const { dbPath, cleanup } = seededDb();
+    try {
+      const room = await createRoom(dbPath, { nowMs: () => clock.now });
+      const attacker = await colyseus.connectTo(room);
+      const flagged = await colyseus.connectTo(room);
+      await learnPowerStrike(room, attacker, attacker.sessionId);
+      placePlayerNear(room, attacker.sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      placePlayerNear(room, flagged.sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      await deliver(room, flagged, [['togglePvp', {}]]);
+      const flaggedPlayer = room.state.players.get(flagged.sessionId)!;
+      flaggedPlayer.hp = 50_000;
+      const hpBefore = flaggedPlayer.hp;
+      await deliver(room, attacker, [
+        ['setTargetPlayer', { sessionId: flagged.sessionId }],
+        ['useSkill', { skillId: POWER_STRIKE_SKILL_ID }],
+      ]);
+      tick(room);
+      expect(flaggedPlayer.hp).toBeLessThan(hpBefore);
       await leaveRoom(room, attacker);
       await leaveRoom(room, flagged);
     } finally {
