@@ -13,6 +13,14 @@ export interface PanelRegistration {
 const panels = new Map<string, PanelRegistration>();
 let hotkeysBound = false;
 let systemMenuOpen = false;
+let uiAudioHooks: { onOpen?: () => void; onClose?: () => void } = {};
+
+export function setUiAudioHooks(hooks: {
+  onOpen?: () => void;
+  onClose?: () => void;
+}): void {
+  uiAudioHooks = hooks;
+}
 
 export function registerPanel(id: string, registration: PanelRegistration): void {
   panels.set(id, registration);
@@ -38,6 +46,7 @@ export function openPanel(id: string): void {
   const el = reg?.mount();
   if (!el || !reg) return;
   el.hidden = false;
+  uiAudioHooks.onOpen?.();
   reg.onOpen?.();
   publishUiState();
 }
@@ -47,6 +56,7 @@ export function closePanel(id: string): void {
   const el = reg?.mount();
   if (!el || !reg) return;
   el.hidden = true;
+  uiAudioHooks.onClose?.();
   reg.onClose?.();
   publishUiState();
 }

@@ -7,7 +7,10 @@ import {
   registerPanel,
   togglePanel,
   unbindGlobalHotkeys,
+  setUiAudioHooks,
 } from './window-manager';
+import { createMockAudioBackend } from '../audio/audio-backend';
+import { createAudioManager } from '../audio/audio-manager';
 import { mountInventoryWindow } from './inventory-window';
 import { mountSkillWindow } from './skill-window';
 import { mountQuestLog } from './quest-log';
@@ -83,5 +86,22 @@ describe('window-manager', () => {
     const menu = document.getElementById('system-menu')!;
     expect(getComputedStyle(menu).pointerEvents).not.toBe('all');
     expect(menu.style.pointerEvents).not.toBe('all');
+  });
+
+  it('AUD29-27: open panel plays sfx_ui_open', () => {
+    const mock = createMockAudioBackend();
+    const mgr = createAudioManager({ backend: mock.backend });
+    setUiAudioHooks({ onOpen: () => mgr.playUiOpen(), onClose: () => mgr.playUiClose() });
+    openPanel('inventory-window');
+    expect(mock.calls.some((c) => c.kind === 'oneShot' && c.id === 'sfx_ui_open')).toBe(true);
+  });
+
+  it('AUD29-28: close panel plays sfx_ui_close', () => {
+    const mock = createMockAudioBackend();
+    const mgr = createAudioManager({ backend: mock.backend });
+    setUiAudioHooks({ onOpen: () => mgr.playUiOpen(), onClose: () => mgr.playUiClose() });
+    openPanel('inventory-window');
+    togglePanel('inventory-window');
+    expect(mock.calls.some((c) => c.kind === 'oneShot' && c.id === 'sfx_ui_close')).toBe(true);
   });
 });
