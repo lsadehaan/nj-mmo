@@ -805,7 +805,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 27 — Progression rules & PvP `[ ]`
+## Phase 27 — Progression rules & PvP `[x]`
 
 > Done when: death XP loss + restore; PvP flag/karma; delevel; full XP curve to
 > TI level cap; stat re-spec at trainer.

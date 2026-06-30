@@ -151,7 +151,10 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 27.**
+**Loop status: RUNNING — next unchecked phase: Phase 28.**
+
+**Phase 27 — Progression rules & PvP: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
+48/48 ACs, gate 878 tests. Death XP loss, Biotin restore, SP economy, stat re-spec, PvP/karma, player combat. Merged `feat/phase-27-progression-pvp`.
 
 **Phase 26 — Social & multiplayer systems: COMPLETE (Verifier PASS, fix iteration 2, 2026-06-29).**
 42/42 ACs, gate 992 tests, party +28 XP + trade + friends. Merged `feat/phase-26-social`.
