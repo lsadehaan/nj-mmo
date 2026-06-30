@@ -3,6 +3,7 @@ import { MobState } from './MobState';
 import { NpcState } from './NpcState';
 import { ItemStackState } from './ItemStackState';
 import { QuestEntryState } from './QuestEntryState';
+import { PartyState } from './PartyState';
 
 export class PlayerState extends Schema {
   @type('number') x = 0;
@@ -47,10 +48,13 @@ export class PlayerState extends Schema {
   @type([QuestEntryState]) questEntries = new ArraySchema<QuestEntryState>();
   @type(['number']) warehouseItemIds = new ArraySchema<number>();
   @type(['number']) warehouseItemCounts = new ArraySchema<number>();
+  @type('number') partyId = 0;
+  @type('string') characterName = '';
 }
 
 export class TownState extends Schema {
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
   @type({ map: MobState }) mobs = new MapSchema<MobState>();
   @type({ map: NpcState }) npcs = new MapSchema<NpcState>();
+  @type({ map: PartyState }) parties = new MapSchema<PartyState>();
 }
