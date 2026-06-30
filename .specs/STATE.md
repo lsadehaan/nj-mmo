@@ -151,9 +151,11 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 25.**
+**Loop status: RUNNING — next unchecked phase: Phase 26.**
 
-**Next step:** **Phase 25 — Items, economy & crafting** (`.specs/ROADMAP.md`).
+**Phase 25 — Items, economy & crafting: COMPLETE (Verifier PASS, fix iteration 2, 2026-06-29).**
+52/52 ACs (ITEM25-13 Silvia 13-row SPEC_DEVIATION), sensor 3/3, gate green.
+11 equip slots, ~87 TI items, crafting, safe +3 enchant, set bonuses. Merged `feat/phase-25-items-economy`.
 
 **Phase 24 — Town services & full NPC roster: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
 `.specs/features/phase-24-town-services/validation.md` PASS: 50/50 ACs, sensor 3/3, gate 866 + visual 64/64.

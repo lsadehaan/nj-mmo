@@ -758,7 +758,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 25 — Items, economy & crafting `[ ]`
+## Phase 25 — Items, economy & crafting `[x]`
 
 > Done when: full TI-grade equipment tables (No-grade/D-grade weapons/armor/jewelry);
 > all equip slots; soulshots functional; dwarf crafting/recipes for TI subset;
