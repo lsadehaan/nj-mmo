@@ -1028,9 +1028,10 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   });
 
   callbacks.onAdd('parties', (party, partyId) => {
+    const partyState = party as object;
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
     if (local) syncPartyFromState(local);
-    callbacks.onChange(party, () => {
+    callbacks.onChange(partyState, () => {
       const lp = room.state.players.get(localId) as PlayerSchema | undefined;
       if (lp) syncPartyFromState(lp);
     });

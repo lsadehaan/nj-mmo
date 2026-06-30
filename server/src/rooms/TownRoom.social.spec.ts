@@ -1,15 +1,15 @@
-import { boot, ColyseusTestServer } from '@colyseus/testing';
+import type { ColyseusTestServer } from '@colyseus/testing';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { snapEntityY, getZoneAt } from '@nj/game-core';
-import app from '../app.config';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
 import { TownState } from './schema/TownState';
 import type { MobRuntime } from './spawn-manager';
+import { acquireTownRoomTestServer, releaseTownRoomTestServer } from './town-room-harness';
 
 const OUT_OF_PEACE = { x: -150, z: 55 };
 const GREMLIN_NPC_ID = 20001;
@@ -18,11 +18,11 @@ const SOULSHOT_ITEM_ID = 1835;
 let colyseus: ColyseusTestServer;
 
 beforeAll(async () => {
-  colyseus = await boot(app);
+  colyseus = await acquireTownRoomTestServer();
 }, 60_000);
 
 afterAll(async () => {
-  await colyseus.shutdown();
+  await releaseTownRoomTestServer();
 });
 
 function tempDbPath(): { dbPath: string; cleanup: () => void } {

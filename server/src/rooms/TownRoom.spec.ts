@@ -1,4 +1,4 @@
-import { boot, ColyseusTestServer } from '@colyseus/testing';
+import { ColyseusTestServer } from '@colyseus/testing';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -6,10 +6,10 @@ import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT, getZoneAt, EQUIP_SLOTS, type EquipSlot } from '@nj/game-core';
-import app from '../app.config';
 import { getDb } from '../db/client';
 import { classLevelVitals, classTemplates, classSkillTree } from '../db/schema';
 import { onMobKilledForQuests, type QuestRoomContext } from './quest-handlers';
+import { acquireTownRoomTestServer, releaseTownRoomTestServer } from './town-room-harness';
 import {
   createCharacter,
   loadCharacter,
@@ -52,11 +52,11 @@ const ROXXY_NPC = 30006;
 let colyseus: ColyseusTestServer;
 
 beforeAll(async () => {
-  colyseus = await boot(app);
+  colyseus = await acquireTownRoomTestServer();
 }, 60_000);
 
 afterAll(async () => {
-  await colyseus.shutdown();
+  await releaseTownRoomTestServer();
 });
 
 function tempDbPath(): { dbPath: string; cleanup: () => void } {

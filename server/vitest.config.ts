@@ -48,5 +48,6 @@ export default defineConfig({
     },
     // Colyseus room teardown can race the next createRoom; one retry keeps the gate honest.
     retry: 1,
+    fileParallelism: false,
   },
 });
