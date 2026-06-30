@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { getDb } from './client';
-import { characters, mobDrops, mobSpawns, monsters, items, merchantItems, npcSpawns, characterItems } from './schema';
+import { characters, mobDrops, mobSpawns, monsters, items, merchantItems, npcSpawns, characterItems, recipes, armorSets, characterEquipment } from './schema';
 
 describe('characters table', () => {
   let cleanup: () => void;
@@ -108,6 +108,84 @@ describe('items master table', () => {
       randomDamage: null,
       bodyPart: null,
     });
+  });
+
+  it('stores extended item columns (ITEM25-01)', () => {
+    const db = tempDb();
+    db.insert(items)
+      .values({
+        itemId: 58,
+        name: 'Mithril Breastplate',
+        type: 'armor',
+        crystalType: 'D',
+        pDef: 95,
+        mDef: 26,
+        bodyPart: 'chest',
+        enchantEnabled: true,
+        isStackable: false,
+        weaponType: null,
+        recipeId: null,
+      })
+      .run();
+    const row = db.select().from(items).where(eq(items.itemId, 58)).get();
+    expect(row).toMatchObject({
+      crystalType: 'D',
+      pDef: 95,
+      mDef: 26,
+      enchantEnabled: true,
+      recipeId: null,
+      weaponType: null,
+      isStackable: false,
+    });
+  });
+
+  it('creates recipes table with recipe_id PK (ITEM25-07)', () => {
+    const db = tempDb();
+    db.insert(recipes)
+      .values({
+        recipeId: 2,
+        name: 'mk_broadsword',
+        craftLevel: 1,
+        successRate: 100,
+        mpCost: 30,
+        productItemId: 3,
+        productCount: 1,
+        ingredientsJson: JSON.stringify([
+          { itemId: 2005, count: 1 },
+          { itemId: 1869, count: 18 },
+          { itemId: 1870, count: 18 },
+        ]),
+      })
+      .run();
+    const row = db.select().from(recipes).where(eq(recipes.recipeId, 2)).get();
+    expect(row?.productItemId).toBe(3);
+  });
+
+  it('creates character_equipment with composite PK (ITEM25-17)', () => {
+    const db = tempDb();
+    db.insert(characterEquipment)
+      .values({ characterId: 'c1', slot: 'rhand', itemId: 3, enchantLevel: 0 })
+      .run();
+    const row = db
+      .select()
+      .from(characterEquipment)
+      .where(eq(characterEquipment.characterId, 'c1'))
+      .get();
+    expect(row).toMatchObject({ slot: 'rhand', itemId: 3, enchantLevel: 0 });
+  });
+
+  it('creates armor_sets table (ITEM25-09)', () => {
+    const db = tempDb();
+    db.insert(armorSets)
+      .values({
+        setId: 0,
+        requiredItemIdsJson: JSON.stringify([23, 2386, 43]),
+        pDefPercentBonus: 0.02,
+        maxHpBonus: 41,
+      })
+      .run();
+    const row = db.select().from(armorSets).where(eq(armorSets.setId, 0)).get();
+    expect(row?.maxHpBonus).toBe(41);
   });
 });
 

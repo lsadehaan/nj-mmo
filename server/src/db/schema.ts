@@ -109,11 +109,49 @@ export const items = sqliteTable('items', {
   itemId: integer('item_id').primaryKey(),
   name: text('name').notNull(),
   type: text('type').notNull(),
+  crystalType: text('crystal_type'),
   pAtk: real('p_atk'),
+  pDef: real('p_def'),
+  mDef: real('m_def'),
   randomDamage: integer('random_damage'),
   bodyPart: text('body_part'),
+  weaponType: text('weapon_type'),
+  enchantEnabled: integer('enchant_enabled', { mode: 'boolean' }).notNull().default(false),
+  recipeId: integer('recipe_id'),
+  isStackable: integer('is_stackable', { mode: 'boolean' }).notNull().default(false),
   isQuestItem: integer('is_quest_item', { mode: 'boolean' }).notNull().default(false),
 });
+
+export const recipes = sqliteTable('recipes', {
+  recipeId: integer('recipe_id').primaryKey(),
+  name: text('name').notNull(),
+  craftLevel: integer('craft_level').notNull(),
+  successRate: integer('success_rate').notNull(),
+  mpCost: integer('mp_cost').notNull(),
+  productItemId: integer('product_item_id').notNull(),
+  productCount: integer('product_count').notNull(),
+  ingredientsJson: text('ingredients_json').notNull(),
+});
+
+export const armorSets = sqliteTable('armor_sets', {
+  setId: integer('set_id').primaryKey(),
+  requiredItemIdsJson: text('required_item_ids_json').notNull(),
+  pDefPercentBonus: real('p_def_percent_bonus').notNull(),
+  maxHpBonus: integer('max_hp_bonus').notNull(),
+});
+
+export const characterEquipment = sqliteTable(
+  'character_equipment',
+  {
+    characterId: text('character_id').notNull(),
+    slot: text('slot').notNull(),
+    itemId: integer('item_id').notNull(),
+    enchantLevel: integer('enchant_level').notNull().default(0),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.characterId, table.slot] }),
+  })
+);
 
 export const quests = sqliteTable('quests', {
   questId: integer('quest_id').primaryKey(),
@@ -287,6 +325,12 @@ export type ExperienceRow = typeof experience.$inferSelect;
 export type NewExperienceRow = typeof experience.$inferInsert;
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
+export type Recipe = typeof recipes.$inferSelect;
+export type NewRecipe = typeof recipes.$inferInsert;
+export type ArmorSet = typeof armorSets.$inferSelect;
+export type NewArmorSet = typeof armorSets.$inferInsert;
+export type CharacterEquipment = typeof characterEquipment.$inferSelect;
+export type NewCharacterEquipment = typeof characterEquipment.$inferInsert;
 export type Quest = typeof quests.$inferSelect;
 export type NewQuest = typeof quests.$inferInsert;
 export type QuestObjective = typeof questObjectives.$inferSelect;
@@ -324,6 +368,9 @@ export const schema = {
   characterSkills,
   experience,
   items,
+  recipes,
+  armorSets,
+  characterEquipment,
   merchantItems,
   npcSpawns,
   characterItems,

@@ -131,9 +131,40 @@ function applySchema(sqlite: Database.Database): void {
       item_id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
+      crystal_type TEXT,
       p_atk REAL,
+      p_def REAL,
+      m_def REAL,
       random_damage INTEGER,
-      body_part TEXT
+      body_part TEXT,
+      weapon_type TEXT,
+      enchant_enabled INTEGER NOT NULL DEFAULT 0,
+      recipe_id INTEGER,
+      is_stackable INTEGER NOT NULL DEFAULT 0,
+      is_quest_item INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS recipes (
+      recipe_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      craft_level INTEGER NOT NULL,
+      success_rate INTEGER NOT NULL,
+      mp_cost INTEGER NOT NULL,
+      product_item_id INTEGER NOT NULL,
+      product_count INTEGER NOT NULL,
+      ingredients_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS armor_sets (
+      set_id INTEGER PRIMARY KEY,
+      required_item_ids_json TEXT NOT NULL,
+      p_def_percent_bonus REAL NOT NULL,
+      max_hp_bonus INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS character_equipment (
+      character_id TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      enchant_level INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (character_id, slot)
     );
     CREATE TABLE IF NOT EXISTS merchant_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -323,9 +354,50 @@ function migrateCharactersColumns(sqlite: Database.Database): void {
 function migrateItemsColumns(sqlite: Database.Database): void {
   const cols = sqlite.pragma('table_info(items)') as { name: string }[];
   const names = new Set(cols.map((c) => c.name));
-  if (!names.has('is_quest_item')) {
-    sqlite.exec('ALTER TABLE items ADD COLUMN is_quest_item INTEGER NOT NULL DEFAULT 0');
+  const adds: [string, string][] = [
+    ['is_quest_item', 'INTEGER NOT NULL DEFAULT 0'],
+    ['crystal_type', 'TEXT'],
+    ['p_def', 'REAL'],
+    ['m_def', 'REAL'],
+    ['weapon_type', 'TEXT'],
+    ['enchant_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+    ['recipe_id', 'INTEGER'],
+    ['is_stackable', 'INTEGER NOT NULL DEFAULT 0'],
+  ];
+  for (const [col, def] of adds) {
+    if (!names.has(col)) {
+      sqlite.exec(`ALTER TABLE items ADD COLUMN ${col} ${def}`);
+    }
   }
+  migratePhase25Tables(sqlite);
+}
+
+function migratePhase25Tables(sqlite: Database.Database): void {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS recipes (
+      recipe_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      craft_level INTEGER NOT NULL,
+      success_rate INTEGER NOT NULL,
+      mp_cost INTEGER NOT NULL,
+      product_item_id INTEGER NOT NULL,
+      product_count INTEGER NOT NULL,
+      ingredients_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS armor_sets (
+      set_id INTEGER PRIMARY KEY,
+      required_item_ids_json TEXT NOT NULL,
+      p_def_percent_bonus REAL NOT NULL,
+      max_hp_bonus INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS character_equipment (
+      character_id TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      enchant_level INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (character_id, slot)
+    );
+  `);
 }
 
 function migrateMonstersColumns(sqlite: Database.Database): void {

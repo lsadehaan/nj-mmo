@@ -19,6 +19,15 @@ export const TI_NPC_IDS = [
   30044, 30045, 30046,
 ] as const;
 
+/** TI merchant buylists + craft recipes 1–19 + scrolls + MVP consumables/shots. */
+export const TI_ITEM_IDS = [
+  1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 24, 28, 29, 30, 31,
+  35, 36, 37, 38, 41, 42, 43, 44, 47, 48, 49, 50, 58, 59, 66, 67, 69, 102, 112, 113,
+  114, 115, 116, 118, 122, 152, 153, 154, 215, 216, 218, 253, 254, 255, 256, 271, 272,
+  390, 412, 845, 875, 876, 877, 906, 907, 908, 955, 956, 1060, 1119, 1121, 1122, 1129,
+  1333, 1463, 1786, 1835, 1864, 1869, 1870, 2005, 2369, 2386, 2509, 5284,
+] as const;
+
 export function resolveDataDir(dataDir?: string): string {
   const dir = dataDir ?? DEFAULT_L2J_DATA_DIR;
   if (!existsSync(dir)) {
