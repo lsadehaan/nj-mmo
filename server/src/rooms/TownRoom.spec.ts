@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
-import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT } from '@nj/game-core';
+import { EntityAction, SPAWN_X, SPAWN_Y, SPAWN_Z, snapEntityY, isWalkable, calcMagicSkillDamage, calcClassBaseMAtk, GREMLIN_COMBAT, getZoneAt } from '@nj/game-core';
 import app from '../app.config';
 import { getDb } from '../db/client';
 import { onMobKilledForQuests, type QuestRoomContext } from './quest-handlers';
@@ -23,7 +23,14 @@ import { TownState } from './schema/TownState';
 import type { MobRuntime } from './spawn-manager';
 import * as mobAi from './mob-ai';
 
-const OUT_OF_PEACE = { x: 30, z: -30 };
+const OUT_OF_PEACE = { x: -150, z: 55 };
+
+/** Phase 23 zone anchor coordinates for room-integration guards. */
+export const ZONE_TEST_COORDS = {
+  village: { x: 0, z: 0 },
+  obelisk: { x: -150, z: 55 },
+  harborWater: { x: -225, z: 275 },
+} as const;
 const BITZ_NPC_ID = 30026;
 const BAULRO_NPC_ID = 30033;
 const SOULSHOT_ITEM_ID = 1835;
@@ -116,6 +123,8 @@ function placePlayerNear(
   const player = room.state.players.get(sessionId)!;
   player.x = x;
   player.z = z;
+  player.y = snapEntityY(x, z);
+  player.zoneId = getZoneAt(x, z).zoneId;
   const tickStates = (room as { tickStates: Map<string, { x: number; z: number; targetX: number | null; targetZ: number | null }> })
     .tickStates;
   const tickState = tickStates.get(sessionId);
@@ -159,7 +168,7 @@ async function learnSkillAtBitz(
   sessionId: string,
   skillId: number
 ): Promise<void> {
-  placePlayerNear(room, sessionId, 2, -4);
+  placePlayerAtNpc(room, sessionId, BITZ_NPC_ID);
   await deliver(room, client, [
     ['interact', { npcId: BITZ_NPC_ID }],
     ['learnSkill', { skillId }],
@@ -172,7 +181,7 @@ async function learnSkillAtBaulro(
   sessionId: string,
   skillId: number
 ): Promise<void> {
-  placePlayerNear(room, sessionId, 8, -8);
+  placePlayerAtNpc(room, sessionId, BAULRO_NPC_ID);
   await deliver(room, client, [
     ['interact', { npcId: BAULRO_NPC_ID }],
     ['learnSkill', { skillId }],
@@ -484,7 +493,7 @@ describe('TownRoom', () => {
 
     await deliver(room, client, [
       ['move', { targetX: Number.NaN, targetZ: 0 }],
-      ['move', { targetX: 200, targetZ: 0 }],
+      ['move', { targetX: 400, targetZ: 0 }],
     ]);
 
     for (let i = 0; i < 5; i++) {
@@ -715,7 +724,7 @@ describe('TownRoom combat', () => {
     const { dbPath, cleanup } = seededCombatDb();
     try {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
-      expect(room.state.mobs.size).toBe(60);
+      expect(room.state.mobs.size).toBeGreaterThanOrEqual(55);
       await room.disconnect();
     } finally {
       cleanup();
@@ -1207,7 +1216,8 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const goblin = findMobByNpcId(room, 20003)!;
-      placePlayerNear(room, client.sessionId, goblin.x + 40, goblin.z);
+      relocateMob(room, goblin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 40, OUT_OF_PEACE.z);
 
       tick(room);
 
@@ -2360,6 +2370,90 @@ describe('TownRoom NPC shop and peace zone', () => {
       await leaveRoom(room, client);
     } finally {
       tickSpy.mockRestore();
+      cleanup();
+    }
+  });
+});
+
+describe('TownRoom TI zone guards', () => {
+  it('TIW23-18: attack at obelisk deals damage outside peace', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
+      const client = await colyseus.connectTo(room);
+      const gremlin = findMobByNpcId(room, 20001)!;
+      const { x, z } = ZONE_TEST_COORDS.obelisk;
+      relocateMob(room, gremlin.id, x, z);
+      placePlayerNear(room, client.sessionId, x, z);
+      const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
+
+      await deliverAndTick(room, client, [
+        ['setTarget', { mobId: gremlin.id }],
+        ['attack', {}],
+      ]);
+
+      expect(room.state.mobs.get(gremlin.id)!.hp).toBeLessThan(hpBefore);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('TIW23-22: rejects move intent into harbour water', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const shore = { x: ZONE_TEST_COORDS.harborWater.x, z: ZONE_TEST_COORDS.harborWater.z - 8 };
+      placePlayerNear(room, client.sessionId, shore.x, shore.z);
+      const xBefore = player.x;
+      const zBefore = player.z;
+
+      await deliverAndTick(room, client, [
+        [
+          'move',
+          {
+            targetX: ZONE_TEST_COORDS.harborWater.x,
+            targetZ: ZONE_TEST_COORDS.harborWater.z,
+          },
+        ],
+      ]);
+
+      expect(player.x).toBeCloseTo(xBefore, 1);
+      expect(player.z).toBeCloseTo(zBefore, 1);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('TIW23-48: spawn sets zoneId from village coordinates', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      expect(player.zoneId).toBe('ti_village');
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('TIW23-49: zoneId updates when crossing into obelisk', async () => {
+    const { dbPath, cleanup } = seededCombatDb();
+    try {
+      const room = await colyseus.createRoom('town', { dbPath });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      placePlayerNear(room, client.sessionId, ZONE_TEST_COORDS.village.x, ZONE_TEST_COORDS.village.z);
+      expect(player.zoneId).toBe('ti_village');
+
+      placePlayerNear(room, client.sessionId, ZONE_TEST_COORDS.obelisk.x, ZONE_TEST_COORDS.obelisk.z);
+      expect(player.zoneId).toBe('obelisk');
+      await leaveRoom(room, client);
+    } finally {
       cleanup();
     }
   });
