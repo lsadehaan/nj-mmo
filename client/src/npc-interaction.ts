@@ -42,6 +42,7 @@ export function findNearestInteractableNpc(
 
   let nearest: NearestNpcResult | null = null;
   for (const npc of npcs) {
+    if (npc.type === 'Guard') continue;
     const distance = horizontalDistance(player.x, player.z, npc.x, npc.z);
     if (!nearest || distance < nearest.distance) {
       nearest = {
