@@ -25,6 +25,7 @@ export class PlayerState extends Schema {
   @type('number') level = 1;
   @type('number') adena = 1000;
   @type('boolean') connected = true;
+  @type('string') zoneId = 'ti_village';
   @type(['number']) knownSkillIds = new ArraySchema<number>();
   @type(['number']) skillCooldownEndMs = new ArraySchema<number>();
   @type('number') castingSkillId = 0;
