@@ -128,20 +128,20 @@ describe('placeScatterEnvironment', () => {
     clearGltfStaticTemplateCache();
   });
 
-  it('places 80 scatter props at scatterProps coordinates', async () => {
+  it('places 220 scatter props at scatterProps coordinates', async () => {
     const scene = new THREE.Scene();
     const loader = mockLoader(true);
     const result = await placeScatterEnvironment({ scene, terrainData: terrain, loader });
 
     const expected = scatterProps(42, terrain, {
-      count: 80,
-      fieldMin: -90,
-      fieldMax: 90,
-      villageRadius: 25,
+      count: 220,
+      fieldMin: -300,
+      fieldMax: 300,
+      villageRadius: 45,
     });
 
-    expect(result.count).toBe(80);
-    expect(expected).toHaveLength(80);
+    expect(result.count).toBe(220);
+    expect(expected).toHaveLength(220);
 
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
@@ -195,9 +195,9 @@ describe('placeScatterEnvironment', () => {
     const loader = mockLoader(false);
     const result = await placeScatterEnvironment({ scene, terrainData: terrain, loader });
 
-    expect(result.count).toBe(80);
+    expect(result.count).toBe(220);
     expect(result.renderKind).toBe('primitive');
-    expect(scene.children.length).toBe(80);
+    expect(scene.children.length).toBe(220);
   });
 });
 
@@ -222,7 +222,8 @@ describe('buildEnvironmentScene', () => {
     });
 
     expect(result.buildings).toEqual({ count: 5, renderKind: 'mesh' });
-    expect(result.scatter).toEqual({ count: 80, renderKind: 'mesh' });
+    expect(result.scatter).toEqual({ count: 220, renderKind: 'mesh' });
     expect(result.peaceZone).toEqual({ count: 1, renderKind: 'mesh' });
+    expect(result.landmarks).toEqual({ count: 6, renderKind: 'mesh' });
   });
 });

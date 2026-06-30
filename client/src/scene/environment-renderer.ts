@@ -9,6 +9,7 @@ import {
   getScatterPropEntry,
   type BuildingPropIndex,
 } from './environment-manifest';
+import { buildLandmarkScene } from './landmark-renderer';
 import {
   cloneStaticProp,
   createInstancedScatter,
@@ -28,6 +29,7 @@ export interface EnvironmentSceneResult {
   buildings: EnvironmentCategoryResult;
   scatter: EnvironmentCategoryResult;
   peaceZone: EnvironmentCategoryResult;
+  landmarks: EnvironmentCategoryResult;
 }
 
 export interface BuildEnvironmentSceneOptions {
@@ -172,10 +174,10 @@ export async function placeScatterEnvironment(
   const { scene, terrainData } = opts;
   const loader = opts.loader ?? new GLTFLoader();
   const scatter = scatterProps(WORLD_SEED, terrainData, {
-    count: 80,
-    fieldMin: -90,
-    fieldMax: 90,
-    villageRadius: 25,
+    count: 220,
+    fieldMin: -300,
+    fieldMax: 300,
+    villageRadius: 45,
   });
 
   const result: EnvironmentCategoryResult = { count: scatter.length, renderKind: 'mesh' };
@@ -254,7 +256,12 @@ export async function buildEnvironmentScene(
 ): Promise<EnvironmentSceneResult> {
   const village = await placeVillageEnvironment(opts);
   const scatter = await placeScatterEnvironment(opts);
-  return { ...village, scatter };
+  const landmarks = await buildLandmarkScene({
+    scene: opts.scene,
+    sampleHeight: opts.terrainData.sampleHeight,
+    loader: opts.loader,
+  });
+  return { ...village, scatter, landmarks };
 }
 
 export {
