@@ -41,6 +41,10 @@ describe('wireRoom audio sync', () => {
 
   beforeEach(() => {
     document.body.innerHTML = '';
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
     initGameState();
     onLocalChange = undefined;
     const mock = createMockAudioBackend();

@@ -1,5 +1,7 @@
 import { createIconImg } from './icon-img';
 import { getSkillIconPath } from './icon-manifest';
+import { getSkillInfo } from './game-catalog';
+import { attachTooltip } from './tooltip';
 
 const HOTBAR_ID = 'skill-hotbar';
 const HOTKEYS = ['2', '3', '4'] as const;
@@ -17,8 +19,9 @@ export function mountHotbar(): HTMLElement {
   bar.id = HOTBAR_ID;
   bar.style.cssText = [
     'position:fixed',
-    'left:16px',
+    'left:50%',
     'bottom:16px',
+    'transform:translateX(-50%)',
     'display:flex',
     'gap:8px',
     'z-index:10',
@@ -43,7 +46,14 @@ export function renderHotbar(options: {
     slot.type = 'button';
     slot.dataset['skillId'] = String(skillId);
     slot.dataset['hotkey'] = HOTKEYS[index] ?? String(index + 2);
-    slot.title = `Skill ${skillId} (${slot.dataset['hotkey']})`;
+    const hotkey = slot.dataset['hotkey'];
+    const info = getSkillInfo(skillId);
+    attachTooltip(slot, () => {
+      const cooldownEnd = options.skillCooldownEndMs[index] ?? 0;
+      const left = Math.max(0, Math.ceil((cooldownEnd - (options.nowMs ?? Date.now())) / 1000));
+      const body = left > 0 ? `${info.description}\nReady in ${left}s` : info.description;
+      return { title: `${info.name}  (Hotkey ${hotkey})`, body };
+    });
     slot.style.cssText = [
       'position:relative',
       'width:48px',

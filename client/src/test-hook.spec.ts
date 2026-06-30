@@ -1,5 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { initGameState, setQuests, setMobs, getGameState } from './test-hook';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  initGameState,
+  setQuests,
+  setMobs,
+  getGameState,
+  setPlayerPDef,
+  setMaxHp,
+  setMaxMp,
+} from './test-hook';
 import { createMockAudioBackend } from './audio/audio-backend';
 import { createAudioManager } from './audio/audio-manager';
 
@@ -116,6 +124,29 @@ describe('test-hook audio', () => {
     expect(getGameState().audio.inCombat).toBe(true);
   });
 });
+describe('test-hook vitals HUD', () => {
+  beforeEach(() => {
+    initGameState();
+    document.body.innerHTML = '';
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('keeps the P.Def line stable when other vitals setters fire (no flicker)', () => {
+    setPlayerPDef(42);
+    const pdef = () =>
+      (document.querySelector('[data-role="pdef"]') as HTMLElement | null)?.textContent ?? '';
+    expect(pdef()).toBe('P.Def 42');
+
+    // A later maxHp/maxMp update (which omits pDef) must not wipe the P.Def line.
+    setMaxHp(120);
+    expect(pdef()).toBe('P.Def 42');
+    setMaxMp(60);
+    expect(pdef()).toBe('P.Def 42');
+  });
+});
+
 describe('test-hook quests', () => {
   beforeEach(() => {
     initGameState();

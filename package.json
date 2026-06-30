@@ -4,7 +4,8 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"nx serve server\" \"nx serve client\""
+    "dev": "concurrently -n server,client -c blue,green \"nx serve server\" \"nx serve client\"",
+    "start:tunnel": "pkill -f 'tsx.*server/src/index' 2>/dev/null; pkill -f 'vite client' 2>/dev/null; sleep 1; NGROK_CLIENT=$(curl -s http://localhost:4040/api/tunnels | node -e \"const d=require('fs').readFileSync('/dev/stdin','utf8');const t=JSON.parse(d).tunnels;console.log(t.find(x=>x.config.addr.endsWith('4200')).public_url)\"); echo \"\"; echo \"======================================\"; echo \"  Share this URL with players:\"; echo \"  $NGROK_CLIENT\"; echo \"======================================\"; echo \"\"; concurrently -n server,client -c blue,green \"tsx --tsconfig server/tsconfig.app.json server/src/index.ts\" \"VITE_TUNNEL=1 VITE_COLYSEUS_ENDPOINT=$NGROK_CLIENT vite client --port 4200\""
   },
   "devDependencies": {
     "@colyseus/testing": "^0.17.11",

@@ -9,13 +9,13 @@ describe('ti-zones', () => {
   });
 
   it('returns obelisk combat at anchor (TIW23-08)', () => {
-    const hit = getZoneAt(-155, 58);
+    const hit = getZoneAt(-10, -120);
     expect(hit.zoneId).toBe('obelisk');
     expect(hit.type).toBe('combat');
   });
 
   it('returns elven_ruins at anchor (TIW23-09)', () => {
-    expect(getZoneAt(-281, 87).zoneId).toBe('elven_ruins');
+    expect(getZoneAt(-250, 0).zoneId).toBe('elven_ruins');
   });
 
   it('returns harbor at anchor (TIW23-10)', () => {
@@ -23,11 +23,11 @@ describe('ti-zones', () => {
   });
 
   it('returns cave_of_souls at anchor (TIW23-11)', () => {
-    expect(getZoneAt(-242, 254).zoneId).toBe('cave_of_souls');
+    expect(getZoneAt(0, 240).zoneId).toBe('cave_of_souls');
   });
 
   it('returns eastern_fields combat at anchor (TIW23-12)', () => {
-    const hit = getZoneAt(-110, 29);
+    const hit = getZoneAt(110, 0);
     expect(hit.zoneId).toBe('eastern_fields');
     expect(hit.type).toBe('combat');
   });

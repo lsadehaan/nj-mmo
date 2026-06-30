@@ -23,6 +23,8 @@ import { mountStatAllocate, wireStatAllocate } from './ui/stat-allocate';
 import { createRenderer, startRenderLoop } from './scene/renderer';
 import { renderHotbar } from './ui/hotbar';
 import { updateCastBar } from './ui/cast-bar';
+import { loadGltfTemplate } from './scene/creature/mesh-character';
+import { getPlayerManifestEntry } from './scene/creature/player-manifest';
 import { mountLoginScreen, hideLoginScreen, ACCOUNT_NAME_STORAGE_KEY } from './ui/login-screen';
 import {
   mountCharacterSelect,
@@ -33,7 +35,7 @@ import { mountSkillWindow } from './ui/skill-window';
 import { mountQuestLog } from './ui/quest-log';
 import { mountQuestTracker } from './ui/quest-tracker';
 import { mountMinimap } from './ui/minimap';
-import { mountWorldMap } from './ui/world-map';
+import { mountWorldMap, renderWorldMap } from './ui/world-map';
 import { mountTargetFrame } from './ui/target-frame';
 import { mountSystemMenu } from './ui/system-menu';
 import {
@@ -79,7 +81,14 @@ function mountGameUi(audioSettings: AudioSettings): void {
   registerPanel('inventory-window', { mount: mountInventoryWindow, hotkey: 'I' });
   registerPanel('skill-window', { mount: mountSkillWindow, hotkey: 'K' });
   registerPanel('quest-log', { mount: mountQuestLog, hotkey: 'L', aliasHotkeys: ['Q'] });
-  registerPanel('world-map', { mount: mountWorldMap, hotkey: 'M' });
+  registerPanel('world-map', {
+    mount: mountWorldMap,
+    hotkey: 'M',
+    title: 'World Map',
+    chromeHost: (root) =>
+      (root.querySelector('[data-role="world-map-card"]') as HTMLElement | null) ?? root,
+    onOpen: () => renderWorldMap(true),
+  });
 
   mountSystemMenu({
     onInventory: () => openPanel('inventory-window'),
@@ -152,6 +161,7 @@ function openCharacterCreation(accountName: string): void {
       const canvas = document.getElementById('game') as HTMLCanvasElement | null;
       if (canvas) canvas.hidden = false;
       await finishWorldEntry(room);
+      return;
     }
     await showCharacterSelect(accountName);
   }, { accountName });
@@ -163,12 +173,20 @@ async function enterWorld(accountName: string, characterId: string): Promise<voi
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;
   if (canvas) canvas.hidden = false;
   const room = await connectSafe(DEFAULT_COLYSEUS_ENDPOINT, { characterId, accountName });
-  if (room) await finishWorldEntry(room);
+  if (room) {
+    await finishWorldEntry(room);
+    return;
+  }
+  if (canvas) canvas.hidden = true;
+  await showCharacterSelect(accountName);
 }
 
 let activeRenderer: Awaited<ReturnType<typeof createRenderer>> | null = null;
 
 async function finishWorldEntry(room: NonNullable<Awaited<ReturnType<typeof connectSafe>>>): Promise<void> {
+  const players = (room.state as { players?: Map<string, { classId?: number }> }).players;
+  const classId = players?.get(room.sessionId)?.classId ?? 0;
+  void loadGltfTemplate(getPlayerManifestEntry(classId).model);
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;
   if (!canvas) throw new Error('Canvas #game not found');
   const game = await createRenderer(canvas);
@@ -204,10 +222,42 @@ async function boot(): Promise<void> {
     activeRenderer?.handleClick({ clientX: ev.clientX, clientY: ev.clientY });
   });
 
+  // Right-drag orbits the camera around the player so mobs on any side can be
+  // brought into view and clicked. (Left-click stays reserved for move/target.)
+  const CAMERA_ROTATE_SENSITIVITY = 0.006;
+  let rotating = false;
+  let lastPointerX = 0;
+  canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  canvas.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 2) return;
+    rotating = true;
+    lastPointerX = ev.clientX;
+    canvas.setPointerCapture?.(ev.pointerId);
+  });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!rotating) return;
+    const dx = ev.clientX - lastPointerX;
+    lastPointerX = ev.clientX;
+    activeRenderer?.rotateCamera(-dx * CAMERA_ROTATE_SENSITIVITY);
+  });
+  const stopRotating = (ev: PointerEvent): void => {
+    if (ev.button !== 2 && ev.type === 'pointerup') return;
+    rotating = false;
+  };
+  canvas.addEventListener('pointerup', stopRotating);
+  canvas.addEventListener('pointercancel', () => {
+    rotating = false;
+  });
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowLeft') activeRenderer?.rotateCamera(-0.12);
+    else if (ev.key === 'ArrowRight') activeRenderer?.rotateCamera(0.12);
+  });
+
   window.addEventListener('resize', () => {
     if (!activeRenderer) return;
     activeRenderer.camera.aspect = window.innerWidth / window.innerHeight;
     activeRenderer.camera.updateProjectionMatrix();
+    activeRenderer.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     activeRenderer.renderer.setSize(window.innerWidth, window.innerHeight);
   });
 

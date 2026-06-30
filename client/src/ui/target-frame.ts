@@ -1,3 +1,5 @@
+import { attachToRightRail, RIGHT_RAIL_ORDER } from './hud-rail';
+
 export interface TargetMobView {
   id: string;
   name: string;
@@ -35,7 +37,7 @@ export function mountTargetFrame(handlers: TargetFrameHandlers = {}): HTMLElemen
   frame.id = 'target-frame';
   frame.hidden = true;
   frame.style.cssText =
-    'position:fixed;top:80px;right:16px;min-width:180px;padding:8px;background:rgba(0,0,0,0.75);color:#fff;border:1px solid #666;border-radius:4px;z-index:14';
+    'min-width:180px;padding:8px;background:rgba(0,0,0,0.75);color:#fff;border:1px solid #666;border-radius:4px';
 
   const tot = document.createElement('div');
   tot.id = 'target-of-target';
@@ -68,7 +70,7 @@ export function mountTargetFrame(handlers: TargetFrameHandlers = {}): HTMLElemen
     menu.hidden = !menu.hidden;
   });
 
-  document.body.appendChild(frame);
+  attachToRightRail(frame, RIGHT_RAIL_ORDER.target);
   return frame;
 }
 
@@ -85,7 +87,11 @@ export function renderTargetFrame(options: {
     frame.hidden = false;
     delete frame.dataset['targetSessionId'];
     const hpPct = options.mob.maxHp > 0 ? (options.mob.hp / options.mob.maxHp) * 100 : 0;
-    frame.innerHTML = `<div data-role="target-name">${options.mob.name}</div><div data-role="target-hp-bar" style="height:6px;background:#333"><div style="width:${hpPct}%;height:100%;background:#c33"></div></div>`;
+    const lvl =
+      options.mob.level && options.mob.level > 0
+        ? `<span data-role="target-level" style="opacity:0.8">Lv.${options.mob.level} </span>`
+        : '';
+    frame.innerHTML = `<div data-role="target-name">${lvl}${options.mob.name}</div><div data-role="target-hp-bar" style="height:6px;background:#333"><div style="width:${hpPct}%;height:100%;background:#c33"></div></div>`;
     frame.appendChild(tot);
     if (options.mob.aggroTargetName) {
       tot.hidden = false;

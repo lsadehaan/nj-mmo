@@ -12,6 +12,7 @@ export * from './walkability';
 export * from './walkability-grid';
 export * from './pathfinding';
 export * from './world-constants';
+export * from './spatial-hash';
 export * from './validate-move-intent';
 export * from './seeded-rng';
 export * from './combat/starter-combat';

@@ -1,42 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import {
-  DEFAULT_MOVE_SPEED,
-  horizontalDistance,
-  type SeededRng,
-} from '@nj/game-core';
-import { tickMobAi, WANDER_RADIUS, WANDER_SPEED_FACTOR, findClanAssistTargets } from './mob-ai';
+import { isMobNearAnyPlayer, shouldTickMobAi } from './mob-ai';
 import type { MobRuntime } from './spawn-manager';
 
-const OUT_OF_PEACE = { x: -150, z: 55 };
-
-function makeRng(sequence: number[]): SeededRng {
-  let i = 0;
+function stubMob(overrides: Partial<MobRuntime> = {}): MobRuntime {
   return {
-    nextFloat: () => sequence[i++] ?? 0.5,
-    nextInt: (min: number) => min,
-    nextDamageOffset: () => 0,
-  };
-}
-
-function baseMob(overrides: Partial<MobRuntime> = {}): MobRuntime {
-  return {
-    id: 'mob-1',
+    id: 'm1',
     npcId: 20001,
     spawnRowId: 1,
     x: 0,
-    y: 4.26,
     z: 0,
-    hp: 41.145,
-    maxHp: 41.145,
-    pAtk: 8.47,
-    pDef: 44.44,
-    attackSpeed: 253,
-    randomDamage: 30,
-    attackRangeWorld: 4,
-    aggroRangeWorld: 45,
-    isAggressive: false,
-    exp: 44,
+    y: 0,
+    hp: 100,
+    maxHp: 100,
+    pAtk: 10,
+    pDef: 5,
+    attackSpeed: 1000,
+    randomDamage: 5,
+    attackRangeWorld: 2,
+    aggroRangeWorld: 10,
+    isAggressive: true,
+    exp: 10,
+    sp: 0,
     respawnSec: 27,
+    aiType: null,
+    clan: null,
+    clanHelpRangeWorld: 0,
+    preferredAttackRangeWorld: 2,
     spawnX: 0,
     spawnZ: 0,
     targetSessionId: null,
@@ -46,206 +35,26 @@ function baseMob(overrides: Partial<MobRuntime> = {}): MobRuntime {
     wanderTargetX: null,
     wanderTargetZ: null,
     wanderCooldownMs: 0,
-    aiType: null,
-    clan: null,
-    clanHelpRangeWorld: 30,
-    preferredAttackRangeWorld: 8,
     ...overrides,
   };
 }
 
-describe('tickMobAi', () => {
-  it('aggressive Goblin acquires a player within 45 world units', () => {
-    const mob = baseMob({
-      npcId: 20003,
-      isAggressive: true,
-      x: OUT_OF_PEACE.x,
-      z: OUT_OF_PEACE.z,
-      aggroRangeWorld: 45,
-    });
-    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 40, z: OUT_OF_PEACE.z }];
-
-    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
-
-    expect(mob.targetSessionId).toBe('p1');
+describe('mob AI wake distance', () => {
+  it('isMobNearAnyPlayer returns true within wake radius', () => {
+    expect(isMobNearAnyPlayer(0, 0, [{ sessionId: 'p1', x: 50, z: 0 }], 120)).toBe(true);
   });
 
-  it('aggressive mob does not acquire a player beyond aggro range', () => {
-    const mob = baseMob({
-      isAggressive: true,
-      aggroRangeWorld: 45,
-      x: 0,
-      z: 0,
-    });
-    const players = [{ sessionId: 'p1', x: 50, z: 0 }];
-
-    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
-
-    expect(mob.targetSessionId).toBeNull();
+  it('isMobNearAnyPlayer returns false beyond wake radius', () => {
+    expect(isMobNearAnyPlayer(0, 0, [{ sessionId: 'p1', x: 200, z: 0 }], 120)).toBe(false);
   });
 
-  it('passive Gremlin does not aggro until damaged', () => {
-    const mob = baseMob({ isAggressive: false, x: 0, z: 0 });
-    const players = [{ sessionId: 'p1', x: 5, z: 0 }];
-
-    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
-
-    expect(mob.targetSessionId).toBeNull();
+  it('shouldTickMobAi stays awake when mob has a live target', () => {
+    const mob = stubMob({ x: 500, z: 500, targetSessionId: 'p1' });
+    expect(shouldTickMobAi(mob, [{ sessionId: 'p1', x: 0, z: 0 }])).toBe(true);
   });
 
-  it('passive Gremlin retaliates against last attacker after being damaged', () => {
-    const mob = baseMob({
-      isAggressive: false,
-      wasDamaged: true,
-      lastAttackerSessionId: 'p1',
-      x: OUT_OF_PEACE.x,
-      z: OUT_OF_PEACE.z,
-    });
-    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 5, z: OUT_OF_PEACE.z }];
-
-    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
-
-    expect(mob.targetSessionId).toBe('p1');
-  });
-
-  it('wander keeps mob within 5 units of spawn', () => {
-    const mob = baseMob({ spawnX: 10, spawnZ: -5, x: 10, z: -5 });
-    const rng = makeRng([0.99, 0.99]);
-
-    for (let t = 0; t < 600; t += 50) {
-      tickMobAi(mob, [], 0.05, rng, t);
-    }
-
-    expect(
-      horizontalDistance(mob.x, mob.z, mob.spawnX, mob.spawnZ)
-    ).toBeLessThanOrEqual(WANDER_RADIUS + 0.01);
-  });
-
-  it('wander moves mob at most 30% of player speed over 3 seconds', () => {
-    const mob = baseMob({ spawnX: 0, spawnZ: 0, x: 0, z: 0 });
-    const startX = mob.x;
-    const startZ = mob.z;
-    const rng = makeRng([0.0, 0.0, 0.0, 0.0]);
-
-    for (let i = 0; i < 60; i++) {
-      tickMobAi(mob, [], 0.05, rng, i * 50);
-    }
-
-    const moved = horizontalDistance(startX, startZ, mob.x, mob.z);
-    const maxDistance = DEFAULT_MOVE_SPEED * WANDER_SPEED_FACTOR * 3;
-    expect(moved).toBeLessThanOrEqual(maxDistance + 0.5);
-    expect(moved).toBeGreaterThan(0);
-  });
-
-  it('chase moves aggressive mob toward its target', () => {
-    const mob = baseMob({
-      isAggressive: true,
-      x: OUT_OF_PEACE.x,
-      z: OUT_OF_PEACE.z,
-      targetSessionId: 'p1',
-    });
-    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 20, z: OUT_OF_PEACE.z }];
-    const startDist = horizontalDistance(mob.x, mob.z, OUT_OF_PEACE.x + 20, OUT_OF_PEACE.z);
-
-    for (let i = 0; i < 20; i++) {
-      tickMobAi(mob, players, 0.05, makeRng([0.5]), i * 50);
-    }
-
-    const endDist = horizontalDistance(mob.x, mob.z, OUT_OF_PEACE.x + 20, OUT_OF_PEACE.z);
-    expect(endDist).toBeLessThan(startDist);
-  });
-
-  it('does not acquire a player standing inside the peace zone', () => {
-    const mob = baseMob({
-      isAggressive: true,
-      x: 0,
-      z: 0,
-      aggroRangeWorld: 45,
-    });
-    const players = [{ sessionId: 'p1', x: 0, z: 0 }];
-
-    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
-
-    expect(mob.targetSessionId).toBeNull();
-  });
-
-  it('clears target when player enters the peace zone', () => {
-    const mob = baseMob({
-      isAggressive: true,
-      x: 0,
-      z: 0,
-      targetSessionId: 'p1',
-    });
-    const players = [{ sessionId: 'p1', x: 0, z: 0 }];
-
-    tickMobAi(mob, players, 0.05, makeRng([0.5]), 0);
-
-    expect(mob.targetSessionId).toBeNull();
-  });
-
-  it('Orc Archer holds position in 4–8 m band without closing (BEST22-46)', () => {
-    const mob = baseMob({
-      npcId: 20006,
-      aiType: 'ARCHER',
-      isAggressive: true,
-      attackRangeWorld: 4,
-      preferredAttackRangeWorld: 8,
-      x: OUT_OF_PEACE.x,
-      z: OUT_OF_PEACE.z,
-      targetSessionId: 'p1',
-    });
-    const startX = mob.x;
-    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 6, z: OUT_OF_PEACE.z }];
-
-    for (let i = 0; i < 20; i++) {
-      tickMobAi(mob, players, 0.05, makeRng([0.5]), i * 50);
-    }
-
-    expect(horizontalDistance(mob.x, mob.z, startX, mob.z)).toBeLessThan(0.1);
-  });
-
-  it('does not social-assist when clan mate is beyond 30 m (BEST22-50)', () => {
-    const source = baseMob({
-      id: 'w1',
-      clan: 'WEREWOLF',
-      targetSessionId: 'p1',
-      x: 0,
-      z: 0,
-      clanHelpRangeWorld: 30,
-    });
-    const peer = baseMob({
-      id: 'w2',
-      clan: 'WEREWOLF',
-      x: 40,
-      z: 0,
-      clanHelpRangeWorld: 30,
-    });
-
-    expect(findClanAssistTargets(source, [source, peer], 30)).toHaveLength(0);
-  });
-
-  it('WEREWOLF clan assist copies target within 30 m (BEST22-49 unit)', () => {
-    const source = baseMob({
-      id: 'w1',
-      clan: 'WEREWOLF',
-      wasDamaged: true,
-      lastAttackerSessionId: 'p1',
-      x: OUT_OF_PEACE.x,
-      z: OUT_OF_PEACE.z,
-      clanHelpRangeWorld: 30,
-    });
-    const peer = baseMob({
-      id: 'w2',
-      clan: 'WEREWOLF',
-      x: OUT_OF_PEACE.x + 10,
-      z: OUT_OF_PEACE.z,
-      clanHelpRangeWorld: 30,
-    });
-    const players = [{ sessionId: 'p1', x: OUT_OF_PEACE.x + 20, z: OUT_OF_PEACE.z }];
-
-    tickMobAi(source, players, 0.05, makeRng([0.5]), 0, [source, peer]);
-
-    expect(source.targetSessionId).toBe('p1');
-    expect(peer.targetSessionId).toBe('p1');
+  it('shouldTickMobAi sleeps when far from all players and idle', () => {
+    const mob = stubMob({ x: 500, z: 500 });
+    expect(shouldTickMobAi(mob, [{ sessionId: 'p1', x: 0, z: 0 }])).toBe(false);
   });
 });

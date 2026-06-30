@@ -40,6 +40,10 @@ describe('room inventory equip wiring', () => {
 
   beforeEach(() => {
     document.body.innerHTML = '';
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
     initGameState();
     initWindowManagerRegistry();
     registerPanel('inventory-window', { mount: mountInventoryWindow, hotkey: 'I' });

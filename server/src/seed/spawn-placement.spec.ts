@@ -57,6 +57,28 @@ describe('mob spawn placement fixture', () => {
     }
   });
 
+  it('caps local spawn density so a level-1 player is not swarmed', () => {
+    // Regression guard for the over-dense seed (≈290 mobs within 80 m, 8+ within
+    // a tight pull radius) that made the fields unplayable and tanked client FPS.
+    const maxWithin = (radius: number): number => {
+      const r2 = radius * radius;
+      let max = 0;
+      for (const a of spawns) {
+        let count = 0;
+        for (const b of spawns) {
+          const dx = a.x - b.x;
+          const dz = a.z - b.z;
+          if (dx * dx + dz * dz <= r2) count++;
+        }
+        if (count > max) max = count;
+      }
+      return max;
+    };
+
+    expect(maxWithin(80)).toBeLessThanOrEqual(90);
+    expect(maxWithin(12)).toBeLessThanOrEqual(8);
+  });
+
   it('distributes spawns across at least 4 named zones (TIW23-27)', () => {
     const zones = new Set(
       spawns.map((s) => getZoneAt(s.x, s.z).zoneId).filter((id) => id !== 'wilderness')
@@ -75,6 +97,46 @@ describe('mob spawn placement fixture', () => {
     const c = centroid(rows);
     const zoneId = getZoneAt(c.x, c.z).zoneId;
     expect(['elven_ruins', 'cave_of_souls']).toContain(zoneId);
+  });
+
+  it('spreads spawns around the village instead of one side', () => {
+    // Regression for "all monsters are together on the left": the radial layout
+    // must populate every compass side around town, not just the western fields.
+    const sector = (s: MobSpawnFixtureRow): 'E' | 'N' | 'S' | 'W' => {
+      const a = (Math.atan2(s.z, s.x) * 180) / Math.PI;
+      if (a >= -45 && a < 45) return 'E';
+      if (a >= 45 && a < 135) return 'S';
+      if (a >= 135 || a < -135) return 'W';
+      return 'N';
+    };
+    const counts = { E: 0, N: 0, S: 0, W: 0 };
+    for (const s of spawns) counts[sector(s)]++;
+    for (const dir of ['E', 'N', 'S', 'W'] as const) {
+      expect(counts[dir], `sector ${dir}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps high-level mobs away from the village (newbie safety)', () => {
+    // Regression for "some mobs are too strong near the city": L2J scatters a few
+    // level 8-10 species into fields adjacent to town, which once collapsed into
+    // the 640 m slice spawned ~85 m from the gate and ganked fresh level-1s. The
+    // level→distance gradient must keep the immediate ring newbie-friendly.
+    const distFromVillage = (s: MobSpawnFixtureRow): number => Math.hypot(s.x, s.z);
+    const minDistForLevel = (level: number): number =>
+      level >= 8 ? 220 : level >= 6 ? 140 : 0;
+
+    for (const s of spawns) {
+      const level = MOB_LEVEL[s.npcId] ?? 0;
+      expect(
+        distFromVillage(s),
+        `npcId ${s.npcId} (lv ${level}) at (${s.x}, ${s.z})`
+      ).toBeGreaterThanOrEqual(minDistForLevel(level));
+    }
+
+    // No mob above level 5 within 120 m of the village centre.
+    const nearVillage = spawns.filter((s) => distFromVillage(s) < 120);
+    const maxNearLevel = Math.max(...nearVillage.map((s) => MOB_LEVEL[s.npcId] ?? 0));
+    expect(maxNearLevel).toBeLessThanOrEqual(5);
   });
 
   it('elven_ruins mean level exceeds eastern_fields (TIW23-31)', () => {

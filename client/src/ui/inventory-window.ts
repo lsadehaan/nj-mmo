@@ -1,5 +1,7 @@
 import { createIconImg } from './icon-img';
 import { HEALING_POTION_ITEM_ID, EQUIP_SLOTS } from '@nj/game-core';
+import { getItemInfo } from './game-catalog';
+import { attachTooltip } from './tooltip';
 
 export const SQUIRES_SWORD_ITEM_ID = 2369;
 export const INVENTORY_GRID_COLS = 8;
@@ -11,12 +13,6 @@ const EQUIPPABLE_ITEM_IDS = new Set<number>([
   3, 13, 23, 28, 43, 112, 116, 118, 2386, 58, 59, 47,
 ]);
 const CONSUMABLE_ITEM_IDS = new Set<number>([HEALING_POTION_ITEM_ID]);
-
-const ITEM_DISPLAY_NAMES: Record<number, string> = {
-  57: 'Adena',
-  1060: 'Healing Potion',
-  2369: "Squire's Sword",
-};
 
 export interface GridCell {
   itemId: number;
@@ -73,7 +69,7 @@ export function mountInventoryWindow(): HTMLElement {
   panel.id = ELEMENT_ID;
   panel.hidden = true;
   panel.style.cssText =
-    'position:fixed;top:50%;right:24px;transform:translateY(-50%);padding:16px;background:rgba(16,14,24,0.92);color:#e8e0f0;border:2px solid #6b5b95;border-radius:6px;z-index:25;pointer-events:auto';
+    'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:16px;background:rgba(16,14,24,0.92);color:#e8e0f0;border:2px solid #6b5b95;border-radius:6px;z-index:25;pointer-events:auto';
 
   const title = document.createElement('h2');
   title.textContent = 'Inventory';
@@ -111,6 +107,15 @@ export function mountInventoryWindow(): HTMLElement {
     const slot = document.createElement('div');
     slot.dataset['role'] = 'inv-slot';
     slot.style.cssText = 'width:32px;height:32px;border:1px solid #444;background:rgba(0,0,0,0.3)';
+    // Slots persist across renders, so attach once with a live getter that reads
+    // the slot's current item id (set in renderInventoryWindow).
+    attachTooltip(slot, () => {
+      const itemId = Number(slot.dataset['itemId'] ?? 0);
+      if (!itemId) return null;
+      const info = getItemInfo(itemId);
+      const count = Number(slot.dataset['count'] ?? 0);
+      return { title: count > 1 ? `${info.name} x${count}` : info.name, body: info.description };
+    });
     grid.appendChild(slot);
   }
   panel.appendChild(grid);
@@ -120,7 +125,7 @@ export function mountInventoryWindow(): HTMLElement {
 }
 
 export function itemDisplayName(itemId: number): string {
-  return ITEM_DISPLAY_NAMES[itemId] ?? `Item ${itemId}`;
+  return getItemInfo(itemId).name;
 }
 
 export function renderInventoryWindow(options: InventoryRenderOptions): void {
@@ -153,6 +158,11 @@ export function renderInventoryWindow(options: InventoryRenderOptions): void {
       cell.appendChild(
         createIconImg({ kind: 'item', id: eq.itemId, alt: itemDisplayName(eq.itemId), sizePx: 24 })
       );
+      const eqInfo = getItemInfo(eq.itemId);
+      attachTooltip(cell, {
+        title: eq.enchantLevel > 0 ? `+${eq.enchantLevel} ${eqInfo.name}` : eqInfo.name,
+        body: `Equipped (${slot})\n${eqInfo.description}`,
+      });
       doll.appendChild(cell);
     }
   }
@@ -164,6 +174,7 @@ export function renderInventoryWindow(options: InventoryRenderOptions): void {
     const slot = slotEl as HTMLElement;
     slot.innerHTML = '';
     slot.removeAttribute('data-item-id');
+    slot.removeAttribute('data-count');
     if (cell.itemId > 0) {
       slot.dataset['itemId'] = String(cell.itemId);
       slot.appendChild(
@@ -174,6 +185,7 @@ export function renderInventoryWindow(options: InventoryRenderOptions): void {
           sizePx: 28,
         })
       );
+      slot.dataset['count'] = String(cell.count);
       if (cell.count > 1) {
         const count = document.createElement('span');
         count.dataset['count'] = 'true';

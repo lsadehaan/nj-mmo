@@ -33,6 +33,23 @@ describe('skill hotbar DOM', () => {
     expect(onUseSkill).toHaveBeenCalledWith(3);
   });
 
+  it('shows the skill name + description on hover (was blank before)', () => {
+    mountHotbar();
+    renderHotbar({
+      knownSkillIds: [3],
+      skillCooldownEndMs: [0],
+      handlers: { onUseSkill: vi.fn() },
+    });
+
+    const slot = document.querySelector('#skill-hotbar [data-skill-id="3"]') as HTMLButtonElement;
+    slot.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 50, clientY: 50 }));
+
+    const tip = document.getElementById('game-tooltip');
+    expect(tip?.hidden).toBe(false);
+    expect(tip?.querySelector('[data-role="tooltip-title"]')?.textContent).toContain('Power Strike');
+    expect(tip?.querySelector('[data-role="tooltip-body"]')?.textContent).toContain('melee');
+  });
+
   it('shows cooldown overlay when skill reuse active (SKILL20-48)', () => {
     const now = 10_000;
     mountHotbar();

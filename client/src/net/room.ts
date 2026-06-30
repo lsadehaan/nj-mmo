@@ -1,5 +1,5 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
-import { EntityAction, EQUIP_SLOTS } from '@nj/game-core';
+import { EntityAction, EQUIP_SLOTS, MOB_RENDER_DISTANCE, SpatialHash } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
 import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setEquipment, setPlayerPDef, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone, appendChatLine, setParty, setTrade, setFriends, setPlayerInventoryMetrics, setPlayerActiveEffects, setTargetMobId, setTargetPlayerSessionId } from '../test-hook';
 import { getZoneAt } from '@nj/game-core';
@@ -97,6 +97,8 @@ export async function connect(
       ? { create: options.create }
       : {};
   const room = await client.joinOrCreate('town', joinOptions);
+  await waitForRoomState(room);
+  await waitForRoomMobs(room);
 
   room.onMessage('characterId', (id: string) => {
     storeCharacterId(id);
@@ -105,6 +107,66 @@ export async function connect(
 
   setConnected(true);
   return room;
+}
+
+/** Colyseus resolves join before the first ROOM_STATE patch — wait for local player. */
+export function waitForRoomState(room: Room, timeoutMs = 10_000): Promise<void> {
+  const hasLocalPlayer = (): boolean => {
+    const players = (room.state as { players?: Map<string, unknown> } | undefined)?.players;
+    return Boolean(players?.get?.(room.sessionId));
+  };
+
+  if (hasLocalPlayer()) return Promise.resolve();
+
+  const onStateChange = room.onStateChange;
+  if (typeof onStateChange !== 'function') return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      onStateChange.remove(onChange);
+      reject(new Error('Timed out waiting for room state'));
+    }, timeoutMs);
+
+    const onChange = (): void => {
+      if (!hasLocalPlayer()) return;
+      clearTimeout(timer);
+      onStateChange.remove(onChange);
+      resolve();
+    };
+
+    onStateChange(onChange);
+    onChange();
+  });
+}
+
+/** Mobs may arrive in a later patch than the local player. */
+export function waitForRoomMobs(room: Room, timeoutMs = 15_000): Promise<void> {
+  const mobCount = (): number => {
+    const mobs = (room.state as { mobs?: { size?: number } } | undefined)?.mobs;
+    return mobs?.size ?? 0;
+  };
+
+  if (mobCount() > 0) return Promise.resolve();
+
+  const onStateChange = room.onStateChange;
+  if (typeof onStateChange !== 'function') return Promise.resolve();
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      onStateChange.remove(onChange);
+      resolve();
+    }, timeoutMs);
+
+    const onChange = (): void => {
+      if (mobCount() <= 0) return;
+      clearTimeout(timer);
+      onStateChange.remove(onChange);
+      resolve();
+    };
+
+    onStateChange(onChange);
+    onChange();
+  });
 }
 
 export async function connectSafe(
@@ -198,6 +260,8 @@ export function wireRoom(
 
   type MobSchema = {
     npcId: number;
+    name?: string;
+    level?: number;
     x: number;
     y: number;
     z: number;
@@ -230,33 +294,129 @@ export function wireRoom(
     }
   };
 
+  const mobRenderDistSq = MOB_RENDER_DISTANCE * MOB_RENDER_DISTANCE;
+  const mobSpatialIndex = new SpatialHash<string>(MOB_RENDER_DISTANCE);
+
+  const indexMob = (mobId: string, mob: MobSchema): void => {
+    mobSpatialIndex.set(mobId, mob.x, mob.z);
+  };
+
+  const collectRelevantMobIds = (local: PlayerSchema): string[] => {
+    const ids = mobSpatialIndex.queryRadius(local.x, local.z, MOB_RENDER_DISTANCE);
+    const targetId = getGameState().targetMobId;
+    if (targetId && !ids.includes(targetId) && room.state.mobs?.has(targetId)) {
+      ids.push(targetId);
+    }
+    return ids;
+  };
+
+  const isMobVisuallyRelevant = (
+    mobId: string,
+    mobX: number,
+    mobZ: number,
+    local: PlayerSchema | undefined
+  ): boolean => {
+    if (!local) return false;
+    if (mobId === getGameState().targetMobId) return true;
+    const dx = mobX - local.x;
+    const dz = mobZ - local.z;
+    return dx * dx + dz * dz <= mobRenderDistSq;
+  };
+
+  const pushMobToGame = (mobId: string, mob: MobSchema): void => {
+    game.syncMob({
+      id: mobId,
+      npcId: mob.npcId,
+      x: mob.x,
+      y: mob.y,
+      z: mob.z,
+      hp: mob.hp,
+      maxHp: mob.maxHp,
+      action: mob.action,
+      actionSeq: mob.actionSeq,
+    });
+    game.syncMobVfx({
+      id: mobId,
+      hp: mob.hp,
+      x: mob.x,
+      y: mob.y,
+      z: mob.z,
+      action: mob.action ?? 0,
+      actionSeq: mob.actionSeq ?? 0,
+    });
+    audioManager?.syncMob({ id: mobId, hp: mob.hp });
+  };
+
   const publishMobs = (): void => {
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
     const hookById = new Map((game.getMobHookEntries?.() ?? []).map((mob) => [mob.id, mob]));
     const mobsMap = room.state.mobs;
     if (!mobsMap) {
       setMobs([...hookById.values()]);
       return;
     }
-    const merged = [...mobsMap.entries()].map(([id, mob]) => {
-      const state = mob as MobSchema;
+    const relevantIds = local ? collectRelevantMobIds(local) : [];
+    const merged = relevantIds.map((id) => {
+      const mob = mobsMap.get(id) as MobSchema | undefined;
+      if (!mob) return null;
       const hook = hookById.get(id);
       return {
         id,
-        npcId: state.npcId,
-        x: state.x,
-        y: state.y,
-        z: state.z,
-        hp: state.hp,
-        maxHp: state.maxHp,
-        aggroTargetSessionId: state.aggroTargetSessionId || undefined,
-        action: mobActionClip(state.action, hook?.action ?? 'idle'),
-        actionSeq: state.actionSeq ?? hook?.actionSeq ?? 0,
+        npcId: mob.npcId,
+        name: mob.name || hook?.name,
+        level: mob.level || hook?.level,
+        x: mob.x,
+        y: mob.y,
+        z: mob.z,
+        hp: mob.hp,
+        maxHp: mob.maxHp,
+        aggroTargetSessionId: mob.aggroTargetSessionId || undefined,
+        action: mobActionClip(mob.action, hook?.action ?? 'idle'),
+        actionSeq: mob.actionSeq ?? hook?.actionSeq ?? 0,
       };
-    });
+    }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
     for (const [id, hook] of hookById) {
       if (!mobsMap.has(id)) merged.push({ ...hook, aggroTargetSessionId: undefined });
     }
     setMobs(merged);
+  };
+
+  let mobPublishQueued = false;
+  const schedulePublishMobs = (): void => {
+    if (mobPublishQueued) return;
+    mobPublishQueued = true;
+    queueMicrotask(() => {
+      mobPublishQueued = false;
+      publishMobs();
+    });
+  };
+
+  const MOB_SCAN_MOVE_THRESHOLD_SQ = 25;
+  let lastMobScanX = Number.NaN;
+  let lastMobScanZ = Number.NaN;
+
+  const syncMobsInRenderRange = (): void => {
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    if (!local || !room.state.mobs) return;
+    for (const id of collectRelevantMobIds(local)) {
+      const mob = room.state.mobs.get(id) as MobSchema | undefined;
+      if (mob) pushMobToGame(id, mob);
+    }
+    schedulePublishMobs();
+  };
+
+  const onMobStateChange = (mobId: string, mob: MobSchema): void => {
+    indexMob(mobId, mob);
+    syncMobFromState(mobId, mob);
+  };
+
+  const syncMobFromState = (mobId: string, mob: MobSchema): void => {
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    if (!isMobVisuallyRelevant(mobId, mob.x, mob.z, local)) {
+      return;
+    }
+    pushMobToGame(mobId, mob);
+    schedulePublishMobs();
   };
 
   let localItemCounts: Record<number, number> = {};
@@ -482,7 +642,8 @@ export function wireRoom(
   const syncLocal = (player: PlayerSchema): void => {
     const classId = player.classId ?? 0;
     const sex = player.sex ?? 0;
-    const manifest = getPlayerManifestEntry(classId);
+    const prevScanX = lastMobScanX;
+    const prevScanZ = lastMobScanZ;
     game.syncLocalPlayer(
       player.x,
       player.y,
@@ -493,6 +654,16 @@ export function wireRoom(
       classId,
       sex
     );
+    const scanDx = player.x - prevScanX;
+    const scanDz = player.z - prevScanZ;
+    if (
+      !Number.isFinite(prevScanX) ||
+      scanDx * scanDx + scanDz * scanDz >= MOB_SCAN_MOVE_THRESHOLD_SQ
+    ) {
+      lastMobScanX = player.x;
+      lastMobScanZ = player.z;
+      syncMobsInRenderRange();
+    }
     game.syncPlayerVfx({
       hp: player.hp,
       level: player.level,
@@ -503,19 +674,115 @@ export function wireRoom(
       z: player.z,
       soulshotCount: localItemCounts[1835] ?? 0,
     });
+    const hook = getGameState().player;
+    setPlayer({
+      ...hook,
+      x: player.x,
+      y: player.y,
+      z: player.z,
+      hp: player.hp,
+      mp: player.mp,
+      action: game.getCurrentAnimationClip(),
+    });
+    const uiSig = fullUiSignature(player);
+    if (uiSig !== lastFullUiSig) {
+      lastFullUiSig = uiSig;
+      scheduleLocalUi(player);
+    } else {
+      const zoneHit = getZoneAt(player.x, player.z);
+      const zoneId = player.zoneId ?? zoneHit.zoneId;
+      const zoneChanged = getGameState().zone.id !== zoneId;
+      const now = performance.now();
+      if (zoneChanged || now - lastMotionUiAt >= MOTION_UI_INTERVAL_MS) {
+        lastMotionUiAt = now;
+        syncLocalMotionUi(player);
+      }
+    }
+  };
+
+  let pendingLocalUiPlayer: PlayerSchema | null = null;
+  let localUiRaf = 0;
+  let lastFullUiSig = '';
+  let lastMotionUiAt = 0;
+  const MOTION_UI_INTERVAL_MS = 150;
+
+  const fullUiSignature = (player: PlayerSchema): string => {
+    return [
+      player.hp,
+      player.mp,
+      player.maxHp,
+      player.maxMp,
+      player.level,
+      player.xp,
+      player.adena,
+      player.equippedWeaponItemId,
+      player.pDef,
+      player.sp,
+      player.pvpFlag,
+      player.karma,
+      player.unspentStatPoints,
+      player.activeBuffSkillId,
+      player.castingSkillId,
+      player.castEndMs,
+      player.partyId,
+      player.inventoryWeight,
+      player.inventorySlotsUsed,
+      player.powerStrikeCooldownEndMs,
+      player.healingPotionCooldownEndMs,
+      readNumberArray(player.equipItemIds).join(','),
+      readNumberArray(player.equipEnchantLevels).join(','),
+      readNumberArray(player.knownSkillIds).join(','),
+      readNumberArray(player.skillCooldownEndMs).join(','),
+      readNumberArray(player.warehouseItemIds).join(','),
+      player.questEntries?.length ?? 0,
+    ].join('|');
+  };
+
+  const syncLocalMotionUi = (player: PlayerSchema): void => {
     const zoneHit = getZoneAt(player.x, player.z);
+    const zoneId = player.zoneId ?? zoneHit.zoneId;
+    const { zone, party, targetMobId, targetPlayerSessionId, mobs, others } = getGameState();
+    if (zone.id !== zoneId) {
+      setZone({
+        id: zoneId,
+        type: zoneHit.type,
+        displayName: zoneHit.displayName,
+      });
+      audioManager?.syncZone(zoneId);
+    }
     audioManager?.syncPlayer({
       hp: player.hp,
       level: player.level,
-      action: (player.action ?? 0) as import('@nj/game-core').EntityAction,
+      action: (player.action ?? 0) as EntityAction,
       actionSeq: player.actionSeq ?? 0,
       x: player.x,
       y: player.y,
       z: player.z,
       soulshotCount: localItemCounts[1835] ?? 0,
     });
+    updateInteractPrompt();
+    renderMinimap({
+      playerX: player.x,
+      playerZ: player.z,
+      zoneDisplayName: zone.displayName,
+      partyPositions: party?.memberSessionIds
+        .filter((sid) => sid !== localId)
+        .map((sid) => {
+          const member = room.state.players.get(sid) as PlayerSchema | undefined;
+          return member
+            ? { sessionId: sid, x: member.x, z: member.z }
+            : { sessionId: sid, x: 0, z: 0 };
+        }),
+    });
+    refreshTargetFrames(targetMobId, targetPlayerSessionId, mobs, others, room);
+  };
+
+  const syncLocalHudPanels = (player: PlayerSchema): void => {
+    const classId = player.classId ?? 0;
+    const sex = player.sex ?? 0;
+    const manifest = getPlayerManifestEntry(classId);
+    const zoneHit = getZoneAt(player.x, player.z);
     const zoneId = player.zoneId ?? zoneHit.zoneId;
-    audioManager?.syncZone(zoneId);
     audioManager?.syncCombat(getGameState().targetMobId);
     audioManager?.publishHook();
     const knownSkillIds = readNumberArray(player.knownSkillIds);
@@ -605,31 +872,38 @@ export function wireRoom(
       type: zoneHit.type,
       displayName: zoneHit.displayName,
     });
+    audioManager?.syncZone(zoneId);
     syncPartyFromState(player);
-    updateInteractPrompt();
-    const { quests, zone: zoneState, party, targetMobId, targetPlayerSessionId, mobs, others } =
-      getGameState();
+    const { quests } = getGameState();
     const firstActive = quests.active[0];
     renderQuestTracker(
       firstActive
         ? { title: firstActive.title, objectiveText: firstActive.objectiveText }
         : null
     );
-    renderMinimap({
-      playerX: player.x,
-      playerZ: player.z,
-      zoneDisplayName: zoneState.displayName,
-      partyPositions: party?.memberSessionIds
-        .filter((sid) => sid !== localId)
-        .map((sid) => {
-          const member = room.state.players.get(sid) as PlayerSchema | undefined;
-          return member
-            ? { sessionId: sid, x: member.x, z: member.z }
-            : { sessionId: sid, x: 0, z: 0 };
-        }),
-    });
-    refreshTargetFrames(targetMobId, targetPlayerSessionId, mobs, others, room);
     publishUiState();
+  };
+
+  const syncLocalUi = (player: PlayerSchema): void => {
+    syncLocalHudPanels(player);
+    syncLocalMotionUi(player);
+  };
+
+  const flushLocalUi = (): void => {
+    const player = pendingLocalUiPlayer;
+    pendingLocalUiPlayer = null;
+    if (!player) return;
+    syncLocalUi(player);
+  };
+
+  const scheduleLocalUi = (player: PlayerSchema): void => {
+    pendingLocalUiPlayer = player;
+    if (!localUiRaf) {
+      localUiRaf = requestAnimationFrame(() => {
+        localUiRaf = 0;
+        flushLocalUi();
+      });
+    }
   };
 
   const refreshTargetFrames = (
@@ -649,7 +923,8 @@ export function wireRoom(
         mob: mob
           ? {
               id: mob.id,
-              name: `Mob ${mob.npcId}`,
+              name: mob.name || `Mob ${mob.npcId}`,
+              level: mob.level,
               hp: mob.hp,
               maxHp: mob.maxHp,
               aggroTargetName: aggroPlayer?.characterName,
@@ -1000,6 +1275,7 @@ export function wireRoom(
     const state = player as PlayerSchema;
     if (id === localId) {
       syncLocal(state);
+      syncLocalUi(state);
       callbacks.onChange(state, () => syncLocal(state));
       bindLocalPlayerItems(state);
       bindLocalPlayerQuests(state);
@@ -1031,7 +1307,7 @@ export function wireRoom(
       });
       publishOthers();
     });
-  });
+  }, true);
 
   callbacks.onRemove('players', (_player, sessionId) => {
     const id = sessionId as string;
@@ -1041,51 +1317,62 @@ export function wireRoom(
     }
   });
 
-  const syncMobFromState = (mobId: string, mob: MobSchema): void => {
-    game.syncMob({
-      id: mobId,
-      npcId: mob.npcId,
-      x: mob.x,
-      y: mob.y,
-      z: mob.z,
-      hp: mob.hp,
-      maxHp: mob.maxHp,
-      action: mob.action,
-      actionSeq: mob.actionSeq,
-    });
-    game.syncMobVfx({
-      id: mobId,
-      hp: mob.hp,
-      x: mob.x,
-      y: mob.y,
-      z: mob.z,
-      action: mob.action ?? 0,
-      actionSeq: mob.actionSeq ?? 0,
-    });
-    audioManager?.syncMob({ id: mobId, hp: mob.hp });
-    publishMobs();
+  const wiredMobIds = new Set<string>();
+  let mobsBootstrapped = false;
+
+  const bootstrapMobsFromState = (): void => {
+    const mobsMap = room.state.mobs;
+    if (!mobsMap || (mobsMap as { size?: number }).size === 0) return;
+    for (const [id, mob] of mobsMap.entries() as Iterable<[string, MobSchema]>) {
+      bindMob(id, mob);
+    }
+    mobsBootstrapped = true;
+    const local = room.state.players.get(localId) as PlayerSchema | undefined;
+    if (local) {
+      lastMobScanX = Number.NaN;
+      lastMobScanZ = Number.NaN;
+      syncLocal(local);
+      syncMobsInRenderRange();
+    }
+  };
+
+  const bindMob = (id: string, state: MobSchema): void => {
+    indexMob(id, state);
+    if (wiredMobIds.has(id)) return;
+    wiredMobIds.add(id);
+    callbacks.onChange(state, () => onMobStateChange(id, state));
   };
 
   callbacks.onAdd('mobs', (mob, mobId) => {
     const id = mobId as string;
     const state = mob as MobSchema;
+    bindMob(id, state);
     syncMobFromState(id, state);
-    callbacks.onChange(state, () => syncMobFromState(id, state));
-  });
+  }, true);
 
   callbacks.onRemove('mobs', (_mob, mobId) => {
-    game.removeMob(mobId as string);
+    const id = mobId as string;
+    wiredMobIds.delete(id);
+    mobSpatialIndex.remove(id);
+    game.removeMob(id);
     publishMobs();
   });
 
-  if (room.state.mobs) {
-    for (const [id, mob] of room.state.mobs.entries() as Iterable<[string, MobSchema]>) {
-      syncMobFromState(id, mob);
-      callbacks.onChange(mob, () => syncMobFromState(id, mob));
-    }
+  bootstrapMobsFromState();
+  if (!mobsBootstrapped && typeof room.onStateChange === 'function') {
+    room.onStateChange(() => {
+      if (!mobsBootstrapped) bootstrapMobsFromState();
+    });
+  } else if (mobsBootstrapped) {
+    publishMobs();
   }
 
-  publishMobs();
+  const localAtWire = room.state.players.get(localId) as PlayerSchema | undefined;
+  if (localAtWire && !mobsBootstrapped) {
+    lastMobScanX = Number.NaN;
+    lastMobScanZ = Number.NaN;
+    syncLocal(localAtWire);
+  }
 
   const syncNpcFromState = (npcKey: string, npc: NpcSchema): void => {
     game.syncNpc({
@@ -1111,28 +1398,31 @@ export function wireRoom(
     updateInteractPrompt();
   };
 
+  const wiredNpcIds = new Set<string>();
+  const bindNpc = (id: string, state: NpcSchema): void => {
+    if (wiredNpcIds.has(id)) return;
+    wiredNpcIds.add(id);
+    callbacks.onChange(state, () => syncNpcFromState(id, state));
+  };
+
   callbacks.onAdd('npcs', (npc, npcKey) => {
     const id = npcKey as string;
     const state = npc as NpcSchema;
+    bindNpc(id, state);
     syncNpcFromState(id, state);
-    callbacks.onChange(state, () => syncNpcFromState(id, state));
   });
 
   callbacks.onRemove('npcs', (_npc, npcKey) => {
+    wiredNpcIds.delete(npcKey as string);
     game.removeNpc(npcKey as string);
   });
 
-  const npcsMap = room.state.npcs;
-  if (npcsMap) {
-    for (const [id, npc] of npcsMap.entries() as Iterable<[string, NpcSchema]>) {
+  if (room.state.npcs) {
+    for (const [id, npc] of room.state.npcs.entries() as Iterable<[string, NpcSchema]>) {
+      bindNpc(id, npc);
       syncNpcFromState(id, npc);
-      callbacks.onChange(npc, () => syncNpcFromState(id, npc));
     }
   }
-
-  game.setAfterTick(() => {
-    publishNpcsToHook();
-  });
 
   room.onMessage('chat', (message: {
     channel: 'all' | 'local' | 'trade' | 'party';

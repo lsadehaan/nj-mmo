@@ -1,3 +1,5 @@
+import { attachToRightRail, RIGHT_RAIL_ORDER } from './hud-rail';
+
 export interface FriendsSendHandlers {
   sendFriendAdd: (payload: { targetSessionId: string }) => void;
   sendFriendRemove: (payload: { friendCharacterId: string }) => void;
@@ -11,10 +13,14 @@ export function mountFriendsPanel(): HTMLElement {
   const panel = document.createElement('div');
   panel.id = ELEMENT_ID;
   panel.style.cssText =
-    'position:fixed;top:120px;right:8px;background:rgba(0,0,0,0.75);color:#fff;padding:8px;font:12px sans-serif;z-index:50';
+    'background:rgba(0,0,0,0.75);color:#fff;padding:8px;font:12px sans-serif;border-radius:4px;min-width:160px';
   panel.innerHTML =
-    '<ul data-role="list"></ul><input data-role="add-target" placeholder="session id" /><button data-role="add">Add</button>';
-  document.body.appendChild(panel);
+    '<div data-role="title" style="font-weight:bold;margin-bottom:4px">Friends</div>' +
+    '<ul data-role="list" style="list-style:none;margin:0 0 6px;padding:0"></ul>' +
+    '<div style="display:flex;gap:4px">' +
+    '<input data-role="add-target" placeholder="session id" style="flex:1;min-width:0" />' +
+    '<button data-role="add">Add</button></div>';
+  attachToRightRail(panel, RIGHT_RAIL_ORDER.friends);
   return panel;
 }
 

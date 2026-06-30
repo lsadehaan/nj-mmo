@@ -31,6 +31,8 @@ interface MobInstance {
   lastAction?: EntityAction;
   lastActionSeq?: number;
   clubProp: THREE.Object3D | null;
+  /** Accumulated unsimulated time (ms) for distance-throttled animation LOD. */
+  animAccumMs: number;
 }
 
 const MOB_BODY_COLOR = 0x884422;
@@ -191,6 +193,9 @@ function ensureMobInstance(
     pendingRemovalAtMs: null,
     currentClip: 'idle',
     clubProp: null,
+    // Large initial value so a freshly-spawned far mob poses on its first tick
+    // instead of holding a T-pose until the throttle interval elapses.
+    animAccumMs: Number.POSITIVE_INFINITY,
   };
   instances.set(state.id, instance);
 
@@ -269,21 +274,69 @@ export function syncMobVisual(
   return instance.group;
 }
 
+/** Mobs within this radius (m) of the viewer animate every frame. */
+export const ANIM_FULL_DISTANCE = 30;
+const ANIM_FULL_DISTANCE_SQ = ANIM_FULL_DISTANCE * ANIM_FULL_DISTANCE;
+/** Beyond the full-rate band, mob skeletons advance at most this often (≈10 fps). */
+export const FAR_ANIM_INTERVAL_MS = 100;
+
+/**
+ * Advance mob animation mixers. The dominant per-frame CPU cost in dense areas
+ * is skeletal-mesh evaluation (`AnimationMixer.update`), so we apply distance
+ * LOD: mobs near the viewer animate every frame, while distant mobs advance
+ * their skeleton at ~10 fps using the accumulated delta. Without a `viewer` the
+ * legacy full-rate behaviour is preserved (used by tests).
+ */
 export function tickMobVisuals(
   instances: Map<string, MobInstance>,
   dt: number,
-  nowMs = performance.now()
+  nowMs = performance.now(),
+  viewer?: { x: number; z: number }
 ): Map<string, AnimationClip> {
   const clips = new Map<string, AnimationClip>();
+  const dtMs = dt * 1000;
   for (const [mobId, instance] of instances.entries()) {
-    if (instance.avatar) {
-      instance.currentClip = instance.avatar.update(dt, nowMs);
+    if (!instance.avatar) {
       clips.set(mobId, instance.currentClip as AnimationClip);
-    } else {
-      clips.set(mobId, instance.currentClip as AnimationClip);
+      continue;
     }
+
+    let stepDt = dt;
+    if (viewer) {
+      const dx = instance.group.position.x - viewer.x;
+      const dz = instance.group.position.z - viewer.z;
+      if (dx * dx + dz * dz > ANIM_FULL_DISTANCE_SQ) {
+        instance.animAccumMs += dtMs;
+        if (instance.animAccumMs < FAR_ANIM_INTERVAL_MS) {
+          clips.set(mobId, instance.currentClip as AnimationClip);
+          continue;
+        }
+        stepDt = instance.animAccumMs / 1000;
+        instance.animAccumMs = 0;
+      } else {
+        instance.animAccumMs = 0;
+      }
+    }
+
+    instance.currentClip = instance.avatar.update(stepDt, nowMs);
+    clips.set(mobId, instance.currentClip as AnimationClip);
   }
   return clips;
+}
+
+/** Drop scene objects for a mob without playing death or clearing logical state. */
+export function detachMobVisual(
+  map: MobMeshMap,
+  instances: Map<string, MobInstance>,
+  mobId: string,
+  scene: THREE.Scene
+): void {
+  const group = map.get(mobId);
+  if (group) {
+    scene.remove(group);
+    map.delete(mobId);
+  }
+  instances.delete(mobId);
 }
 
 export function removeMob(

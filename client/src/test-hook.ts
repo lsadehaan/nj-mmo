@@ -526,14 +526,27 @@ export function setPlayer(player: GameStatePlayerInput, nowMs = Date.now()): voi
       castEndMs: state.player.castEndMs,
       nowMs,
     });
-    updatePlayerVitalsHud({
-      level: player.level,
-      hp: player.hp,
-      maxHp: state.maxHp,
-      mp: player.mp,
-      maxMp: state.maxMp,
-    });
+    renderVitalsHud();
   }
+}
+
+/**
+ * Render the corner vitals HUD from a single source of truth. Vitals updates
+ * arrive from several setters (hp/mp, maxHp, maxMp, pDef) at different times;
+ * sourcing every field — including pDef — from game state here prevents the
+ * P.Def line from flickering in and out as individual setters omit it.
+ */
+function renderVitalsHud(): void {
+  if (typeof document === 'undefined') return;
+  const state = getGameState();
+  updatePlayerVitalsHud({
+    level: state.player.level,
+    hp: state.player.hp,
+    maxHp: state.maxHp,
+    mp: state.player.mp,
+    maxMp: state.maxMp,
+    pDef: state.pDef,
+  });
 }
 
 export function setMobs(mobs: GameStateMob[]): void {
@@ -615,45 +628,17 @@ export function setEquipment(
 
 export function setPlayerPDef(pDef: number): void {
   getGameState().pDef = pDef;
-  if (typeof document !== 'undefined') {
-    const state = getGameState();
-    updatePlayerVitalsHud({
-      level: state.player.level,
-      hp: state.player.hp,
-      maxHp: state.maxHp,
-      mp: state.player.mp,
-      maxMp: state.maxMp,
-      pDef,
-    });
-  }
+  renderVitalsHud();
 }
 
 export function setMaxHp(maxHp: number): void {
-  const state = getGameState();
-  state.maxHp = maxHp;
-  if (typeof document !== 'undefined') {
-    updatePlayerVitalsHud({
-      level: state.player.level,
-      hp: state.player.hp,
-      maxHp,
-      mp: state.player.mp,
-      maxMp: state.maxMp,
-    });
-  }
+  getGameState().maxHp = maxHp;
+  renderVitalsHud();
 }
 
 export function setMaxMp(maxMp: number): void {
-  const state = getGameState();
-  state.maxMp = maxMp;
-  if (typeof document !== 'undefined') {
-    updatePlayerVitalsHud({
-      level: state.player.level,
-      hp: state.player.hp,
-      maxHp: state.maxHp,
-      mp: state.player.mp,
-      maxMp,
-    });
-  }
+  getGameState().maxMp = maxMp;
+  renderVitalsHud();
 }
 
 export function effectsFromBuffSkillId(activeBuffSkillId: number): string[] {

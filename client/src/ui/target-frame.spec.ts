@@ -15,6 +15,22 @@ describe('target-frame', () => {
     expect(document.querySelector('[data-role="target-hp-bar"]')).not.toBeNull();
   });
 
+  it('shows the mob level next to its name when known', () => {
+    renderTargetFrame({
+      mob: { id: 'm1', name: 'Gremlin', level: 1, hp: 50, maxHp: 100 },
+    });
+    const name = document.querySelector('[data-role="target-name"]')?.textContent ?? '';
+    expect(name).toContain('Lv.1');
+    expect(name).toContain('Gremlin');
+  });
+
+  it('omits the level chip when level is unknown', () => {
+    renderTargetFrame({
+      mob: { id: 'm1', name: 'Gremlin', hp: 50, maxHp: 100 },
+    });
+    expect(document.querySelector('[data-role="target-level"]')).toBeNull();
+  });
+
   it('UI28-55: mob ToT shows player name', () => {
     renderTargetFrame({
       mob: {

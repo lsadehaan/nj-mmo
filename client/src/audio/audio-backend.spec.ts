@@ -6,8 +6,8 @@ describe('audio-backend mock', () => {
   it('AUD29-46: mock path never constructs global Audio', () => {
     const audioSpy = vi.spyOn(globalThis, 'Audio');
     const { backend } = createMockAudioBackend();
-    backend.playLoop('music_town', '/audio/music/music_town.ogg', 0.7);
-    backend.playOneShot('sfx_ui_click', '/audio/sfx/sfx_ui_click.ogg', 0.8);
+    backend.playLoop('music_town', '/audio/music/music_town.mp3', 0.7);
+    backend.playOneShot('sfx_ui_click', '/audio/sfx/sfx_ui_click.mp3', 0.8);
     backend.dispose();
     expect(audioSpy).not.toHaveBeenCalled();
     audioSpy.mockRestore();
@@ -39,7 +39,7 @@ describe('audio-manager foundation', () => {
       {
         kind: 'oneShot',
         id: 'sfx_ui_click',
-        url: '/audio/sfx/sfx_ui_click.ogg',
+        url: '/audio/sfx/sfx_ui_click.mp3',
         volume: 0.8,
       },
     ]);

@@ -1,5 +1,7 @@
 import { createIconImg } from './icon-img';
 import { getSkillIconPath } from './icon-manifest';
+import { getSkillInfo } from './game-catalog';
+import { attachTooltip } from './tooltip';
 
 const ELEMENT_ID = 'skill-window';
 
@@ -64,9 +66,15 @@ export function renderSkillWindow(options: SkillWindowRenderOptions): void {
     row.dataset['skillId'] = String(skillId);
     row.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;margin:4px 0';
 
+    const info = getSkillInfo(skillId);
     row.appendChild(
-      createIconImg({ kind: 'skill', id: skillId, alt: `Skill ${skillId}`, sizePx: 32 })
+      createIconImg({ kind: 'skill', id: skillId, alt: info.name, sizePx: 32 })
     );
+
+    const label = document.createElement('span');
+    label.dataset['role'] = 'skill-name';
+    label.textContent = info.name;
+    row.appendChild(label);
 
     const cdEnd = options.skillCooldownEndMs[index] ?? 0;
     const remaining = Math.max(0, cdEnd - nowMs);
@@ -77,6 +85,7 @@ export function renderSkillWindow(options: SkillWindowRenderOptions): void {
       row.appendChild(overlay);
     }
 
+    attachTooltip(row, { title: info.name, body: info.description });
     row.addEventListener('click', () => options.onUseSkill?.(skillId));
     list.appendChild(row);
   });

@@ -10,20 +10,11 @@ export function mountWorldMap(): HTMLElement {
   modal.id = ELEMENT_ID;
   modal.hidden = true;
   modal.style.cssText =
-    'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);z-index:90;pointer-events:auto';
+    'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);z-index:90;pointer-events:auto';
 
   const card = document.createElement('div');
   card.dataset['role'] = 'world-map-card';
   card.style.cssText = 'padding:24px;background:#1a2030;color:#eee;border-radius:8px;min-width:320px';
-
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.dataset['role'] = 'panel-close';
-  close.textContent = 'Close';
-  close.addEventListener('click', () => {
-    modal.hidden = true;
-  });
-  card.appendChild(close);
 
   const zones = document.createElement('div');
   zones.dataset['role'] = 'zone-labels';
@@ -37,6 +28,7 @@ export function mountWorldMap(): HTMLElement {
 export function renderWorldMap(visible: boolean): void {
   const modal = mountWorldMap();
   modal.hidden = !visible;
+  modal.style.display = visible ? 'flex' : 'none';
   const zones = modal.querySelector('[data-role="zone-labels"]');
   if (!zones) return;
   zones.innerHTML = '';
@@ -51,7 +43,7 @@ export function renderWorldMap(visible: boolean): void {
 
 export function isWorldMapVisible(): boolean {
   const el = document.getElementById(ELEMENT_ID);
-  return el !== null && !el.hidden;
+  return el !== null && !el.hidden && el.style.display !== 'none';
 }
 
 export function setWorldMapVisible(visible: boolean): void {

@@ -39,7 +39,7 @@ export const NPC_TEST_COORDS = {
 
 export const ZONE_TEST_COORDS = {
   village: { x: 0, z: 0 },
-  obelisk: { x: -150, z: 55 },
+  obelisk: { x: -10, z: -120 },
   harborWater: { x: -225, z: 275 },
 } as const;
 const BITZ_NPC_ID = 30026;
@@ -707,6 +707,49 @@ describe('TownRoom', () => {
     }
   });
 
+  it('evicts a stale ghost session when the same character rejoins (browser refresh)', async () => {
+    const { dbPath, cleanup } = tempDbPath();
+    try {
+      const db = getDb(dbPath);
+      const saved = createCharacter(db);
+      const room = await colyseus.createRoom('town', { dbPath });
+
+      // First session, then an unclean disconnect leaves it awaiting reconnection.
+      const clientA = await colyseus.sdk.joinById(
+        room.roomId,
+        { characterId: saved.id },
+        TownState
+      );
+      const sessionA = clientA.sessionId;
+      await clientA.leave(false);
+      const dropDeadline = Date.now() + 2000;
+      while (
+        Date.now() < dropDeadline &&
+        room.state.players.get(sessionA)?.connected !== false
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      expect(room.state.players.has(sessionA)).toBe(true);
+
+      // A page refresh rejoins with the same characterId on a fresh session.
+      const clientB = await colyseus.sdk.joinById(
+        room.roomId,
+        { characterId: saved.id },
+        TownState
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // The ghost is gone and exactly one live player remains for this character.
+      expect(room.state.players.has(sessionA)).toBe(false);
+      expect(room.state.players.has(clientB.sessionId)).toBe(true);
+      expect(room.state.players.size).toBe(1);
+
+      await leaveRoom(room, clientB);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('keeps hp/mp/xp/level unchanged after movement and persistence', async () => {
     const { dbPath, cleanup } = tempDbPath();
     try {
@@ -1262,6 +1305,10 @@ describe('TownRoom combat', () => {
       const goblin = findMobByNpcId(room, 20003)!;
       relocateMob(room, goblin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
       placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 40, OUT_OF_PEACE.z);
+      // Isolate the assertion to the goblin's acquisition: the surrounding field
+      // is populated, so keep the player alive for the tick (an incidental
+      // neighbour's hit must not respawn the player and clear aggro).
+      room.state.players.get(client.sessionId)!.hp = 50_000;
 
       tick(room);
 

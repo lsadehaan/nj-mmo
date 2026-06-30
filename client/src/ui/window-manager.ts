@@ -8,6 +8,10 @@ export interface PanelRegistration {
   aliasHotkeys?: string[];
   onOpen?: () => void;
   onClose?: () => void;
+  /** Friendly title for the chrome bar; defaults to the panel's <h2> text or id. */
+  title?: string;
+  /** Element that should host the chrome title bar (e.g. an inner card for modal backdrops). */
+  chromeHost?: (root: HTMLElement) => HTMLElement;
 }
 
 const panels = new Map<string, PanelRegistration>();
@@ -26,10 +30,17 @@ export function registerPanel(id: string, registration: PanelRegistration): void
   panels.set(id, registration);
   const el = registration.mount();
   el.dataset['panelId'] = id;
-  if (!el.querySelector('[data-role="panel-title"]')) {
-    const title = el.querySelector('h2')?.textContent ?? id;
-    attachPanelChrome(el, title, () => closePanel(id));
+  const host = registration.chromeHost?.(el) ?? el;
+  if (!host.querySelector('[data-role="panel-title"]')) {
+    const heading = host.querySelector('h2');
+    const title = registration.title ?? heading?.textContent ?? id;
+    // The chrome title bar replaces the panel's own <h2>; keeping both renders
+    // the window title twice (e.g. "Inventory" stacked above "Inventory").
+    heading?.remove();
+    attachPanelChrome(host, title, () => closePanel(id));
   }
+  el.hidden = true;
+  el.style.display = 'none';
 }
 
 export function getPanelElement(id: string): HTMLElement | null {
@@ -38,7 +49,7 @@ export function getPanelElement(id: string): HTMLElement | null {
 
 export function isPanelOpen(id: string): boolean {
   const el = getPanelElement(id);
-  return el !== null && !el.hidden;
+  return el !== null && !el.hidden && el.style.display !== 'none';
 }
 
 export function openPanel(id: string): void {
@@ -46,6 +57,7 @@ export function openPanel(id: string): void {
   const el = reg?.mount();
   if (!el || !reg) return;
   el.hidden = false;
+  el.style.display = id === 'world-map' ? 'flex' : '';
   uiAudioHooks.onOpen?.();
   reg.onOpen?.();
   publishUiState();
@@ -56,6 +68,7 @@ export function closePanel(id: string): void {
   const el = reg?.mount();
   if (!el || !reg) return;
   el.hidden = true;
+  el.style.display = 'none';
   uiAudioHooks.onClose?.();
   reg.onClose?.();
   publishUiState();

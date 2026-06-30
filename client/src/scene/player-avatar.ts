@@ -54,6 +54,14 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
   const sexScale = options.sex === 1 ? 0.97 : 1.0;
   const feetOffsetY = entry.feetOffsetY;
 
+  const placeholder = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.28, 0.75, 4, 8),
+    new THREE.MeshLambertMaterial({ color: 0x4a7cff })
+  );
+  placeholder.name = 'player-placeholder';
+  placeholder.position.y = 0.65;
+  group.add(placeholder);
+
   const character =
     options.mesh ??
     createMeshCharacter(entry.model, {
@@ -61,9 +69,15 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
       clipMap: entry.clipMap,
     });
   group.add(character.object);
-  const ready = character.ready.catch(() => {
-    /* mesh load failure is non-fatal for logic (e.g. unit tests with no server) */
-  });
+  const ready = character.ready
+    .then(() => {
+      group.remove(placeholder);
+      placeholder.geometry.dispose();
+      (placeholder.material as THREE.Material).dispose();
+    })
+    .catch(() => {
+      /* mesh load failure is non-fatal for logic (e.g. unit tests with no server) */
+    });
 
   let animState: AnimState = createAnimState();
   let prevX = 0;

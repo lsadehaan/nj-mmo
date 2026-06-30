@@ -11,6 +11,7 @@ export function attachPanelChrome(
   const titleEl = document.createElement('span');
   titleEl.dataset['role'] = 'panel-title';
   titleEl.textContent = title;
+  titleEl.style.cssText = 'font-weight:bold;font-size:16px';
   titleBar.appendChild(titleEl);
 
   const closeBtn = document.createElement('button');

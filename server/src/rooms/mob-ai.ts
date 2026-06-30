@@ -5,6 +5,7 @@ import {
   isWalkable,
   isInRangedAttackBand,
   shouldRangedMobAdvance,
+  MOB_AI_WAKE_DISTANCE,
   type SeededRng,
 } from '@nj/game-core';
 import type { MobRuntime } from './spawn-manager';
@@ -18,6 +19,33 @@ export interface MobAiPlayer {
   sessionId: string;
   x: number;
   z: number;
+}
+
+export function isMobNearAnyPlayer(
+  mobX: number,
+  mobZ: number,
+  players: MobAiPlayer[],
+  wakeDistance = MOB_AI_WAKE_DISTANCE
+): boolean {
+  const r2 = wakeDistance * wakeDistance;
+  for (const p of players) {
+    const dx = mobX - p.x;
+    const dz = mobZ - p.z;
+    if (dx * dx + dz * dz <= r2) return true;
+  }
+  return false;
+}
+
+/** Skip AI for distant idle mobs — major server CPU + schema bandwidth saver. */
+export function shouldTickMobAi(
+  mob: MobRuntime,
+  players: MobAiPlayer[],
+  wakeDistance = MOB_AI_WAKE_DISTANCE
+): boolean {
+  if (mob.targetSessionId && players.some((p) => p.sessionId === mob.targetSessionId)) {
+    return true;
+  }
+  return isMobNearAnyPlayer(mob.x, mob.z, players, wakeDistance);
 }
 
 export function findClanAssistTargets(

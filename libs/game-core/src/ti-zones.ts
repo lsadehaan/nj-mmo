@@ -20,6 +20,15 @@ const WILDERNESS_HIT: ZoneHit = {
   type: 'combat',
 };
 
+/*
+ * Radial Talking Island layout. The village peace zone sits at the local origin
+ * and the combat fields fan out around it on different sides so the player is
+ * surrounded rather than facing a wall of mobs on one edge. Difficulty climbs
+ * with distance: the two low-level fields hug the village (east + north), the
+ * high-level grounds sit far out (south, west) and the harbour holds the
+ * mid/high fishing-coast pack to the south-west. The spawn generator assigns
+ * each species to one of these zones by its level tier (see `zoneForLevel`).
+ */
 const TI_ZONES: readonly TiZone[] = [
   {
     id: 'ti_village',
@@ -33,39 +42,43 @@ const TI_ZONES: readonly TiZone[] = [
     ],
   },
   {
+    // EAST, near — newbie field (levels 1-4).
     id: 'eastern_fields',
     displayName: 'Eastern Fields',
     type: 'combat',
     polygon: [
-      { x: -170, z: -10 },
-      { x: -50, z: -10 },
-      { x: -50, z: 70 },
-      { x: -170, z: 70 },
+      { x: 55, z: -70 },
+      { x: 175, z: -70 },
+      { x: 175, z: 70 },
+      { x: 55, z: 70 },
     ],
   },
   {
+    // NORTH, near — second-step field (levels 5-7).
     id: 'obelisk',
     displayName: 'Obelisk of Victory',
     type: 'combat',
     polygon: [
-      { x: -190, z: 30 },
-      { x: -120, z: 30 },
-      { x: -120, z: 90 },
-      { x: -190, z: 90 },
+      { x: -75, z: -200 },
+      { x: 45, z: -200 },
+      { x: 45, z: -55 },
+      { x: -75, z: -55 },
     ],
   },
   {
+    // WEST, far — highest-level ruins (levels 14-17).
     id: 'elven_ruins',
     displayName: 'Elven Ruins',
     type: 'combat',
     polygon: [
-      { x: -320, z: 50 },
-      { x: -240, z: 50 },
-      { x: -240, z: 130 },
-      { x: -320, z: 130 },
+      { x: -320, z: -80 },
+      { x: -170, z: -80 },
+      { x: -170, z: 80 },
+      { x: -320, z: 80 },
     ],
   },
   {
+    // SOUTH-WEST, far — fishing coast pack (levels 8-10).
     id: 'harbor',
     displayName: 'Talking Island Harbor',
     type: 'fishing',
@@ -88,14 +101,15 @@ const TI_ZONES: readonly TiZone[] = [
     ],
   },
   {
+    // SOUTH, far — high-level cave grounds (levels 11-13).
     id: 'cave_of_souls',
     displayName: 'Cave of Souls',
     type: 'combat',
     polygon: [
-      { x: -275, z: 230 },
-      { x: -210, z: 230 },
-      { x: -210, z: 280 },
-      { x: -275, z: 280 },
+      { x: -70, z: 170 },
+      { x: 70, z: 170 },
+      { x: 70, z: 300 },
+      { x: -70, z: 300 },
     ],
   },
 ] as const;

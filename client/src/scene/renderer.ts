@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { generateTerrain, createTerrainMesh } from './terrain';
-import { type MovementIntent, TERRAIN_CONFIG } from '@nj/game-core';
+import { type MovementIntent, TERRAIN_CONFIG, MOB_RENDER_DISTANCE } from '@nj/game-core';
 import { buildPathPreviewPoints } from './path-preview';
 import { applyTo, DEFAULT_CAMERA_OFFSET } from '../camera/follow-camera';
 import { ndcFromPointer, toMovementIntent, type RaycastInput } from '../input/click-to-move';
@@ -21,6 +21,7 @@ import {
   flushPendingMobRemovals,
   listMobMeshes,
   mobStateToVisual,
+  detachMobVisual,
   removeMob,
   syncMobVisual,
   tickMobVisuals,
@@ -44,6 +45,16 @@ import type { AudioManager } from '../audio/audio-manager';
 
 const WORLD_SEED = TERRAIN_CONFIG.seed;
 const TERRAIN_OPTS = TERRAIN_CONFIG;
+
+function mobDistanceSq(x: number, z: number, playerX: number, playerZ: number): number {
+  const dx = x - playerX;
+  const dz = z - playerZ;
+  return dx * dx + dz * dz;
+}
+
+function isMobInRenderRange(x: number, z: number, playerX: number, playerZ: number): boolean {
+  return mobDistanceSq(x, z, playerX, playerZ) <= MOB_RENDER_DISTANCE * MOB_RENDER_DISTANCE;
+}
 
 export interface GameRenderer {
   scene: THREE.Scene;
@@ -108,6 +119,7 @@ export interface GameRenderer {
   }>;
   setMoveIntentHandler: (handler: (intent: MovementIntent) => void) => void;
   setMobTargetHandler: (handler: (mobId: string) => void) => void;
+  rotateCamera: (deltaYaw: number) => void;
   setVfxTargetMobId: (mobId: string | null) => void;
   syncPlayerVfx: (snapshot: {
     hp: number;
@@ -144,8 +156,8 @@ function findMobId(object: THREE.Object3D): string | null {
 }
 
 export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRenderer> {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(window.devicePixelRatio);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   const scene = new THREE.Scene();
@@ -167,14 +179,14 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
   const terrainMesh = createTerrainMesh(THREE, terrainData);
   scene.add(terrainMesh);
 
-  await buildEnvironmentScene({ scene, terrainData }).then((envResult) => {
+  void buildEnvironmentScene({ scene, terrainData }).then((envResult) => {
     setEnvironment({ ...envResult, loaded: true });
   });
 
   let playerAvatar = createPlayerAvatar();
   scene.add(playerAvatar.group);
-  let activeClassId = 0;
-  let activeSex = 0;
+  let activeClassId = -1;
+  let activeSex = -1;
 
   const ensureLocalAvatar = (classId: number, sex: number): void => {
     if (classId === activeClassId && sex === activeSex) return;
@@ -216,17 +228,41 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
 
   const showPathPreview = (fromX: number, fromZ: number, toX: number, toZ: number): void => {
     clearPathPreview();
-    const points = buildPathPreviewPoints(fromX, fromZ, toX, toZ);
-    if (points.length < 2) return;
-    const vectors = points.map(
-      (p) => new THREE.Vector3(p.x, terrainData.sampleHeight(p.x, p.z) + 0.15, p.z)
+    requestAnimationFrame(() => {
+      const points = buildPathPreviewPoints(fromX, fromZ, toX, toZ);
+      if (points.length < 2) return;
+      const vectors = points.map(
+        (p) => new THREE.Vector3(p.x, terrainData.sampleHeight(p.x, p.z) + 0.15, p.z)
+      );
+      const geometry = new THREE.BufferGeometry().setFromPoints(vectors);
+      pathPreviewLine = new THREE.Line(
+        geometry,
+        new THREE.LineBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.7 })
+      );
+      scene.add(pathPreviewLine);
+    });
+  };
+
+  let lastCullX = Number.NaN;
+  let lastCullZ = Number.NaN;
+  const CULL_MOVE_THRESHOLD_SQ = 4;
+
+  let cameraYaw = 0;
+  const updateCamera = (): void => {
+    applyTo(
+      {
+        position: camera.position,
+        lookAt: (target) => camera.lookAt(target.x, target.y, target.z),
+      },
+      { x: localPosition.x, y: localPosition.y, z: localPosition.z },
+      DEFAULT_CAMERA_OFFSET,
+      cameraYaw
     );
-    const geometry = new THREE.BufferGeometry().setFromPoints(vectors);
-    pathPreviewLine = new THREE.Line(
-      geometry,
-      new THREE.LineBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.7 })
-    );
-    scene.add(pathPreviewLine);
+  };
+
+  const rotateCamera = (deltaYaw: number): void => {
+    cameraYaw = (cameraYaw + deltaYaw) % (Math.PI * 2);
+    updateCamera();
   };
 
   const syncLocalPlayer = (
@@ -245,14 +281,17 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     localPosition.z = z;
     playerAvatar.sync({ x, y, z, action, actionSeq, equippedWeaponItemId });
     currentAnimationClip = playerAvatar.update(0);
-    applyTo(
-      {
-        position: camera.position,
-        lookAt: (target) => camera.lookAt(target.x, target.y, target.z),
-      },
-      { x, y, z },
-      DEFAULT_CAMERA_OFFSET
-    );
+    const cullDx = x - lastCullX;
+    const cullDz = z - lastCullZ;
+    if (
+      !Number.isFinite(lastCullX) ||
+      cullDx * cullDx + cullDz * cullDz >= CULL_MOVE_THRESHOLD_SQ
+    ) {
+      lastCullX = x;
+      lastCullZ = z;
+      refreshMobCulling();
+    }
+    updateCamera();
     const player = getGameState().player;
     setPlayer({ ...player, x, y, z, action: currentAnimationClip });
   };
@@ -300,7 +339,6 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
       prevPlayerDieSeq = snapshot.actionSeq;
     }
     prevPlayerActionSeq = snapshot.actionSeq;
-    vfxManager.publishHook(getGameState().vfx);
   };
 
   const syncMobVfx = (snapshot: {
@@ -321,7 +359,6 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
       action: snapshot.action as EntityAction,
       actionSeq: snapshot.actionSeq,
     });
-    vfxManager.publishHook(getGameState().vfx);
   };
 
   const setVfxTargetMobId = (mobId: string | null): void => {
@@ -417,6 +454,20 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     }
   };
 
+  const refreshMobCulling = (): void => {
+    const px = localPosition.x;
+    const pz = localPosition.z;
+    for (const [id, snapshot] of mobSnapshots) {
+      const inRange = isMobInRenderRange(snapshot.x, snapshot.z, px, pz);
+      const hasMesh = mobMeshes.has(id);
+      if (inRange && !hasMesh) {
+        syncMobVisual(mobMeshes, mobInstances, snapshot, scene);
+      } else if (!inRange && hasMesh) {
+        detachMobVisual(mobMeshes, mobInstances, id, scene);
+      }
+    }
+  };
+
   const syncMob = (mob: {
     id: string;
     npcId: number;
@@ -431,11 +482,17 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     const prev = mobSnapshots.get(mob.id);
     const visual = mobStateToVisual(mob);
     mobSnapshots.set(mob.id, visual);
-    syncMobVisual(mobMeshes, mobInstances, visual, scene);
+    if (isMobInRenderRange(visual.x, visual.z, localPosition.x, localPosition.z)) {
+      syncMobVisual(mobMeshes, mobInstances, visual, scene);
+    } else if (mobMeshes.has(mob.id)) {
+      detachMobVisual(mobMeshes, mobInstances, mob.id, scene);
+    }
     if (
       prev?.action !== visual.action ||
       prev?.actionSeq !== visual.actionSeq ||
-      prev?.hp !== visual.hp
+      prev?.hp !== visual.hp ||
+      prev?.x !== visual.x ||
+      prev?.z !== visual.z
     ) {
       publishMobHookEntries();
     }
@@ -500,13 +557,13 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
       setPlayer({ ...player, action: currentAnimationClip });
     }
 
-    const mobClips = tickMobVisuals(mobInstances, dt, nowMs);
+    const mobClips = tickMobVisuals(mobInstances, dt, nowMs, {
+      x: localPosition.x,
+      z: localPosition.z,
+    });
     lastMobClips = mobClips;
     for (const mobId of flushPendingMobRemovals(mobMeshes, mobInstances, scene, nowMs)) {
       mobSnapshots.delete(mobId);
-    }
-
-    if (mobSnapshots.size > 0) {
       publishMobHookEntries();
     }
 
@@ -522,7 +579,6 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     vfxManager.publishHook(getGameState().vfx);
     const { zone } = getGameState();
     audioManager?.tickFootsteps({ x: player.x, z: player.z, zoneType: zone.type }, nowMs);
-    audioManager?.publishHook();
     afterTickHandler?.();
   };
 
@@ -591,8 +647,6 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     renderer.dispose();
   };
 
-  syncLocalPlayer(localPosition.x, localPosition.y, localPosition.z);
-
   return {
     scene,
     camera,
@@ -615,6 +669,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     getNpcHookEntries: getNpcHookEntriesForRoom,
     setMoveIntentHandler,
     setMobTargetHandler,
+    rotateCamera,
     setVfxTargetMobId,
     syncPlayerVfx,
     syncMobVfx,

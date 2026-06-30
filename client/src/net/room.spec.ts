@@ -45,8 +45,13 @@ describe('room connect', () => {
 
     const handlers: Record<string, (payload: string) => void> = {};
     const mockRoom = {
+      sessionId: 'local-session',
       onMessage: (type: string, handler: (payload: string) => void) => {
         handlers[type] = handler;
+      },
+      state: {
+        players: new Map([['local-session', {}]]),
+        mobs: new Map([['mob-1', { x: 0, z: 0 }]]),
       },
     };
     mockJoinOrCreate.mockResolvedValue(mockRoom);
@@ -63,12 +68,39 @@ describe('room connect', () => {
   });
 
   it('joins without characterId when localStorage is empty', async () => {
-    const mockRoom = { onMessage: vi.fn() };
+    const mockRoom = {
+      sessionId: 'local-session',
+      onMessage: vi.fn(),
+      state: {
+        players: new Map(),
+        mobs: new Map([['mob-1', {}]]),
+      },
+    };
     mockJoinOrCreate.mockResolvedValue(mockRoom);
 
     const { connect } = await import('./room');
     await connect('http://test');
 
     expect(mockJoinOrCreate).toHaveBeenCalledWith('town', {});
+  });
+
+  it('waitForRoomState resolves when local player appears on state change', async () => {
+    const listeners: Array<() => void> = [];
+    const mockRoom = {
+      sessionId: 'sess-1',
+      state: {} as { players?: Map<string, unknown> },
+      onStateChange: Object.assign((cb: () => void) => listeners.push(cb), {
+        remove: (cb: () => void) => {
+          const idx = listeners.indexOf(cb);
+          if (idx >= 0) listeners.splice(idx, 1);
+        },
+      }),
+    };
+
+    const { waitForRoomState } = await import('./room');
+    const pending = waitForRoomState(mockRoom as never, 100);
+    mockRoom.state.players = new Map([['sess-1', { classId: 0 }]]);
+    listeners.forEach((cb) => cb());
+    await expect(pending).resolves.toBeUndefined();
   });
 });

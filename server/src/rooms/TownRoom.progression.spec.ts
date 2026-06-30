@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { SPAWN_X, SPAWN_Z, snapEntityY, getZoneAt, registerStrBonusEntries } from '@nj/game-core';
+import { SPAWN_X, SPAWN_Z, snapEntityY, getZoneAt, registerStrBonusEntries, EntityAction } from '@nj/game-core';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 import { DEFAULT_SIM_INTERVAL_MS } from './TownRoom';
 import type { MobRuntime } from './spawn-manager';
@@ -253,6 +253,39 @@ describe('TownRoom progression (PROG27)', () => {
       expect(player.mp).toBe(player.maxMp);
       expect(player.x).toBe(SPAWN_X);
       expect(player.z).toBe(SPAWN_Z);
+      await leaveRoom(room, client);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('PROG27-07b: dead player holds the death pose and ignores moves, then stands up', async () => {
+    const { dbPath, cleanup } = seededDb();
+    try {
+      let clock = 1_000_000;
+      const room = await createRoom(dbPath, { nowMs: () => clock });
+      const client = await colyseus.connectTo(room);
+      const player = room.state.players.get(client.sessionId)!;
+      const gremlin = findMobByNpcId(room, GREMLIN_NPC_ID)!;
+
+      killPlayerViaMob(room, client.sessionId, gremlin.id);
+      // Respawned at town with full HP, playing the death clip.
+      expect(player.action).toBe(EntityAction.Die);
+      const restX = player.x;
+      const restZ = player.z;
+
+      // A move queued during the freeze must not slide the corpse.
+      await deliver(room, client, [['move', { targetX: restX + 20, targetZ: restZ + 20 }]]);
+      tick(room);
+      expect(player.x).toBe(restX);
+      expect(player.z).toBe(restZ);
+      expect(player.action).toBe(EntityAction.Die);
+
+      // Once the death freeze elapses, the player stands back up (action cleared).
+      clock += 2000;
+      tick(room);
+      expect(player.action).toBe(EntityAction.None);
+
       await leaveRoom(room, client);
     } finally {
       cleanup();

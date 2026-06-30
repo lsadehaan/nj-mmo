@@ -11,6 +11,9 @@ import {
   mobUsesCapsule,
   removeMob,
   syncMobVisual,
+  tickMobVisuals,
+  ANIM_FULL_DISTANCE,
+  FAR_ANIM_INTERVAL_MS,
   clearMobTemplateLoadsForTest,
   attachGoblinClubForTest,
   type MobMeshMap,
@@ -395,6 +398,71 @@ describe('mobs visual mapping', () => {
       expect(b).toBeTruthy();
       expect(a).not.toBe(b);
     });
+  });
+
+  it('animates near mobs every frame but throttles distant mobs (anim LOD)', () => {
+    const instances = createMobInstanceMap();
+    const makeInstance = (mobId: string, x: number) => {
+      const update = vi.fn(() => 'idle' as const);
+      const group = createMobGroup(mobId);
+      group.position.set(x, 0, 0);
+      instances.set(mobId, {
+        group,
+        avatar: { update, sync: vi.fn() } as never,
+        usesCapsule: false,
+        hpBarYOffset: 1.6,
+        pendingRemovalAtMs: null,
+        currentClip: 'idle',
+        clubProp: null,
+        animAccumMs: 0,
+      });
+      return update;
+    };
+
+    const viewer = { x: 0, z: 0 };
+    const near = makeInstance('near', ANIM_FULL_DISTANCE - 5);
+    const far = makeInstance('far', ANIM_FULL_DISTANCE + 20);
+
+    const dt = 0.016;
+    const ticks = Math.ceil(FAR_ANIM_INTERVAL_MS / (dt * 1000)); // ~7 frames > 100ms
+    for (let i = 0; i < ticks; i++) {
+      tickMobVisuals(instances, dt, i * dt * 1000, viewer);
+    }
+
+    expect(near).toHaveBeenCalledTimes(ticks);
+    // Far mob skeleton advanced at most once over the ~112ms window.
+    expect(far.mock.calls.length).toBeLessThanOrEqual(1);
+    expect(far.mock.calls.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('catches up distant mob skeleton with the accumulated delta', () => {
+    const instances = createMobInstanceMap();
+    const update = vi.fn(() => 'idle' as const);
+    const group = createMobGroup('far');
+    group.position.set(ANIM_FULL_DISTANCE + 50, 0, 0);
+    instances.set('far', {
+      group,
+      avatar: { update, sync: vi.fn() } as never,
+      usesCapsule: false,
+      hpBarYOffset: 1.6,
+      pendingRemovalAtMs: null,
+      currentClip: 'idle',
+      clubProp: null,
+      animAccumMs: 0,
+    });
+
+    const viewer = { x: 0, z: 0 };
+    const dt = 0.016;
+    // Accumulate just past the throttle interval, then expect one catch-up step
+    // whose dt is the full accumulated time, not a single frame.
+    let fired = -1;
+    for (let i = 0; i < 10 && fired < 0; i++) {
+      tickMobVisuals(instances, dt, i * dt * 1000, viewer);
+      if (update.mock.calls.length === 1) fired = i;
+    }
+    expect(fired).toBeGreaterThan(0);
+    const stepDt = update.mock.calls[0][0] as number;
+    expect(stepDt).toBeGreaterThanOrEqual(FAR_ANIM_INTERVAL_MS / 1000);
   });
 
   it('goblin club world position changes during attack', async () => {

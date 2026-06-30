@@ -90,7 +90,7 @@ import { EffectState } from './schema/EffectState';
 import { MobState } from './schema/MobState';
 import { NpcState } from './schema/NpcState';
 import { ItemStackState } from './schema/ItemStackState';
-import { tickMobAi } from './mob-ai';
+import { tickMobAi, shouldTickMobAi } from './mob-ai';
 import {
   createPlayerCombatState,
   resolvePlayerAttack,
@@ -127,7 +127,7 @@ import {
   migrateLegacyWeapon,
   type EquipmentRow,
 } from '../db/equipment-repository';
-import { ensureConBonusesRegistered } from '../bootstrap/stat-bonuses';
+import { ensureStatBonusesRegistered } from '../bootstrap/stat-bonuses';
 import {
   applyEquipTransaction,
   applyUnequipTransaction,
@@ -237,6 +237,8 @@ export interface TownRoomOptions {
 const DEFAULT_DB_PATH = process.env['NJ_DB_PATH'] ?? 'data/game.db';
 const DEFAULT_SAVE_DEBOUNCE_MS = 5000;
 export const DEFAULT_SIM_INTERVAL_MS = 50;
+/** How long a player is frozen in the death pose before standing back up at spawn (matches the die clip length). */
+const PLAYER_DEATH_FREEZE_MS = 1200;
 
 function resolveSimIntervalMs(option?: number): number {
   if (typeof option === 'number' && option > 0) return option;
@@ -289,6 +291,10 @@ export class TownRoom extends Room<{ state: TownState }> {
   private tradeSessionByPlayer = new Map<string, string>();
   private sessionByCharacterId = new Map<string, string>();
   private connectedSessions = new Set<string>();
+  /** Sessions in their post-death freeze, mapped to the time they stand back up. */
+  private respawnStandAtMs = new Map<string, number>();
+  /** Pending reconnection deferreds, so a newer session can evict a stale one. */
+  private pendingReconnections = new Map<string, { reject: (reason?: unknown) => void }>();
 
   override onCreate(options: TownRoomOptions = {}): void {
     this.db = getDb(options.dbPath ?? DEFAULT_DB_PATH);
@@ -1585,7 +1591,7 @@ export class TownRoom extends Room<{ state: TownState }> {
   }
 
   private loadClassTemplateData(): void {
-    ensureConBonusesRegistered();
+    ensureStatBonusesRegistered();
     this.classTemplatesById.clear();
     this.classVitalsByClassId.clear();
     for (const row of this.db.select().from(classTemplates).all()) {
@@ -1909,6 +1915,18 @@ export class TownRoom extends Room<{ state: TownState }> {
       let tickState = this.tickStates.get(sessionId);
       if (!tickState) continue;
 
+      const standAt = this.respawnStandAtMs.get(sessionId);
+      if (standAt !== undefined) {
+        // Post-death freeze: the player has already respawned at town with full
+        // HP, but stays put in the death pose (ignoring queued moves) until the
+        // die clip finishes, then stands back up. Prevents the "sliding corpse".
+        if (now >= standAt) {
+          this.respawnStandAtMs.delete(sessionId);
+          this.emitPlayerAction(player, EntityAction.None);
+        }
+        continue;
+      }
+
       if (intent !== null) {
         const snapped = snapToNearestWalkable(intent.targetX, intent.targetZ);
         if (snapped) {
@@ -1957,6 +1975,7 @@ export class TownRoom extends Room<{ state: TownState }> {
 
     for (const runtime of this.mobRuntime.values()) {
       if (runtime.hp <= 0) continue;
+      if (!shouldTickMobAi(runtime, aiPlayers)) continue;
       tickMobAi(runtime, aiPlayers, dt, this.combatRng, now, mobPeers);
       runtime.y = snapEntityY(runtime.x, runtime.z);
       const mobState = this.state.mobs.get(runtime.id);
@@ -2206,6 +2225,9 @@ export class TownRoom extends Room<{ state: TownState }> {
       tickState.waypointIndex = 0;
     }
 
+    this.pendingIntents.delete(sessionId);
+    this.respawnStandAtMs.set(sessionId, this.nowMs() + PLAYER_DEATH_FREEZE_MS);
+
     this.persistCharacter(sessionId);
   }
 
@@ -2377,6 +2399,8 @@ export class TownRoom extends Room<{ state: TownState }> {
       character = createCharacter(this.db);
     }
 
+    this.evictStaleSessionsForCharacter(character.id, client.sessionId);
+
     this.characterIds.set(client.sessionId, character.id);
     this.characters.set(client.sessionId, character);
     client.userData = { characterId: character.id };
@@ -2461,10 +2485,14 @@ export class TownRoom extends Room<{ state: TownState }> {
       player.connected = false;
     }
 
+    const reconnection = this.allowReconnection(client, 30);
+    this.pendingReconnections.set(client.sessionId, reconnection);
     try {
-      await this.allowReconnection(client, 30);
+      await reconnection;
     } catch {
-      // reconnection window expired — onLeave handles cleanup
+      // reconnection window expired or evicted by a newer session — onLeave handles cleanup
+    } finally {
+      this.pendingReconnections.delete(client.sessionId);
     }
   }
 
@@ -2489,10 +2517,32 @@ export class TownRoom extends Room<{ state: TownState }> {
     this.removePlayer(client.sessionId);
   }
 
+  /**
+   * Enforce a single live session per character. A browser refresh joins with a
+   * fresh sessionId while the previous session is still inside its 30s
+   * reconnection window, which would otherwise leave a ghost avatar standing
+   * where the player last was. Evict any stale session for this character: drop
+   * its state immediately and route it through the normal leave cleanup.
+   */
+  private evictStaleSessionsForCharacter(characterId: string, keepSessionId: string): void {
+    for (const [sessionId, existingCharacterId] of [...this.characterIds.entries()]) {
+      if (sessionId === keepSessionId || existingCharacterId !== characterId) continue;
+
+      const reconnection = this.pendingReconnections.get(sessionId);
+      if (reconnection) {
+        reconnection.reject(new Error('replaced by a newer session'));
+      } else {
+        this.clients.find((c) => c.sessionId === sessionId)?.leave(4005);
+      }
+      this.removePlayer(sessionId);
+    }
+  }
+
   private removePlayer(sessionId: string): void {
     this.state.players.delete(sessionId);
     this.tickStates.delete(sessionId);
     this.pendingIntents.delete(sessionId);
+    this.respawnStandAtMs.delete(sessionId);
     this.characterIds.delete(sessionId);
     this.characters.delete(sessionId);
     this.saveTimers.delete(sessionId);

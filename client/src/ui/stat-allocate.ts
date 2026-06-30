@@ -1,3 +1,5 @@
+import { attachToRightRail, RIGHT_RAIL_ORDER } from './hud-rail';
+
 const ELEMENT_ID = 'stat-allocate-panel';
 
 export interface StatAllocateHandlers {
@@ -11,22 +13,22 @@ export function mountStatAllocate(): HTMLElement {
   const panel = document.createElement('div');
   panel.id = ELEMENT_ID;
   panel.style.cssText =
-    'position:fixed;top:48px;right:8px;z-index:50;background:rgba(0,0,0,0.7);padding:8px';
+    'background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;' +
+    'display:grid;grid-template-columns:repeat(3,1fr);gap:4px';
   for (const stat of ['str', 'dex', 'con', 'int', 'wit', 'men']) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.dataset['stat'] = stat;
     btn.textContent = `+${stat.toUpperCase()}`;
-    btn.style.display = 'block';
-    btn.style.marginBottom = '4px';
     panel.appendChild(btn);
   }
   const reset = document.createElement('button');
   reset.type = 'button';
   reset.dataset['role'] = 'reset';
   reset.textContent = 'Reset stats';
+  reset.style.gridColumn = '1 / -1';
   panel.appendChild(reset);
-  document.body.appendChild(panel);
+  attachToRightRail(panel, RIGHT_RAIL_ORDER.stats);
   return panel;
 }
 

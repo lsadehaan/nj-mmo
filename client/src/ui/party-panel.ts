@@ -1,3 +1,5 @@
+import { attachToRightRail, RIGHT_RAIL_ORDER } from './hud-rail';
+
 export interface PartyMemberView {
   sessionId: string;
   name: string;
@@ -21,9 +23,10 @@ export function mountPartyPanel(): HTMLElement {
   const panel = document.createElement('div');
   panel.id = ELEMENT_ID;
   panel.style.cssText =
-    'position:fixed;top:8px;right:140px;display:flex;flex-direction:column;gap:4px;z-index:50';
+    'display:flex;flex-direction:column;align-items:flex-end;gap:4px;' +
+    'background:rgba(0,0,0,0.6);color:#fff;padding:8px;border-radius:4px;font:12px sans-serif';
   panel.innerHTML = '<div data-role="members"></div><button data-role="leave">Leave</button>';
-  document.body.appendChild(panel);
+  attachToRightRail(panel, RIGHT_RAIL_ORDER.party);
   return panel;
 }
 

@@ -15,7 +15,9 @@ export function mountPowerStrikeCooldown(): HTMLElement {
   bar.setAttribute('data-remaining-ms', '0');
   bar.style.cssText = [
     'position:fixed',
-    'left:16px',
+    // Sit just right of the chat panel (chat is left:8px, width:320px) so the
+    // cooldown is no longer hidden behind the chat bar.
+    'left:336px',
     'bottom:16px',
     'width:48px',
     'height:48px',

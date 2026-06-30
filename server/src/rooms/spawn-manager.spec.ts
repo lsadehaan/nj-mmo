@@ -39,8 +39,14 @@ describe('spawn-manager', () => {
     const state = new TownState();
     initializeMobs(db, state);
 
+    const fixtureGremlins = (
+      JSON.parse(
+        readFileSync(join(FIXTURE_DATA_DIR, 'mob_spawns.json'), 'utf-8')
+      ) as { npcId: number }[]
+    ).filter((r) => r.npcId === 20001).length;
     const gremlins = [...state.mobs.values()].filter((m) => m.npcId === 20001);
-    expect(gremlins).toHaveLength(2);
+    expect(gremlins).toHaveLength(fixtureGremlins);
+    expect(gremlins.length).toBeGreaterThan(0);
     const gremlin = gremlins[0]!;
     expect(gremlin!.hp).toBeCloseTo(41.145, 3);
     expect(gremlin!.maxHp).toBeCloseTo(41.145, 3);

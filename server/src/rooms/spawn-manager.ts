@@ -71,6 +71,8 @@ export function initializeMobs(
     const mobState = new MobState();
     mobState.id = id;
     mobState.npcId = spawn.npcId;
+    mobState.name = template.name;
+    mobState.level = template.level;
     const spawnY = snapEntityY(spawn.x, spawn.z);
     mobState.x = spawn.x;
     mobState.y = spawnY;
@@ -121,12 +123,13 @@ export function initializeMobs(
 }
 
 export function syncMobState(mobState: MobState, runtime: MobRuntime): void {
-  mobState.x = runtime.x;
-  mobState.y = runtime.y;
-  mobState.z = runtime.z;
-  mobState.hp = runtime.hp;
-  mobState.maxHp = runtime.maxHp;
-  mobState.aggroTargetSessionId = runtime.targetSessionId ?? '';
+  if (mobState.x !== runtime.x) mobState.x = runtime.x;
+  if (mobState.y !== runtime.y) mobState.y = runtime.y;
+  if (mobState.z !== runtime.z) mobState.z = runtime.z;
+  if (mobState.hp !== runtime.hp) mobState.hp = runtime.hp;
+  if (mobState.maxHp !== runtime.maxHp) mobState.maxHp = runtime.maxHp;
+  const aggro = runtime.targetSessionId ?? '';
+  if (mobState.aggroTargetSessionId !== aggro) mobState.aggroTargetSessionId = aggro;
 }
 
 export function loadMobSpawnRow(
