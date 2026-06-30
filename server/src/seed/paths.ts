@@ -16,7 +16,7 @@ export const TI_MOB_IDS = [
 export const TI_NPC_IDS = [
   30001, 30002, 30003, 30004, 30005, 30006, 30026, 30027, 30028, 30029, 30030,
   30031, 30032, 30033, 30034, 30035, 30036, 30039, 30040, 30041, 30042, 30043,
-  30044, 30045, 30046,
+  30044, 30045, 30046, 30298,
 ] as const;
 
 /** TI merchant buylists + craft recipes 1–19 + scrolls + MVP consumables/shots. */

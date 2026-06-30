@@ -190,4 +190,9 @@
 		<sex>MALE</sex>
 		<status attackable="false" undying="true" />
 	</npc>
+	<npc id="30298" level="70" type="Merchant" name="Pinter" title="Blacksmith">
+		<race>DWARF</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
 </list>

@@ -22,11 +22,11 @@ describe('NPC metadata seeding', () => {
     return dbPath;
   }
 
-  it('seeds 25 TI NPC rows (TOWN24-02)', () => {
+  it('seeds 26 TI NPC rows including Pinter (TOWN24-02, ITEM25-16)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const rows = getDb(dbPath).select().from(npcs).all();
-    expect(rows).toHaveLength(25);
+    expect(rows).toHaveLength(26);
     expect(rows.map((r) => r.npcId).sort((a, b) => a - b)).toEqual([...TI_NPC_IDS]);
   });
 
