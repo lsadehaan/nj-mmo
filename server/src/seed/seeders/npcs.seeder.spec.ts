@@ -22,12 +22,44 @@ describe('NPC metadata seeding', () => {
     return dbPath;
   }
 
-  it('seeds nine TI NPC rows (TINPC-02, SKILL20-10)', () => {
+  it('seeds 25 TI NPC rows (TOWN24-02)', () => {
     const dbPath = tempDbPath();
     runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
     const rows = getDb(dbPath).select().from(npcs).all();
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(25);
     expect(rows.map((r) => r.npcId).sort((a, b) => a - b)).toEqual([...TI_NPC_IDS]);
+  });
+
+  it('seeds Biotin high priest metadata (TOWN24-03)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(npcs).where(eq(npcs.npcId, 30031)).get();
+    expect(row).toMatchObject({
+      name: 'Biotin',
+      type: 'VillageMasterPriest',
+      title: 'High Priest',
+    });
+  });
+
+  it('seeds Arnold guard metadata (TOWN24-04)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(npcs).where(eq(npcs.npcId, 30041)).get();
+    expect(row).toMatchObject({
+      name: 'Arnold',
+      type: 'Guard',
+      title: 'Guard',
+    });
+  });
+
+  it('seeds Pintage folk master metadata (TOWN24-05)', () => {
+    const dbPath = tempDbPath();
+    runSeed({ dataDir: FIXTURE_DATA_DIR, dbPath });
+    const row = getDb(dbPath).select().from(npcs).where(eq(npcs.npcId, 30028)).get();
+    expect(row).toMatchObject({
+      type: 'Folk',
+      title: 'Master',
+    });
   });
 
   it('seeds Lector weapon merchant metadata (TINPC-03)', () => {

@@ -105,7 +105,87 @@
 		<sex>MALE</sex>
 		<status attackable="false" undying="true" />
 	</npc>
+	<npc id="30028" level="70" type="Folk" name="Pintage" title="Master">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30029" level="70" type="Folk" name="Minia" title="Master">
+		<race>HUMAN</race>
+		<sex>FEMALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30030" level="70" type="Folk" name="Vivyan" title="Priestess">
+		<race>HUMAN</race>
+		<sex>FEMALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30031" level="70" type="VillageMasterPriest" name="Biotin" title="High Priest">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30032" level="70" type="Folk" name="Yohanes" title="Priest">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
 	<npc id="30033" level="70" type="Folk" name="Baulro" title="Magister">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30034" level="70" type="Folk" name="Iris" title="Magister">
+		<race>HUMAN</race>
+		<sex>FEMALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30035" level="70" type="Folk" name="Harrys" title="Magister">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30036" level="70" type="Folk" name="Petron" title="Priest">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30039" level="80" type="Guard" name="Gilbert" title="Captain">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30040" level="80" type="Guard" name="Leon" title="Guard">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30041" level="80" type="Guard" name="Arnold" title="Guard">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30042" level="80" type="Guard" name="Abellos" title="Guard">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30043" level="80" type="Guard" name="Johnstone" title="Guard">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30044" level="80" type="Guard" name="Chiperan" title="Guard">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30045" level="80" type="Guard" name="Kenyos" title="Guard">
+		<race>HUMAN</race>
+		<sex>MALE</sex>
+		<status attackable="false" undying="true" />
+	</npc>
+	<npc id="30046" level="80" type="Guard" name="Hanks" title="Guard">
 		<race>HUMAN</race>
 		<sex>MALE</sex>
 		<status attackable="false" undying="true" />
