@@ -163,6 +163,8 @@ export interface GameState {
   targetMobId: string | null;
   characterId: string | null;
   equippedWeaponId: number | null;
+  equipment: Record<string, { itemId: number; enchantLevel: number }>;
+  pDef: number;
   maxHp: number;
   maxMp: number;
   /** Stays 0 while movement is server-authoritative (no client step()). */
@@ -217,6 +219,8 @@ const initialState: GameState = {
   targetMobId: null,
   characterId: null,
   equippedWeaponId: null,
+  equipment: {},
+  pDef: 0,
   maxHp: 0,
   maxMp: 0,
   localMovementTicks: 0,
@@ -255,6 +259,8 @@ export function initGameState(): GameState {
     targetMobId: null,
     characterId: null,
     equippedWeaponId: null,
+    equipment: {},
+    pDef: 0,
     maxHp: 0,
     maxMp: 0,
     localMovementTicks: 0,
@@ -437,6 +443,27 @@ export function setShopOpen(shopOpen: boolean): void {
 
 export function setEquippedWeaponId(equippedWeaponId: number | null): void {
   getGameState().equippedWeaponId = equippedWeaponId;
+}
+
+export function setEquipment(
+  equipment: Record<string, { itemId: number; enchantLevel: number }>
+): void {
+  getGameState().equipment = { ...equipment };
+}
+
+export function setPlayerPDef(pDef: number): void {
+  getGameState().pDef = pDef;
+  if (typeof document !== 'undefined') {
+    const state = getGameState();
+    updatePlayerVitalsHud({
+      level: state.player.level,
+      hp: state.player.hp,
+      maxHp: state.maxHp,
+      mp: state.player.mp,
+      maxMp: state.maxMp,
+      pDef,
+    });
+  }
 }
 
 export function setMaxHp(maxHp: number): void {

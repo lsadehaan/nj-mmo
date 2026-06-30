@@ -1,7 +1,7 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
-import { EntityAction } from '@nj/game-core';
+import { EntityAction, EQUIP_SLOTS } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setEquipment, setPlayerPDef, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone } from '../test-hook';
 import { getZoneAt } from '@nj/game-core';
 import type { GameRenderer } from '../scene/renderer';
 import {
@@ -16,6 +16,7 @@ import {
   setInventoryVisible,
   isInventoryVisible,
 } from '../ui/inventory-window';
+import { renderEquipmentPanel } from '../ui/equipment-panel';
 import {
   mountNpcDialog,
   renderNpcDialog,
@@ -126,6 +127,9 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     maxMp: number;
     adena: number;
     equippedWeaponItemId: number;
+    equipItemIds?: { length: number; [index: number]: number };
+    equipEnchantLevels?: { length: number; [index: number]: number };
+    pDef?: number;
     powerStrikeCooldownEndMs: number;
     healingPotionCooldownEndMs: number;
     knownSkillIds?: { length: number; [index: number]: number };
@@ -408,6 +412,21 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     setMaxMp(player.maxMp ?? 0);
     const weaponId = player.equippedWeaponItemId ?? 0;
     setEquippedWeaponId(weaponId > 0 ? weaponId : null);
+    const equipItemIds = readNumberArray(player.equipItemIds);
+    const equipEnchants = readNumberArray(player.equipEnchantLevels);
+    const equipment: Record<string, { itemId: number; enchantLevel: number }> = {};
+    for (let i = 0; i < equipItemIds.length; i++) {
+      const itemId = equipItemIds[i] ?? 0;
+      if (itemId > 0) {
+        const slot = EQUIP_SLOTS[i];
+        if (slot) {
+          equipment[slot] = { itemId, enchantLevel: equipEnchants[i] ?? 0 };
+        }
+      }
+    }
+    setEquipment(equipment);
+    setPlayerPDef(player.pDef ?? 0);
+    renderEquipmentPanel();
     localItemCounts = readItemCounts(player);
     setAdena(player.adena ?? 0);
     setItems(localItemCounts);

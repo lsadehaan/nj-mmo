@@ -21,6 +21,10 @@ export class PlayerState extends Schema {
   @type('number') maxHp = 100;
   @type('number') maxMp = 50;
   @type('number') equippedWeaponItemId = 0;
+  @type(['number']) equipSlotIds = new ArraySchema<number>();
+  @type(['number']) equipItemIds = new ArraySchema<number>();
+  @type(['number']) equipEnchantLevels = new ArraySchema<number>();
+  @type('number') pDef = 0;
   @type('number') xp = 0;
   @type('number') level = 1;
   @type('number') adena = 1000;
