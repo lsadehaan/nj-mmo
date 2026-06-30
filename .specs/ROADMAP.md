@@ -827,7 +827,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 28 — UI/UX client shell `[ ]`
+## Phase 28 — UI/UX client shell `[x]`
 
 > Done when: login + character select screens; full inventory grid (weight/slots);
 > skill window; quest log; party UI; minimap/world map; buff/debuff bars; system

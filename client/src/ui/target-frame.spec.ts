@@ -41,4 +41,34 @@ describe('target-frame', () => {
     });
     expect(document.querySelector('[data-pvp-flag]')).not.toBeNull();
   });
+
+  it('UI28-57: player ToT shows mob name', () => {
+    renderTargetFrame({
+      player: {
+        sessionId: 's1',
+        name: 'Hunter',
+        hp: 80,
+        maxHp: 100,
+        targetMobName: 'Gremlin',
+      },
+    });
+    expect(document.getElementById('target-of-target')?.textContent).toContain('Gremlin');
+  });
+
+  it('UI28-38: context invite fires __partyInvite__', () => {
+    const invited: string[] = [];
+    window.__partyInvite__ = (targetSessionId) => invited.push(targetSessionId);
+    renderTargetFrame({
+      player: {
+        sessionId: 'peer-1',
+        name: 'Ally',
+        hp: 100,
+        maxHp: 100,
+      },
+    });
+    document
+      .querySelector('[data-action="invite"]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(invited).toEqual(['peer-1']);
+  });
 });

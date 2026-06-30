@@ -151,7 +151,10 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 28.**
+**Loop status: RUNNING — next unchecked phase: Phase 29 (final).**
+
+**Phase 28 — UI/UX client shell: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
+60/60 ACs, gate 1102 tests. Login/character select, window manager, inventory grid, skill/quest/party UI, minimap/world map, buff bars, system menu, ToT.
 
 **Phase 27 — Progression rules & PvP: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
 48/48 ACs, gate 878 tests. Death XP loss, Biotin restore, SP economy, stat re-spec, PvP/karma, player combat. Merged `feat/phase-27-progression-pvp`.
