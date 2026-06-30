@@ -14,7 +14,7 @@ export interface CircleBlocker {
   radius: number;
 }
 
-/** Building layout aligned with rendered village (centre + half-extents on XZ). */
+/** Village buildings — same footprints, centred on expanded TI village. */
 const BUILDING_LAYOUT = [
   { x: -12, z: -8, w: 6, d: 5 },
   { x: 12, z: -8, w: 5, d: 6 },
@@ -32,29 +32,44 @@ export const BUILDING_AABBS: readonly Aabb[] = BUILDING_LAYOUT.map((b) => ({
 
 export const BUILDING_LAYOUT_EXPORT = BUILDING_LAYOUT;
 
+/** Landmark collision footprints at zone anchors (prop cores only). */
+export const LANDMARK_AABBS: readonly Aabb[] = [
+  { cx: -155, cz: 58, halfW: 2, halfD: 2 },
+  { cx: -281, cz: 87, halfW: 8, halfD: 6 },
+  { cx: -270, cz: 90, halfW: 4, halfD: 3 },
+  { cx: -224, cz: 287, halfW: 6, halfD: 4 },
+  { cx: -242, cz: 254, halfW: 5, halfD: 4 },
+  { cx: -110, cz: 29, halfW: 2, halfD: 2 },
+] as const;
+
 const TREE_RADIUS = 1.2;
 const ROCK_RADIUS = 0.7;
 
 let cachedPropBlockers: CircleBlocker[] | null = null;
+let cachedPropSeed: number | null = null;
+
+export function resetPropBlockerCache(): void {
+  cachedPropBlockers = null;
+  cachedPropSeed = null;
+}
 
 export function getPropBlockers(seed: number = TERRAIN_SEED): readonly CircleBlocker[] {
-  if (cachedPropBlockers !== null && seed === TERRAIN_SEED) {
+  if (cachedPropBlockers !== null && cachedPropSeed === seed) {
     return cachedPropBlockers;
   }
   const props = scatterProps(seed, { sampleHeight: () => 0 }, {
-    count: 80,
-    fieldMin: -90,
-    fieldMax: 90,
-    villageRadius: 25,
+    count: 220,
+    fieldMin: -300,
+    fieldMax: 300,
+    villageRadius: 45,
   });
   const blockers = props.map((p) => ({
     x: p.x,
     z: p.z,
     radius: p.kind === 'tree' ? TREE_RADIUS : ROCK_RADIUS,
   }));
-  if (seed === TERRAIN_SEED) {
-    cachedPropBlockers = blockers;
-  }
+  cachedPropBlockers = blockers;
+  cachedPropSeed = seed;
   return blockers;
 }
 
@@ -70,6 +85,9 @@ export function isBlocked(x: number, z: number): boolean {
   for (const aabb of BUILDING_AABBS) {
     if (isPointInAabb(x, z, aabb)) return true;
   }
+  for (const aabb of LANDMARK_AABBS) {
+    if (isPointInAabb(x, z, aabb)) return true;
+  }
   for (const prop of getPropBlockers()) {
     if (isPointInCircle(x, z, prop)) return true;
   }
@@ -79,6 +97,15 @@ export function isBlocked(x: number, z: number): boolean {
 /** True when an NPC spawn at (x,z) overlaps buildings/props with margin (default 0.8 m). */
 export function isNpcSpawnBlocked(x: number, z: number, margin = 0.8): boolean {
   for (const aabb of BUILDING_AABBS) {
+    const expanded: Aabb = {
+      cx: aabb.cx,
+      cz: aabb.cz,
+      halfW: aabb.halfW + margin,
+      halfD: aabb.halfD + margin,
+    };
+    if (isPointInAabb(x, z, expanded)) return true;
+  }
+  for (const aabb of LANDMARK_AABBS) {
     const expanded: Aabb = {
       cx: aabb.cx,
       cz: aabb.cz,
@@ -163,6 +190,9 @@ export function segmentIntersectsBlocker(
   z1: number
 ): boolean {
   for (const aabb of BUILDING_AABBS) {
+    if (segmentIntersectsAabb(x0, z0, x1, z1, aabb)) return true;
+  }
+  for (const aabb of LANDMARK_AABBS) {
     if (segmentIntersectsAabb(x0, z0, x1, z1, aabb)) return true;
   }
   for (const prop of getPropBlockers()) {
