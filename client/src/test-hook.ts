@@ -34,6 +34,20 @@ export interface GameStateEnvironment {
   loaded: boolean;
 }
 
+export interface GameStateActiveEffect {
+  skillId: number;
+  kind: string;
+  expiresAtMs: number;
+}
+
+export interface GameStateUi {
+  inventoryOpen: boolean;
+  skillWindowOpen: boolean;
+  questLogOpen: boolean;
+  systemMenuOpen: boolean;
+  worldMapOpen: boolean;
+}
+
 export interface GameStatePlayer {
   x: number;
   y: number;
@@ -66,6 +80,10 @@ export interface GameStatePlayer {
   pvpFlag: number;
   expBeforeDeath: number;
   unspentStatPoints: number;
+  inventoryWeight: number;
+  maxLoad: number;
+  inventorySlotsUsed: number;
+  activeEffects: GameStateActiveEffect[];
 }
 
 /** Server snapshot input — remaining cooldowns are derived client-side. */
@@ -94,6 +112,10 @@ export type GameStatePlayerInput = Omit<
   | 'pvpFlag'
   | 'expBeforeDeath'
   | 'unspentStatPoints'
+  | 'inventoryWeight'
+  | 'maxLoad'
+  | 'inventorySlotsUsed'
+  | 'activeEffects'
 > & {
   action?: AnimationClip;
   healingPotionCooldownEndMs?: number;
@@ -116,25 +138,42 @@ export type GameStatePlayerInput = Omit<
   pvpFlag?: number;
   expBeforeDeath?: number;
   unspentStatPoints?: number;
+  inventoryWeight?: number;
+  maxLoad?: number;
+  inventorySlotsUsed?: number;
+  activeEffects?: GameStateActiveEffect[];
 };
 
 export interface GameStateMob {
   id: string;
   npcId: number;
+  name?: string;
   x: number;
   y: number;
   z: number;
   hp: number;
   maxHp: number;
+  level?: number;
+  aggroTargetSessionId?: string;
   action: AnimationClip;
   actionSeq: number;
 }
 
 export interface OtherPlayer {
   id: string;
+  name?: string;
   x: number;
   y: number;
   z: number;
+  hp?: number;
+  maxHp?: number;
+  mp?: number;
+  maxMp?: number;
+  level?: number;
+  pvpFlag?: number;
+  karma?: number;
+  targetMobId?: string | null;
+  targetPlayerSessionId?: string | null;
   renderKind: 'mesh';
   action: AnimationClip;
   equippedWeaponId: number | null;
@@ -210,6 +249,7 @@ export interface GameState {
   canInteract: boolean;
   shopOpen: boolean;
   targetMobId: string | null;
+  targetPlayerSessionId: string | null;
   characterId: string | null;
   equippedWeaponId: number | null;
   equipment: Record<string, { itemId: number; enchantLevel: number }>;
@@ -227,6 +267,7 @@ export interface GameState {
   party: GameStateParty | null;
   trade: GameStateTrade | null;
   friends: GameStateFriend[];
+  ui: GameStateUi;
 }
 
 declare global {
@@ -267,7 +308,7 @@ declare global {
 const initialState: GameState = {
   connected: false,
   ready: false,
-  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, classId: 0, sex: 0, str: 40, dex: 30, con: 43, int: 21, wit: 11, men: 25, avatarModel: '/models/characters/Knight.glb', knownSkillIds: [], skillCooldownEndMs: [], castingSkillId: 0, castEndMs: 0, effects: [], powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle', sp: 0, karma: 0, pvpFlag: 0, expBeforeDeath: 0, unspentStatPoints: 0 },
+  player: { x: 0, y: 0, z: 0, xp: 0, level: 1, hp: 0, mp: 0, classId: 0, sex: 0, str: 40, dex: 30, con: 43, int: 21, wit: 11, men: 25, avatarModel: '/models/characters/Knight.glb', knownSkillIds: [], skillCooldownEndMs: [], castingSkillId: 0, castEndMs: 0, effects: [], powerStrikeCooldownEndMs: 0, powerStrikeCooldownRemainingMs: 0, healingPotionCooldownEndMs: 0, healingPotionCooldownRemainingMs: 0, action: 'idle', sp: 0, karma: 0, pvpFlag: 0, expBeforeDeath: 0, unspentStatPoints: 0, inventoryWeight: 0, maxLoad: 2967, inventorySlotsUsed: 0, activeEffects: [] },
   target: { x: null, z: null },
   others: [],
   mobs: [],
@@ -278,6 +319,7 @@ const initialState: GameState = {
   canInteract: false,
   shopOpen: false,
   targetMobId: null,
+  targetPlayerSessionId: null,
   characterId: null,
   equippedWeaponId: null,
   equipment: {},
@@ -306,6 +348,13 @@ const initialState: GameState = {
   party: null,
   trade: null,
   friends: [],
+  ui: {
+    inventoryOpen: false,
+    skillWindowOpen: false,
+    questLogOpen: false,
+    systemMenuOpen: false,
+    worldMapOpen: false,
+  },
 };
 
 export function initGameState(): GameState {
@@ -322,6 +371,7 @@ export function initGameState(): GameState {
     canInteract: false,
     shopOpen: false,
     targetMobId: null,
+    targetPlayerSessionId: null,
     characterId: null,
     equippedWeaponId: null,
     equipment: {},
@@ -350,6 +400,7 @@ export function initGameState(): GameState {
     party: null,
     trade: null,
     friends: [],
+    ui: { ...initialState.ui },
   };
   return window.__GAME_STATE__;
 }
@@ -477,6 +528,27 @@ export function setMobs(mobs: GameStateMob[]): void {
 
 export function setTargetMobId(targetMobId: string | null): void {
   getGameState().targetMobId = targetMobId;
+  if (targetMobId) getGameState().targetPlayerSessionId = null;
+}
+
+export function setTargetPlayerSessionId(targetPlayerSessionId: string | null): void {
+  getGameState().targetPlayerSessionId = targetPlayerSessionId;
+  if (targetPlayerSessionId) getGameState().targetMobId = null;
+}
+
+export function setPlayerInventoryMetrics(metrics: {
+  inventoryWeight: number;
+  maxLoad: number;
+  inventorySlotsUsed: number;
+}): void {
+  const player = getGameState().player;
+  player.inventoryWeight = metrics.inventoryWeight;
+  player.maxLoad = metrics.maxLoad;
+  player.inventorySlotsUsed = metrics.inventorySlotsUsed;
+}
+
+export function setPlayerActiveEffects(effects: GameStateActiveEffect[]): void {
+  getGameState().player.activeEffects = effects.map((e) => ({ ...e }));
 }
 
 export function setOthers(others: OtherPlayer[]): void {

@@ -1,7 +1,7 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { EntityAction, EQUIP_SLOTS } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setEquipment, setPlayerPDef, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone, appendChatLine, setParty, setTrade, setFriends } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setWarehouse, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setEquipment, setPlayerPDef, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone, appendChatLine, setParty, setTrade, setFriends, setPlayerInventoryMetrics, setPlayerActiveEffects, setTargetMobId, setTargetPlayerSessionId } from '../test-hook';
 import { getZoneAt } from '@nj/game-core';
 import type { GameRenderer } from '../scene/renderer';
 import {
@@ -13,8 +13,6 @@ import {
 import {
   mountInventoryWindow,
   renderInventoryWindow,
-  setInventoryVisible,
-  isInventoryVisible,
 } from '../ui/inventory-window';
 import { renderEquipmentPanel } from '../ui/equipment-panel';
 import {
@@ -29,9 +27,9 @@ import {
   WILFORD_NPC_ID,
 } from '../ui/npc-dialog';
 import { renderWarehouseWindow } from '../ui/warehouse-window';
-import { mountQuestLog, renderQuestLog, isQuestLogVisible, setQuestLogVisible, entriesFromQuestState } from '../ui/quest-log';
+import { mountQuestLog, renderQuestLog, entriesFromQuestState } from '../ui/quest-log';
 import { mountChatPanel, wireChatPanel, renderChatLog } from '../ui/chat-panel';
-import { mountPartyPanel, wirePartyPanel, renderPartyPanel } from '../ui/party-panel';
+import { mountPartyPanel, wirePartyPanel, renderPartyPanel, type PartyMemberView } from '../ui/party-panel';
 import { mountTradeWindow, wireTradeWindow, renderTradeWindow } from '../ui/trade-window';
 import { mountFriendsPanel, wireFriendsPanel, renderFriendsPanel } from '../ui/friends-panel';
 import { getLearnableSkillIds } from '../ui/trainer-skills';
@@ -47,15 +45,25 @@ import {
   type NpcPresence,
 } from '../npc-interaction';
 import { getPlayerManifestEntry } from '../scene/creature/player-manifest';
+import { renderSkillWindow } from '../ui/skill-window';
+import { renderQuestTracker } from '../ui/quest-tracker';
+import { renderMinimap } from '../ui/minimap';
+import { renderEffectBars } from '../ui/buff-debuff-bars';
+import { renderTargetFrame } from '../ui/target-frame';
+import { publishUiState, isPanelOpen, togglePanel, openPanel } from '../ui/window-manager';
 
-const DEFAULT_ENDPOINT =
+export const DEFAULT_COLYSEUS_ENDPOINT =
   import.meta.env.VITE_COLYSEUS_ENDPOINT ?? 'http://localhost:2567';
+
+const DEFAULT_ENDPOINT = DEFAULT_COLYSEUS_ENDPOINT;
 
 export const CHARACTER_ID_STORAGE_KEY = 'nj.characterId';
 
 export interface CreateCharacterOptions {
   classId: number;
   sex: 0 | 1;
+  accountName?: string;
+  name?: string;
 }
 
 export function getStoredCharacterId(): string | null {
@@ -68,15 +76,22 @@ export function storeCharacterId(id: string): void {
 
 export async function connect(
   endpoint = DEFAULT_ENDPOINT,
-  options: { create?: CreateCharacterOptions } = {}
+  options: {
+    create?: CreateCharacterOptions;
+    characterId?: string;
+    accountName?: string;
+  } = {}
 ): Promise<Room> {
   const client = new Client(endpoint);
-  const characterId = getStoredCharacterId();
+  const characterId = options.characterId ?? getStoredCharacterId();
   if (characterId) {
     setCharacterId(characterId);
   }
   const joinOptions: Record<string, unknown> = characterId
-    ? { characterId }
+    ? {
+        characterId,
+        ...(options.accountName ? { accountName: options.accountName } : {}),
+      }
     : options.create
       ? { create: options.create }
       : {};
@@ -93,7 +108,11 @@ export async function connect(
 
 export async function connectSafe(
   endpoint = DEFAULT_ENDPOINT,
-  options: { create?: CreateCharacterOptions } = {}
+  options: {
+    create?: CreateCharacterOptions;
+    characterId?: string;
+    accountName?: string;
+  } = {}
 ): Promise<Room | null> {
   try {
     return await connect(endpoint, options);
@@ -146,6 +165,14 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     castingSkillId?: number;
     castEndMs?: number;
     activeBuffSkillId?: number;
+    inventoryWeight?: number;
+    maxLoad?: number;
+    inventorySlotsUsed?: number;
+    characterName?: string;
+    activeEffects?: {
+      length: number;
+      [index: number]: { skillId: number; kind: string; expiresAtMs: number };
+    };
     action?: number;
     actionSeq?: number;
     zoneId?: string;
@@ -170,6 +197,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     z: number;
     hp: number;
     maxHp: number;
+    aggroTargetSessionId?: string;
     action?: number;
     actionSeq?: number;
   };
@@ -214,12 +242,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
         z: state.z,
         hp: state.hp,
         maxHp: state.maxHp,
+        aggroTargetSessionId: state.aggroTargetSessionId || undefined,
         action: mobActionClip(state.action, hook?.action ?? 'idle'),
         actionSeq: state.actionSeq ?? hook?.actionSeq ?? 0,
       };
     });
     for (const [id, hook] of hookById) {
-      if (!mobsMap.has(id)) merged.push(hook);
+      if (!mobsMap.has(id)) merged.push({ ...hook, aggroTargetSessionId: undefined });
     }
     setMobs(merged);
   };
@@ -235,22 +264,40 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   let tradeMyConfirmed = false;
   let tradePartnerConfirmed = false;
 
+  const buildPartyMemberViews = (
+    memberSessionIds: string[],
+    leaderSessionId: string
+  ): PartyMemberView[] =>
+    memberSessionIds.map((sessionId) => {
+      const member = room.state.players.get(sessionId) as PlayerSchema | undefined;
+      return {
+        sessionId,
+        name: member?.characterName || sessionId.slice(0, 8),
+        hp: member?.hp ?? 0,
+        maxHp: member?.maxHp ?? 100,
+        mp: member?.mp ?? 0,
+        maxMp: member?.maxMp ?? 50,
+        isLeader: sessionId === leaderSessionId,
+      };
+    });
+
   const syncPartyFromState = (player: PlayerSchema): void => {
     const partyId = player.partyId ?? 0;
     if (partyId === 0) {
       setParty(null);
-      renderPartyPanel([], '');
+      renderPartyPanel([]);
       return;
     }
     const parties = (room.state as { parties?: Map<string, { leaderSessionId: string; memberSessionIds: { length: number; [i: number]: string } }> }).parties;
     const party = parties?.get(String(partyId));
     if (!party) {
       setParty(null);
+      renderPartyPanel([]);
       return;
     }
     const memberSessionIds = readStringArray(party.memberSessionIds);
     setParty({ partyId, leaderSessionId: party.leaderSessionId, memberSessionIds });
-    renderPartyPanel(memberSessionIds, party.leaderSessionId);
+    renderPartyPanel(buildPartyMemberViews(memberSessionIds, party.leaderSessionId));
   };
 
   const readStringArray = (arr: { length: number; [index: number]: string } | undefined): string[] => {
@@ -329,6 +376,19 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     return out;
   };
 
+  const readActiveEffects = (
+    player: PlayerSchema
+  ): { skillId: number; kind: string; expiresAtMs: number }[] => {
+    const arr = player.activeEffects;
+    if (!arr) return [];
+    const out: { skillId: number; kind: string; expiresAtMs: number }[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      const e = arr[i]!;
+      out.push({ skillId: e.skillId, kind: e.kind, expiresAtMs: e.expiresAtMs });
+    }
+    return out;
+  };
+
   const inventoryHandlers = () => ({
     sendEquip: (payload: { itemId: number }) => room.send('equip', payload),
     sendUseItem: (payload: { itemId: number }) => room.send('useItem', payload),
@@ -366,12 +426,16 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   const refreshInventoryDom = (player: PlayerSchema): void => {
-    const { player: hookPlayer } = getGameState();
+    const { player: hookPlayer, equipment } = getGameState();
     renderInventoryWindow({
       itemCounts: localItemCounts,
       equippedWeaponItemId: player.equippedWeaponItemId ?? 0,
+      equipment,
+      inventoryWeight: player.inventoryWeight ?? hookPlayer.inventoryWeight,
+      maxLoad: player.maxLoad ?? hookPlayer.maxLoad,
+      slotsUsed: player.inventorySlotsUsed ?? hookPlayer.inventorySlotsUsed,
       healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
-      visible: isInventoryVisible(),
+      visible: isPanelOpen('inventory-window'),
       handlers: inventoryHandlers(),
     });
   };
@@ -467,6 +531,22 @@ export function wireRoom(room: Room, game: GameRenderer): void {
       unspentStatPoints: player.unspentStatPoints ?? 0,
       action: game.getCurrentAnimationClip(),
     });
+    setPlayerInventoryMetrics({
+      inventoryWeight: player.inventoryWeight ?? 0,
+      maxLoad: player.maxLoad ?? 2967,
+      inventorySlotsUsed: player.inventorySlotsUsed ?? 0,
+    });
+    const activeEffects = readActiveEffects(player);
+    setPlayerActiveEffects(activeEffects);
+    renderEffectBars(activeEffects, Date.now());
+    renderSkillWindow({
+      knownSkillIds,
+      skillCooldownEndMs,
+      sp: player.sp ?? 0,
+      nowMs: Date.now(),
+      visible: isPanelOpen('skill-window'),
+      onUseSkill: (skillId) => window.__useSkill__?.(skillId),
+    });
     refreshHotbarDom(player);
     setMaxHp(player.maxHp ?? 0);
     setMaxMp(player.maxMp ?? 0);
@@ -507,6 +587,75 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     });
     syncPartyFromState(player);
     updateInteractPrompt();
+    const { quests, zone: zoneState, party, targetMobId, targetPlayerSessionId, mobs, others } =
+      getGameState();
+    const firstActive = quests.active[0];
+    renderQuestTracker(
+      firstActive
+        ? { title: firstActive.title, objectiveText: firstActive.objectiveText }
+        : null
+    );
+    renderMinimap({
+      playerX: player.x,
+      playerZ: player.z,
+      zoneDisplayName: zoneState.displayName,
+      partyPositions: party?.memberSessionIds
+        .filter((sid) => sid !== localId)
+        .map((sid) => {
+          const member = room.state.players.get(sid) as PlayerSchema | undefined;
+          return member
+            ? { sessionId: sid, x: member.x, z: member.z }
+            : { sessionId: sid, x: 0, z: 0 };
+        }),
+    });
+    refreshTargetFrames(targetMobId, targetPlayerSessionId, mobs, others, room);
+    publishUiState();
+  };
+
+  const refreshTargetFrames = (
+    targetMobId: string | null,
+    targetPlayerSessionId: string | null,
+    mobs: ReturnType<typeof getGameState>['mobs'],
+    others: ReturnType<typeof getGameState>['others'],
+    roomRef: Room
+  ): void => {
+    if (targetMobId) {
+      const mob = mobs.find((m) => m.id === targetMobId);
+      const aggroSid = mob?.aggroTargetSessionId;
+      const aggroPlayer = aggroSid
+        ? (roomRef.state.players.get(aggroSid) as PlayerSchema | undefined)
+        : undefined;
+      renderTargetFrame({
+        mob: mob
+          ? {
+              id: mob.id,
+              name: `Mob ${mob.npcId}`,
+              hp: mob.hp,
+              maxHp: mob.maxHp,
+              aggroTargetName: aggroPlayer?.characterName,
+            }
+          : null,
+      });
+      return;
+    }
+    if (targetPlayerSessionId) {
+      const targetPlayer = roomRef.state.players.get(targetPlayerSessionId) as
+        | PlayerSchema
+        | undefined;
+      const remote = others.find((o) => o.id === targetPlayerSessionId);
+      renderTargetFrame({
+        player: {
+          sessionId: targetPlayerSessionId,
+          name: targetPlayer?.characterName ?? remote?.name ?? targetPlayerSessionId,
+          hp: targetPlayer?.hp ?? remote?.hp ?? 0,
+          maxHp: targetPlayer?.maxHp ?? remote?.maxHp ?? 100,
+          pvpFlag: targetPlayer?.pvpFlag ?? remote?.pvpFlag,
+          karma: targetPlayer?.karma ?? remote?.karma,
+        },
+      });
+      return;
+    }
+    renderTargetFrame({});
   };
 
   const readQuestEntries = (
@@ -526,7 +675,13 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     const entries = readQuestEntries(player);
     setQuests(entries);
     const { active, completed } = entriesFromQuestState(entries);
-    renderQuestLog({ active, completed, visible: isQuestLogVisible() });
+    renderQuestLog({ active, completed, visible: isPanelOpen('quest-log') });
+    const firstActive = active[0];
+    renderQuestTracker(
+      firstActive
+        ? { title: firstActive.title, objectiveText: firstActive.objectiveText }
+        : null
+    );
   };
 
   const bindLocalPlayerQuests = (player: PlayerSchema): void => {
@@ -596,8 +751,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
 
   window.__toggleQuestLog__ = () => {
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
-    const next = !isQuestLogVisible();
-    setQuestLogVisible(next);
+    togglePanel('quest-log');
     if (local) refreshQuestLogDom(local);
   };
 
@@ -640,19 +794,9 @@ export function wireRoom(room: Room, game: GameRenderer): void {
   };
 
   window.__openInventory__ = () => {
+    openPanel('inventory-window');
     const local = room.state.players.get(localId) as PlayerSchema | undefined;
-    if (local) {
-      const { player: hookPlayer } = getGameState();
-      renderInventoryWindow({
-        itemCounts: localItemCounts,
-        equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
-        healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
-        visible: true,
-        handlers: inventoryHandlers(),
-      });
-    } else {
-      setInventoryVisible(true);
-    }
+    if (local) refreshInventoryDom(local);
   };
 
   const shopPanel = mountShopWindow();
@@ -667,33 +811,6 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     sendInteract(nearest.npcId);
   };
   window.addEventListener('keydown', onInteractKey);
-
-  const onInventoryKey = (ev: KeyboardEvent): void => {
-    if (ev.key !== 'i' && ev.key !== 'I') return;
-    ev.preventDefault();
-    const local = room.state.players.get(localId) as PlayerSchema | undefined;
-    const nextVisible = !isInventoryVisible();
-    if (local) {
-      const { player: hookPlayer } = getGameState();
-      renderInventoryWindow({
-        itemCounts: localItemCounts,
-        equippedWeaponItemId: local.equippedWeaponItemId ?? 0,
-        healingPotionCooldownRemainingMs: hookPlayer.healingPotionCooldownRemainingMs,
-        visible: nextVisible,
-        handlers: inventoryHandlers(),
-      });
-    } else {
-      setInventoryVisible(nextVisible);
-    }
-  };
-  window.addEventListener('keydown', onInventoryKey);
-
-  const onQuestLogKey = (ev: KeyboardEvent): void => {
-    if (ev.key !== 'q' && ev.key !== 'Q') return;
-    ev.preventDefault();
-    window.__toggleQuestLog__?.();
-  };
-  window.addEventListener('keydown', onQuestLogKey);
 
   room.onMessage(
     'questDialog',
