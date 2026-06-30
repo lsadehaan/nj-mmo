@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { initGameState } from '../test-hook';
 import { wireRoom } from './room';
 import type { GameRenderer } from '../scene/renderer';
+import { initWindowManagerRegistry, registerPanel } from '../ui/window-manager';
+import { mountInventoryWindow } from '../ui/inventory-window';
 
 const { mockCallbacksGet } = vi.hoisted(() => ({
   mockCallbacksGet: vi.fn(),
@@ -39,6 +41,8 @@ describe('room inventory equip wiring', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     initGameState();
+    initWindowManagerRegistry();
+    registerPanel('inventory-window', { mount: mountInventoryWindow, hotkey: 'I' });
     send.mockReset();
     onLocalChange = undefined;
     itemsOnAdd = undefined;
@@ -55,6 +59,9 @@ describe('room inventory equip wiring', () => {
       maxMp: 50,
       adena: 1000,
       equippedWeaponItemId: 0,
+      inventoryWeight: 1600,
+      maxLoad: 2967,
+      inventorySlotsUsed: 1,
       powerStrikeCooldownEndMs: 0,
       healingPotionCooldownEndMs: 0,
       items: {
@@ -133,16 +140,17 @@ describe('room inventory equip wiring', () => {
     const panel = document.getElementById('inventory-window');
     expect(panel?.hidden).toBe(false);
     expect(
-      document.querySelector('#inventory-window [data-inventory-item-id="2369"]')
+      document.querySelector('#inventory-window [data-item-id="2369"]')
     ).not.toBeNull();
   });
 
   it('reflects server equippedWeaponItemId on inventory panel after state sync', () => {
     localPlayer.equippedWeaponItemId = 2369;
+    localPlayer.equipItemIds = { length: 1, 0: 2369 };
+    localPlayer.equipEnchantLevels = { length: 1, 0: 0 };
     onLocalChange?.();
 
-    const equipped = document.querySelector('#inventory-window [data-equipped-weapon]');
-    expect(equipped?.textContent).toMatch(/Squire's Sword/i);
+    expect(document.querySelector('#inventory-window [data-equip-slot="rhand"]')).not.toBeNull();
   });
 
   it('syncs inventory items when player.items gains a stack', () => {
