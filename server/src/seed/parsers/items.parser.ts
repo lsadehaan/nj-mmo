@@ -1,7 +1,6 @@
 import type { NewItem } from '../../db/schema';
+import { TI_ITEM_IDS } from '../paths';
 import { xmlParser, parseNumber, parseString } from './xml-utils';
-
-const ITEM_IDS = [1060, 17, 1835, 2509, 2369] as const;
 
 interface ItemSetNode {
   '@_name': string;
@@ -47,14 +46,36 @@ function collectStats(node: ItemNode): Map<string, number> {
   return map;
 }
 
-function mapItemType(l2Type: string, etcType?: string, defaultAction?: string): string {
+function parseBool(val: string | undefined): boolean {
+  return val === 'true' || val === '1';
+}
+
+function mapItemType(
+  l2Type: string,
+  etcType?: string,
+  defaultAction?: string,
+  bodyPart?: string
+): string {
   if (l2Type === 'Weapon') return 'weapon';
+  if (l2Type === 'Armor') {
+    if (bodyPart && /neck|ear|finger/.test(bodyPart)) return 'accessory';
+    return 'armor';
+  }
   if (etcType === 'POTION') return 'consumable';
+  if (etcType === 'RECIPE') return 'recipe';
   if (defaultAction === 'SPIRITSHOT' || etcType === 'SOULSHOT') return 'shot';
+  if (etcType === 'MATERIAL') return 'material';
   return 'etc';
 }
 
-export function parseItemsXml(xml: string): NewItem[] {
+function mapCrystalType(val: string | undefined): string | null {
+  if (!val) return null;
+  const upper = val.toUpperCase();
+  if (['NG', 'D', 'C', 'B', 'A', 'S'].includes(upper)) return upper;
+  return null;
+}
+
+export function parseItemsXml(xml: string, itemIds: readonly number[] = TI_ITEM_IDS): NewItem[] {
   const doc = xmlParser.parse(xml) as { list?: { item?: ItemNode | ItemNode[] } };
   const nodes = doc.list?.item;
   if (!nodes) {
@@ -62,7 +83,7 @@ export function parseItemsXml(xml: string): NewItem[] {
   }
 
   const itemList = Array.isArray(nodes) ? nodes : [nodes];
-  const want = new Set(ITEM_IDS.map(String));
+  const want = new Set(itemIds.map(String));
   const results: NewItem[] = [];
 
   for (const node of itemList) {
@@ -73,24 +94,33 @@ export function parseItemsXml(xml: string): NewItem[] {
     const l2Type = parseString(itemId, 'type', node['@_type']);
     const sets = collectSets(node);
     const stats = collectStats(node);
+    const bodyPart = sets.get('bodypart') ?? null;
     const mappedType = mapItemType(
       l2Type,
       sets.get('etcitem_type'),
-      sets.get('default_action')
+      sets.get('default_action'),
+      bodyPart ?? undefined
     );
 
     const row: NewItem = {
       itemId,
       name,
       type: mappedType,
+      crystalType: mapCrystalType(sets.get('crystal_type')),
       pAtk: mappedType === 'weapon' ? stats.get('pAtk') ?? null : null,
+      pDef: mappedType === 'armor' || mappedType === 'accessory' ? stats.get('pDef') ?? null : null,
+      mDef: mappedType === 'armor' || mappedType === 'accessory' ? stats.get('mDef') ?? null : null,
       randomDamage: mappedType === 'weapon' ? stats.get('randomDamage') ?? null : null,
-      bodyPart: sets.get('bodypart') ?? null,
+      bodyPart,
+      weaponType: sets.get('weapon_type') ?? null,
+      enchantEnabled: parseBool(sets.get('enchant_enabled')),
+      recipeId: sets.get('recipe_id') ? Number(sets.get('recipe_id')) : null,
+      isStackable: parseBool(sets.get('is_stackable')),
     };
     results.push(row);
   }
 
-  for (const id of ITEM_IDS) {
+  for (const id of itemIds) {
     if (!results.some((r) => r.itemId === id)) {
       throw new Error(`Item ${id} not found in items XML`);
     }

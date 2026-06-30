@@ -8,6 +8,8 @@ import {
   skills,
   experience,
   items,
+  recipes,
+  armorSets,
   mobDrops,
   mobSpawns,
   merchantItems,
@@ -29,6 +31,8 @@ import { seedMobSpawns } from './seeders/spawns.seeder';
 import { seedMerchantItems } from './seeders/merchant-items.seeder';
 import { seedNpcSpawns } from './seeders/npc-spawns.seeder';
 import { seedItems } from './seeders/items.seeder';
+import { seedRecipes } from './seeders/recipes.seeder';
+import { seedArmorSets } from './seeders/armor-sets.seeder';
 import { seedQuests } from './seeders/quests.seeder';
 import { seedTeleportDestinations } from './seeders/teleport-destinations.seeder';
 import { FIXTURE_DATA_DIR, resolveDataDir } from './paths';
@@ -46,6 +50,8 @@ export interface SeedReport {
   classSkillTree: number;
   experience: number;
   items: number;
+  recipes: number;
+  armorSets: number;
   mobDrops: number;
   mobSpawns: number;
   merchantItems: number;
@@ -76,6 +82,8 @@ export function runSeed(options: SeedOptions): SeedReport {
     tx.delete(npcs).run();
     tx.delete(monsters).run();
     tx.delete(items).run();
+    tx.delete(recipes).run();
+    tx.delete(armorSets).run();
 
     const report: SeedReport = {
       classTemplates: seedClassTemplates(tx as unknown as AppDatabase, dataDir),
@@ -89,6 +97,8 @@ export function runSeed(options: SeedOptions): SeedReport {
       classSkillTree: seedClassSkillTree(tx as unknown as AppDatabase, dataDir),
       experience: seedExperience(tx as unknown as AppDatabase, dataDir),
       items: seedItems(tx as unknown as AppDatabase, dataDir),
+      recipes: seedRecipes(tx as unknown as AppDatabase, dataDir),
+      armorSets: seedArmorSets(tx as unknown as AppDatabase),
       quests: seedQuests(tx as unknown as AppDatabase, dataDir),
       teleportDestinations: seedTeleportDestinations(tx as unknown as AppDatabase),
     };

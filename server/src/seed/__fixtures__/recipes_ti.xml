@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="xsd/Recipes.xsd">
+<item id="1" recipeId="1666" name="mk_wooden_arrow" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1864" count="4" /> <!-- Stem -->
+		<ingredient id="1869" count="2" /> <!-- Iron Ore -->
+		<production id="17" count="500" /> <!-- Wooden Arrow -->
+		<statUse name="MP" value="30" />
+	</item>
+<item id="2" recipeId="1786" name="mk_broad_sword" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2005" count="1" /> <!-- Broadsword Blade -->
+		<ingredient id="1869" count="18" /> <!-- Iron Ore -->
+		<ingredient id="1870" count="18" /> <!-- Coal -->
+		<production id="3" count="1" /> <!-- Broadsword -->
+		<statUse name="MP" value="30" />
+	</item>
+<item id="3" recipeId="1787" name="mk_willow_staff" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2006" count="1" /> <!-- Willow Staff Head -->
+		<ingredient id="1869" count="12" /> <!-- Iron Ore -->
+		<ingredient id="1872" count="24" /> <!-- Animal Bone -->
+		<ingredient id="1864" count="12" /> <!-- Stem -->
+		<production id="8" count="1" /> <!-- Willow Staff -->
+		<statUse name="MP" value="30" />
+	</item>
+<item id="4" recipeId="1788" name="mk_bow" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2007" count="1" /> <!-- Bow Shaft -->
+		<ingredient id="1869" count="20" /> <!-- Iron Ore -->
+		<ingredient id="1878" count="4" /> <!-- Braided Hemp -->
+		<ingredient id="1866" count="4" /> <!-- Suede -->
+		<production id="14" count="1" /> <!-- Bow -->
+		<statUse name="MP" value="30" />
+	</item>
+<item id="5" recipeId="1789" name="mk_cedar_staff" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2008" count="2" /> <!-- Cedar Staff Head -->
+		<ingredient id="1869" count="55" /> <!-- Iron Ore -->
+		<ingredient id="1872" count="110" /> <!-- Animal Bone -->
+		<ingredient id="1864" count="55" /> <!-- Stem -->
+		<production id="9" count="1" /> <!-- Cedar Staff -->
+		<statUse name="MP" value="45" />
+	</item>
+<item id="6" recipeId="1790" name="mk_dirk" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2009" count="2" /> <!-- Dirk Blade -->
+		<ingredient id="1869" count="80" /> <!-- Iron Ore -->
+		<ingredient id="1870" count="80" /> <!-- Coal -->
+		<production id="216" count="1" /> <!-- Dirk -->
+		<statUse name="MP" value="45" />
+	</item>
+<item id="7" recipeId="1791" name="mk_brandish" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2010" count="2" /> <!-- Brandish Blade -->
+		<ingredient id="1869" count="110" /> <!-- Iron Ore -->
+		<ingredient id="1870" count="55" /> <!-- Coal -->
+		<production id="1333" count="1" /> <!-- Brandish -->
+		<statUse name="MP" value="45" />
+	</item>
+<item id="8" recipeId="1792" name="mk_short_spear" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2011" count="3" /> <!-- Short Spear Edge -->
+		<ingredient id="1869" count="220" /> <!-- Iron Ore -->
+		<ingredient id="1870" count="110" /> <!-- Coal -->
+		<ingredient id="1866" count="55" /> <!-- Suede -->
+		<production id="15" count="1" /> <!-- Short Spear -->
+		<statUse name="MP" value="60" />
+	</item>
+<item id="9" recipeId="1793" name="mk_sword_of_reflexion" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2012" count="3" /> <!-- Sword of Reflection Blade -->
+		<ingredient id="1869" count="200" /> <!-- Iron Ore -->
+		<ingredient id="1870" count="200" /> <!-- Coal -->
+		<production id="120" count="1" /> <!-- Sword of Reflection -->
+		<statUse name="MP" value="60" />
+	</item>
+<item id="10" recipeId="1794" name="mk_bow_of_forest" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="2013" count="3" /> <!-- Forest Bow Shaft -->
+		<ingredient id="1869" count="225" /> <!-- Iron Ore -->
+		<ingredient id="1878" count="45" /> <!-- Braided Hemp -->
+		<ingredient id="1866" count="45" /> <!-- Suede -->
+		<production id="272" count="1" /> <!-- Forest Bow -->
+		<statUse name="MP" value="60" />
+	</item>
+<item id="11" recipeId="1795" name="mk_leather_shoes" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1921" count="2" /> <!-- Leather Shoe Texture -->
+		<ingredient id="1867" count="8" /> <!-- Animal Skin -->
+		<ingredient id="1866" count="1" /> <!-- Suede -->
+		<production id="37" count="1" /> <!-- Leather Shoes -->
+		<statUse name="MP" value="45" />
+	</item>
+<item id="12" recipeId="1796" name="mk_leather_tunic" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1922" count="2" /> <!-- Leather Tunic Pattern -->
+		<ingredient id="1867" count="24" /> <!-- Animal Skin -->
+		<ingredient id="1868" count="12" /> <!-- Thread -->
+		<production id="429" count="1" /> <!-- Leather Tunic -->
+		<statUse name="MP" value="45" />
+	</item>
+<item id="13" recipeId="1797" name="mk_leather_hose" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1923" count="2" /> <!-- Leather Stocking Pattern -->
+		<ingredient id="1867" count="12" /> <!-- Animal Skin -->
+		<ingredient id="1868" count="12" /> <!-- Thread -->
+		<production id="464" count="1" /> <!-- Leather Stockings -->
+		<statUse name="MP" value="45" />
+	</item>
+<item id="14" recipeId="1798" name="mk_leather_helmet" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1924" count="3" /> <!-- Leather Helmet Design -->
+		<ingredient id="1866" count="15" /> <!-- Suede -->
+		<ingredient id="1867" count="12" /> <!-- Animal Skin -->
+		<production id="44" count="1" /> <!-- Leather Helmet -->
+		<statUse name="MP" value="60" />
+	</item>
+<item id="15" recipeId="1799" name="mk_leather_gloves" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1925" count="3" /> <!-- Leather Glove Lining -->
+		<ingredient id="1867" count="24" /> <!-- Animal Skin -->
+		<ingredient id="1866" count="3" /> <!-- Suede -->
+		<production id="50" count="1" /> <!-- Leather Gloves -->
+		<statUse name="MP" value="60" />
+	</item>
+<item id="16" recipeId="1800" name="mk_piece_bone_breastplate" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1926" count="3" /> <!-- Piece Bone Breastplate Fragment -->
+		<ingredient id="1883" count="3" /> <!-- Steel Mold -->
+		<ingredient id="1869" count="30" /> <!-- Iron Ore -->
+		<production id="25" count="1" /> <!-- Piece Bone Breastplate -->
+		<statUse name="MP" value="63" />
+	</item>
+<item id="17" recipeId="1801" name="mk_piece_bone_gaiters" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1928" count="3" /> <!-- Piece Bone Gaiter Fragment -->
+		<ingredient id="1883" count="2" /> <!-- Steel Mold -->
+		<ingredient id="1872" count="14" /> <!-- Animal Bone -->
+		<production id="32" count="1" /> <!-- Piece Bone Gaiters -->
+		<statUse name="MP" value="63" />
+	</item>
+<item id="18" recipeId="1802" name="mk_necklace_of_anguish" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1896" count="2" /> <!-- Necklace of Anguish Chain -->
+		<ingredient id="1864" count="20" /> <!-- Stem -->
+		<ingredient id="1865" count="4" /> <!-- Varnish -->
+		<production id="907" count="1" /> <!-- Necklace of Anguish -->
+		<statUse name="MP" value="45" />
+	</item>
+<item id="19" recipeId="1803" name="mk_necklace_of_wisdom" craftLevel="1" type="dwarven" successRate="100">
+		<ingredient id="1897" count="3" /> <!-- Necklace of Wisdom Chain -->
+		<ingredient id="1864" count="50" /> <!-- Stem -->
+		<ingredient id="1865" count="10" /> <!-- Varnish -->
+		<production id="908" count="1" /> <!-- Necklace of Wisdom -->
+		<statUse name="MP" value="60" />
+	</item>
+</list>
