@@ -20,7 +20,7 @@ describe('parseMonsters', () => {
       type: 'Monster',
       race: 'FAIRY',
       exp: 44,
-      sp: 0,
+      sp: 7,
       hp: 41.145,
       mp: 44.247,
       pAtk: 8.47458,

@@ -9,7 +9,11 @@ import {
   horizontalDistance,
   isInMeleeRange,
   isInPeaceZone,
-  grantXp,
+  grantXpCapped,
+  grantSp,
+  applyKarmaRelief,
+  TI_LEVEL_CAP,
+  resolvePlayerVsPlayerAttack,
   rollDrops,
   rollCrit,
   applyCritMultiplier,
@@ -30,6 +34,8 @@ export type ArmedShotKind = 'soul' | 'spirit';
 
 export interface PlayerCombatState {
   targetMobId: string | null;
+  targetPlayerSessionId: string | null;
+  lastPlayerKillSessionId: string | null;
   nextAttackAtMs: number;
   attackPending: boolean;
   skillPending: boolean;
@@ -72,6 +78,7 @@ export interface KillEvent {
   npcId: number;
   killerSessionId: string;
   exp: number;
+  sp: number;
   drops: { itemId: number; count: number }[];
 }
 
@@ -91,6 +98,8 @@ export interface MobEffectState {
 export function createPlayerCombatState(): PlayerCombatState {
   return {
     targetMobId: null,
+    targetPlayerSessionId: null,
+    lastPlayerKillSessionId: null,
     nextAttackAtMs: 0,
     attackPending: false,
     skillPending: false,
@@ -487,19 +496,103 @@ export function tickCombatEffects(
 }
 
 export function applyKillRewards(
-  player: { level: number; xp: number },
+  player: { level: number; xp: number; sp?: number; karma?: number },
   kill: KillEvent,
   curve: ExperienceCurveRow[],
   dropRows: DropRow[] = [],
   rng?: SeededRng
 ): void {
-  const granted = grantXp(player.level, player.xp, kill.exp, curve);
-  player.level = granted.level;
-  player.xp = granted.xp;
+  if (player.level !== TI_LEVEL_CAP) {
+    const granted = grantXpCapped(player.level, player.xp, kill.exp, curve);
+    player.level = granted.level;
+    player.xp = granted.xp;
+  }
+
+  if (player.sp !== undefined && kill.sp > 0) {
+    player.sp = grantSp(player.sp, kill.sp);
+  }
+
+  if (player.karma !== undefined && player.karma < 0 && kill.exp > 0) {
+    player.karma = applyKarmaRelief(player.karma, kill.exp);
+  }
 
   if (dropRows.length > 0 && rng) {
     kill.drops = rollDrops(dropRows, rng);
   }
+}
+
+export function resolvePlayerVsPlayerMeleeAttack(params: {
+  sessionId: string;
+  playerX: number;
+  playerZ: number;
+  combat: PlayerCombatState;
+  attacker: { pvpFlag: number; karma: number; pAtk: number };
+  target: {
+    sessionId: string;
+    pvpFlag: number;
+    karma: number;
+    pDef: number;
+    hp: number;
+    x: number;
+    z: number;
+  };
+  nowMs: number;
+  rng: SeededRng;
+}): PlayerAttackResult {
+  const { sessionId, playerX, playerZ, combat, attacker, target, nowMs, rng } = params;
+
+  if (
+    !combat.attackPending ||
+    combat.targetPlayerSessionId !== target.sessionId ||
+    target.hp <= 0
+  ) {
+    return { damage: 0, killed: false };
+  }
+
+  combat.attackPending = false;
+
+  if (isInPeaceZone(playerX, playerZ) || isInPeaceZone(target.x, target.z)) {
+    return { damage: 0, killed: false };
+  }
+
+  if (nowMs < combat.nextAttackAtMs) {
+    return { damage: 0, killed: false };
+  }
+
+  if (!isInMeleeRange(playerX, playerZ, target.x, target.z, STARTER_COMBAT.meleeRange)) {
+    return { damage: 0, killed: false };
+  }
+
+  const result = resolvePlayerVsPlayerAttack({
+    attacker: {
+      pvpFlag: attacker.pvpFlag,
+      karma: attacker.karma,
+      pAtk: attacker.pAtk,
+      randomDamage: STARTER_COMBAT.randomDamage,
+    },
+    target: {
+      pvpFlag: target.pvpFlag,
+      karma: target.karma,
+      pDef: target.pDef,
+      alive: target.hp > 0,
+    },
+    zonePeace: false,
+    rng,
+  });
+
+  if (!result.allowed) {
+    return { damage: 0, killed: false };
+  }
+
+  combat.nextAttackAtMs =
+    nowMs + calculateAttackIntervalMs(STARTER_COMBAT.attackSpeed);
+
+  const killed = target.hp - result.damage <= 0;
+  if (killed) {
+    combat.lastPlayerKillSessionId = target.sessionId;
+  }
+
+  return { damage: result.damage, killed };
 }
 
 export function calcPlayerMAtk(

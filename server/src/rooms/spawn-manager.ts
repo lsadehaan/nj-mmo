@@ -28,6 +28,7 @@ export interface MobRuntime {
   aggroRangeWorld: number;
   isAggressive: boolean;
   exp: number;
+  sp: number;
   respawnSec: number;
   aiType: string | null;
   clan: string | null;
@@ -96,6 +97,7 @@ export function initializeMobs(
       aggroRangeWorld: l2RangeToWorld(template.aggroRange),
       isAggressive: template.isAggressive,
       exp: template.exp,
+      sp: template.sp,
       respawnSec: spawn.respawnSec,
       aiType: template.aiType ?? null,
       clan: template.clan ?? null,

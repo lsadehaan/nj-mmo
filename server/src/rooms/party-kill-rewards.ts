@@ -2,7 +2,12 @@ import {
   applyClassLevelUpReward,
   assignPartyDrops,
   calcPartyXpGrants,
-  grantXp,
+  calcPartySpGrants,
+  grantXpCapped,
+  grantSp,
+  applyKarmaRelief,
+  awardStatPointOnLevelUp,
+  TI_LEVEL_CAP,
   horizontalDistance,
   PARTY_RANGE_WORLD,
   rollDrops,
@@ -34,6 +39,7 @@ export function resolvePartyKillRewards(params: {
   mobX: number;
   mobZ: number;
   mobExp: number;
+  mobSp: number;
   mobNpcId: number;
   mobId: string;
   members: PartyKillMember[];
@@ -53,12 +59,14 @@ export function resolvePartyKillRewards(params: {
 
   const highestLevel = Math.max(...inRangeMembers.filter((m) => m.inRange).map((m) => m.level), 1);
   const xpGrants = calcPartyXpGrants(params.mobExp, inRangeMembers, highestLevel);
+  const spGrants = calcPartySpGrants(params.mobSp, inRangeMembers, highestLevel);
 
   const kill: KillEvent = {
     mobId: params.mobId,
     npcId: params.mobNpcId,
     killerSessionId: params.killerSessionId,
     exp: params.mobExp,
+    sp: params.mobSp,
     drops: [],
   };
 
@@ -71,21 +79,49 @@ export function resolvePartyKillRewards(params: {
 
   for (const member of params.members) {
     const addXp = xpGrants.get(member.sessionId) ?? 0;
-    if (addXp <= 0) continue;
-
+    const addSp = spGrants.get(member.sessionId) ?? 0;
     const prevLevel = member.player.level;
-    const granted = grantXp(
-      member.player.level,
-      member.player.xp,
-      addXp,
-      params.experienceCurve
-    );
-    member.player.level = granted.level;
-    member.player.xp = granted.xp;
-    member.stored.level = granted.level;
-    member.stored.xp = granted.xp;
+
+    if (addXp > 0 && member.player.level !== TI_LEVEL_CAP) {
+      const granted = grantXpCapped(
+        member.player.level,
+        member.player.xp,
+        addXp,
+        params.experienceCurve
+      );
+      member.player.level = granted.level;
+      member.player.xp = granted.xp;
+      member.stored.level = granted.level;
+      member.stored.xp = granted.xp;
+    }
+
+    if (addSp > 0) {
+      member.player.sp = grantSp(member.player.sp, addSp);
+      member.stored.sp = member.player.sp;
+    }
+
+    if (member.player.karma < 0 && addXp > 0) {
+      member.player.karma = applyKarmaRelief(member.player.karma, addXp);
+      member.stored.karma = member.player.karma;
+    }
 
     if (member.player.level > prevLevel) {
+      const statAward = awardStatPointOnLevelUp(
+        {
+          unspentStatPoints: member.player.unspentStatPoints,
+          bonusStr: member.player.bonusStr,
+          bonusDex: member.player.bonusDex,
+          bonusCon: member.player.bonusCon,
+          bonusInt: member.player.bonusInt,
+          bonusWit: member.player.bonusWit,
+          bonusMen: member.player.bonusMen,
+        },
+        prevLevel,
+        member.player.level
+      );
+      member.player.unspentStatPoints = statAward.unspentStatPoints;
+      member.stored.unspentStatPoints = statAward.unspentStatPoints;
+
       const curve = params.classVitalsByClassId.get(member.player.classId);
       if (curve) {
         const rewarded = applyClassLevelUpReward(
