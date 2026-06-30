@@ -7,6 +7,7 @@ import {
   npcs,
   skills,
   experience,
+  experienceLoss,
   items,
   recipes,
   armorSets,
@@ -26,6 +27,7 @@ import { seedNpcs } from './seeders/npcs.seeder';
 import { seedSkills } from './seeders/skills.seeder';
 import { seedClassSkillTree } from './seeders/class-skill-tree.seeder';
 import { seedExperience } from './seeders/experience.seeder';
+import { seedExperienceLoss } from './seeders/experience-loss.seeder';
 import { seedMobDrops } from './seeders/drops.seeder';
 import { seedMobSpawns } from './seeders/spawns.seeder';
 import { seedMerchantItems } from './seeders/merchant-items.seeder';
@@ -49,6 +51,7 @@ export interface SeedReport {
   skills: number;
   classSkillTree: number;
   experience: number;
+  experienceLoss: number;
   items: number;
   recipes: number;
   armorSets: number;
@@ -77,6 +80,7 @@ export function runSeed(options: SeedOptions): SeedReport {
     tx.delete(npcSpawns).run();
     tx.delete(warehouseItems).run();
     tx.delete(teleportDestinations).run();
+    tx.delete(experienceLoss).run();
     tx.delete(experience).run();
     tx.delete(skills).run();
     tx.delete(npcs).run();
@@ -96,6 +100,7 @@ export function runSeed(options: SeedOptions): SeedReport {
       skills: seedSkills(tx as unknown as AppDatabase, dataDir),
       classSkillTree: seedClassSkillTree(tx as unknown as AppDatabase, dataDir),
       experience: seedExperience(tx as unknown as AppDatabase, dataDir),
+      experienceLoss: seedExperienceLoss(tx as unknown as AppDatabase, dataDir),
       items: seedItems(tx as unknown as AppDatabase, dataDir),
       recipes: seedRecipes(tx as unknown as AppDatabase, dataDir),
       armorSets: seedArmorSets(tx as unknown as AppDatabase),

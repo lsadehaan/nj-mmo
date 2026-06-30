@@ -105,6 +105,11 @@ export const experience = sqliteTable('experience', {
   trainingRate: real('training_rate').notNull(),
 });
 
+export const experienceLoss = sqliteTable('experience_loss', {
+  level: integer('level').primaryKey(),
+  percentLost: real('percent_lost').notNull(),
+});
+
 export const items = sqliteTable('items', {
   itemId: integer('item_id').primaryKey(),
   name: text('name').notNull(),
@@ -317,6 +322,19 @@ export const characters = sqliteTable('characters', {
   y: real('y').notNull(),
   z: real('z').notNull(),
   updatedAt: integer('updated_at').notNull(),
+  sp: integer('sp').notNull().default(0),
+  karma: integer('karma').notNull().default(0),
+  pvpKills: integer('pvp_kills').notNull().default(0),
+  pkKills: integer('pk_kills').notNull().default(0),
+  expBeforeDeath: integer('exp_before_death').notNull().default(0),
+  unspentStatPoints: integer('unspent_stat_points').notNull().default(0),
+  bonusStr: integer('bonus_str').notNull().default(0),
+  bonusDex: integer('bonus_dex').notNull().default(0),
+  bonusCon: integer('bonus_con').notNull().default(0),
+  bonusInt: integer('bonus_int').notNull().default(0),
+  bonusWit: integer('bonus_wit').notNull().default(0),
+  bonusMen: integer('bonus_men').notNull().default(0),
+  pvpFlagEndMs: integer('pvp_flag_end_ms').notNull().default(0),
 });
 
 export type Monster = typeof monsters.$inferSelect;
@@ -335,6 +353,8 @@ export type CharacterSkill = typeof characterSkills.$inferSelect;
 export type NewCharacterSkill = typeof characterSkills.$inferInsert;
 export type ExperienceRow = typeof experience.$inferSelect;
 export type NewExperienceRow = typeof experience.$inferInsert;
+export type ExperienceLossRow = typeof experienceLoss.$inferSelect;
+export type NewExperienceLossRow = typeof experienceLoss.$inferInsert;
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 export type Recipe = typeof recipes.$inferSelect;
@@ -381,6 +401,7 @@ export const schema = {
   classSkillTree,
   characterSkills,
   experience,
+  experienceLoss,
   items,
   recipes,
   armorSets,

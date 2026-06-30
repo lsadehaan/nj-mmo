@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<table xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../xsd/experienceLoss.xsd">
+	<experienceLoss level="9" percentLost="9.0" />
+	<experienceLoss level="10" percentLost="8.875" />
+	<experienceLoss level="15" percentLost="8.25" />
+	<experienceLoss level="20" percentLost="7.625" />
+</table>

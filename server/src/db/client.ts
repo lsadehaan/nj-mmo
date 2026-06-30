@@ -248,6 +248,7 @@ function applySchema(sqlite: Database.Database): void {
   migrateMonstersColumns(sqlite);
   migrateSkillsColumns(sqlite);
   migrateCharactersColumns(sqlite);
+  migrateProgressionColumns(sqlite);
   migrateClassTables(sqlite);
   migrateClassTemplateColumns(sqlite);
   migrateItemsColumns(sqlite);
@@ -354,6 +355,38 @@ function migrateCharactersColumns(sqlite: Database.Database): void {
   }
   if (!names.has('sex')) {
     sqlite.exec('ALTER TABLE characters ADD COLUMN sex INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
+function migrateProgressionColumns(sqlite: Database.Database): void {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS experience_loss (
+      level INTEGER PRIMARY KEY,
+      percent_lost REAL NOT NULL
+    );
+  `);
+
+  const cols = sqlite.pragma('table_info(characters)') as { name: string }[];
+  const names = new Set(cols.map((c) => c.name));
+  const adds: [string, string][] = [
+    ['sp', 'INTEGER NOT NULL DEFAULT 0'],
+    ['karma', 'INTEGER NOT NULL DEFAULT 0'],
+    ['pvp_kills', 'INTEGER NOT NULL DEFAULT 0'],
+    ['pk_kills', 'INTEGER NOT NULL DEFAULT 0'],
+    ['exp_before_death', 'INTEGER NOT NULL DEFAULT 0'],
+    ['unspent_stat_points', 'INTEGER NOT NULL DEFAULT 0'],
+    ['bonus_str', 'INTEGER NOT NULL DEFAULT 0'],
+    ['bonus_dex', 'INTEGER NOT NULL DEFAULT 0'],
+    ['bonus_con', 'INTEGER NOT NULL DEFAULT 0'],
+    ['bonus_int', 'INTEGER NOT NULL DEFAULT 0'],
+    ['bonus_wit', 'INTEGER NOT NULL DEFAULT 0'],
+    ['bonus_men', 'INTEGER NOT NULL DEFAULT 0'],
+    ['pvp_flag_end_ms', 'INTEGER NOT NULL DEFAULT 0'],
+  ];
+  for (const [col, def] of adds) {
+    if (!names.has(col)) {
+      sqlite.exec(`ALTER TABLE characters ADD COLUMN ${col} ${def}`);
+    }
   }
 }
 
