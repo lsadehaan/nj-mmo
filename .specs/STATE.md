@@ -151,7 +151,10 @@
 
 ## Handoff
 
-**Loop status: RUNNING — next unchecked phase: Phase 29 (final).**
+**Loop status: STOPPED — ALL ROADMAP PHASES (1–29) COMPLETE.**
+
+**Phase 29 — Audio & world ambience: COMPLETE (Verifier PASS, 2026-06-29).**
+48/48 ACs, gate 388 client audio tests. Injectable backend, zone music/ambient, combat/UI SFX, volume controls, `__GAME_STATE__.audio`.
 
 **Phase 28 — UI/UX client shell: COMPLETE (Verifier PASS, fix iteration 1, 2026-06-29).**
 60/60 ACs, gate 1102 tests. Login/character select, window manager, inventory grid, skill/quest/party UI, minimap/world map, buff bars, system menu, ToT.

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EntityAction } from '@nj/game-core';
 import { createMockAudioBackend, isOneShotCall, isLoopCall, isStopCall } from './audio-backend';
 import { createAudioManager, CROSSFADE_MS, AMBIENT_GAIN_FACTOR } from './audio-manager';
@@ -117,11 +117,17 @@ describe('audio-manager combat sfx', () => {
   });
 
   it('AUD29-24: melee hit throttled within 80ms', () => {
-    mgr.syncMob({ id: 'm1', hp: 50 });
-    mgr.syncMob({ id: 'm1', hp: 40 });
-    mgr.syncMob({ id: 'm2', hp: 50 });
-    mgr.syncMob({ id: 'm2', hp: 40 });
-    expect(calls.filter((c) => isOneShotCall(c) && c.id === 'sfx_melee_hit').length).toBeLessThanOrEqual(2);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1000);
+      mgr.syncMob({ id: 'm1', hp: 50 });
+      mgr.syncMob({ id: 'm1', hp: 40 });
+      vi.setSystemTime(1050);
+      mgr.syncMob({ id: 'm1', hp: 30 });
+      expect(calls.filter((c) => isOneShotCall(c) && c.id === 'sfx_melee_hit')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('AUD29-25: NaN position skips combat sfx', () => {

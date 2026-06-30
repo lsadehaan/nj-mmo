@@ -851,7 +851,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 29 — Audio & world ambience `[ ]`
+## Phase 29 — Audio & world ambience `[x]`
 
 > Done when: zone-appropriate music loops, combat/cast/UI SFX, and ambient world
 > audio play in the client without blocking the Vitest gate.
