@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { initGameState, getGameState, setQuests, setMobs } from '../test-hook';
+import { initGameState, getGameState, setQuests, setMobs, setZone } from '../test-hook';
+import { getZoneAt } from '@nj/game-core';
 
 describe('wireRoom mob sync (unit)', () => {
   beforeEach(() => {
@@ -46,7 +47,6 @@ describe('wireRoom quest sync (unit)', () => {
     initGameState();
   });
 
-  // QUEST21-43 — hook updates when entries applied (mirrors wireRoom callback)
   it('updates __GAME_STATE__.quests when entries change', () => {
     setQuests([{ questId: 255, status: 'in_progress', step: 1 }]);
     expect(getGameState().quests.active).toHaveLength(1);
@@ -54,5 +54,41 @@ describe('wireRoom quest sync (unit)', () => {
 
     setQuests([{ questId: 255, status: 'in_progress', step: 2 }]);
     expect(getGameState().quests.active[0]?.step).toBe(2);
+  });
+});
+
+describe('test-hook zone defaults', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('TIW23-47: pre-join zone is unknown', () => {
+    expect(getGameState().zone).toEqual({
+      id: '',
+      type: 'unknown',
+      displayName: '',
+    });
+  });
+});
+
+describe('wireRoom zone sync (unit)', () => {
+  beforeEach(() => {
+    initGameState();
+  });
+
+  it('TIW23-45: exposes zone id and type from server zoneId', () => {
+    const hit = getZoneAt(0, 0);
+    setZone({ id: 'ti_village', type: hit.type, displayName: hit.displayName });
+    expect(getGameState().zone.id).toBe('ti_village');
+    expect(getGameState().zone.type).toBe('peace');
+  });
+
+  it('TIW23-46: updates zone when moving village → obelisk', () => {
+    const village = getZoneAt(0, 0);
+    setZone({ id: 'ti_village', type: village.type, displayName: village.displayName });
+    const obelisk = getZoneAt(-150, 55);
+    setZone({ id: 'obelisk', type: obelisk.type, displayName: obelisk.displayName });
+    expect(getGameState().zone.id).toBe('obelisk');
+    expect(getGameState().zone.type).toBe('combat');
   });
 });

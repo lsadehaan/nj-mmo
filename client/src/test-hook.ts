@@ -20,10 +20,17 @@ export interface EnvironmentCategoryState {
   renderKind: 'mesh' | 'primitive';
 }
 
+export interface GameStateZone {
+  id: string;
+  type: string;
+  displayName: string;
+}
+
 export interface GameStateEnvironment {
   buildings: EnvironmentCategoryState;
   scatter: EnvironmentCategoryState;
   peaceZone: EnvironmentCategoryState;
+  landmarks: EnvironmentCategoryState;
   loaded: boolean;
 }
 
@@ -162,6 +169,7 @@ export interface GameState {
   localMovementTicks: number;
   vfx: GameStateVfx;
   environment: GameStateEnvironment;
+  zone: GameStateZone;
   quests: GameStateQuests;
 }
 
@@ -218,8 +226,10 @@ const initialState: GameState = {
     buildings: { count: 0, renderKind: 'primitive' },
     scatter: { count: 0, renderKind: 'primitive' },
     peaceZone: { count: 0, renderKind: 'primitive' },
+    landmarks: { count: 0, renderKind: 'primitive' },
     loaded: false,
   },
+  zone: { id: '', type: 'unknown', displayName: '' },
   quests: { active: [], completed: [], defs: {} },
 };
 
@@ -253,8 +263,10 @@ export function initGameState(): GameState {
       buildings: { count: 0, renderKind: 'primitive' },
       scatter: { count: 0, renderKind: 'primitive' },
       peaceZone: { count: 0, renderKind: 'primitive' },
+      landmarks: { count: 0, renderKind: 'primitive' },
       loaded: false,
     },
+    zone: { id: '', type: 'unknown', displayName: '' },
     quests: { active: [], completed: [], defs: buildQuestDefs() },
   };
   return window.__GAME_STATE__;
@@ -455,8 +467,13 @@ export function setEnvironment(environment: GameStateEnvironment): void {
     buildings: { ...environment.buildings },
     scatter: { ...environment.scatter },
     peaceZone: { ...environment.peaceZone },
+    landmarks: { ...environment.landmarks },
     loaded: environment.loaded,
   };
+}
+
+export function setZone(zone: GameStateZone): void {
+  getGameState().zone = { ...zone };
 }
 
 function buildQuestDefs(): Record<number, GameStateQuestDef> {

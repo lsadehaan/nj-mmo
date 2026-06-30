@@ -1,7 +1,8 @@
 import { Client, Room, Callbacks } from '@colyseus/sdk';
 import { EntityAction } from '@nj/game-core';
 import type { AnimationClip } from '@nj/game-core';
-import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState } from '../test-hook';
+import { setConnected, setCharacterId, setOthers, setMobs, setPlayer, setAdena, setItems, setNpcs, setNearbyNpc, setShopOpen, setEquippedWeaponId, setMaxHp, setMaxMp, effectsFromBuffSkillId, setQuests, getGameState, setZone } from '../test-hook';
+import { getZoneAt } from '@nj/game-core';
 import type { GameRenderer } from '../scene/renderer';
 import {
   mountShopWindow,
@@ -123,6 +124,7 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     activeBuffSkillId?: number;
     action?: number;
     actionSeq?: number;
+    zoneId?: string;
     items: { entries: () => Iterable<[string, { itemId: number; count: number }]> };
     questEntries?: {
       length: number;
@@ -398,6 +400,12 @@ export function wireRoom(room: Room, game: GameRenderer): void {
     setItems(localItemCounts);
     refreshShopDom(player);
     refreshInventoryDom(player);
+    const zoneHit = getZoneAt(player.x, player.z);
+    setZone({
+      id: player.zoneId ?? zoneHit.zoneId,
+      type: zoneHit.type,
+      displayName: zoneHit.displayName,
+    });
     updateInteractPrompt();
   };
 
