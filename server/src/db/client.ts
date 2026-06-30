@@ -238,6 +238,12 @@ function applySchema(sqlite: Database.Database): void {
       counters_json TEXT NOT NULL,
       PRIMARY KEY (character_id, quest_id)
     );
+    CREATE TABLE IF NOT EXISTS character_friends (
+      character_id TEXT NOT NULL,
+      friend_character_id TEXT NOT NULL,
+      created_at_ms INTEGER NOT NULL,
+      PRIMARY KEY (character_id, friend_character_id)
+    );
   `);
   migrateMonstersColumns(sqlite);
   migrateSkillsColumns(sqlite);

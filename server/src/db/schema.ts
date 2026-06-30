@@ -198,6 +198,18 @@ export const characterQuests = sqliteTable(
   })
 );
 
+export const characterFriends = sqliteTable(
+  'character_friends',
+  {
+    characterId: text('character_id').notNull(),
+    friendCharacterId: text('friend_character_id').notNull(),
+    createdAtMs: integer('created_at_ms').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.characterId, table.friendCharacterId] }),
+  })
+);
+
 export const merchantItems = sqliteTable('merchant_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   npcId: integer('npc_id').notNull(),
@@ -339,6 +351,8 @@ export type QuestReward = typeof questRewards.$inferSelect;
 export type NewQuestReward = typeof questRewards.$inferInsert;
 export type CharacterQuest = typeof characterQuests.$inferSelect;
 export type NewCharacterQuest = typeof characterQuests.$inferInsert;
+export type CharacterFriend = typeof characterFriends.$inferSelect;
+export type NewCharacterFriend = typeof characterFriends.$inferInsert;
 export type MerchantItem = typeof merchantItems.$inferSelect;
 export type NewMerchantItem = typeof merchantItems.$inferInsert;
 export type NpcSpawn = typeof npcSpawns.$inferSelect;
@@ -381,4 +395,5 @@ export const schema = {
   questObjectives,
   questRewards,
   characterQuests,
+  characterFriends,
 };
