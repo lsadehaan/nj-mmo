@@ -14,6 +14,7 @@ import {
   isWalkable,
   findPath,
   snapToNearestWalkable,
+  getZoneAt,
   type MovementIntent,
   type PathMoveState,
   type DropRow,
@@ -934,6 +935,7 @@ export class TownRoom extends Room<{ state: TownState }> {
       player.x = newX;
       player.z = newZ;
       player.y = newY;
+      player.zoneId = getZoneAt(newX, newZ).zoneId;
 
       if (player.x !== beforeX || player.z !== beforeZ) {
         this.scheduleDebouncedSave(sessionId);
@@ -1246,6 +1248,7 @@ export class TownRoom extends Room<{ state: TownState }> {
     player.x = character.x;
     player.y = character.y;
     player.z = character.z;
+    player.zoneId = getZoneAt(character.x, character.z).zoneId;
     player.hp = character.hp;
     player.mp = character.mp;
     player.maxHp = character.maxHp;
