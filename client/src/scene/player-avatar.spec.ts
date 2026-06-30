@@ -129,6 +129,26 @@ describe('createPlayerAvatar', () => {
       avatar.sync({ x: 0, y: 0, z: 0, equippedWeaponItemId: 9999 }, 0)
     ).not.toThrow();
   });
+
+  it('adds a single name label above the head and updates it in place', () => {
+    const avatar = createPlayerAvatar({ mesh: stubMesh() });
+    const nameplates = () =>
+      avatar.group.children.filter((c) => c.name === 'nameplate');
+
+    expect(nameplates().length).toBe(0);
+    avatar.setName('Aria');
+    expect(nameplates().length).toBe(1);
+
+    // Re-setting the name reuses the same sprite instead of stacking labels.
+    avatar.setName('Aria the Bold');
+    expect(nameplates().length).toBe(1);
+  });
+
+  it('ignores empty/whitespace names (no label created)', () => {
+    const avatar = createPlayerAvatar({ mesh: stubMesh() });
+    avatar.setName('   ');
+    expect(avatar.group.children.some((c) => c.name === 'nameplate')).toBe(false);
+  });
 });
 
 describe('computeFacingYaw', () => {

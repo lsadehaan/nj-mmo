@@ -71,6 +71,7 @@ describe('wireRoom social sync (unit)', () => {
     getMobHookEntries: () => [],
     getNpcHookEntries: () => [],
     syncLocalPlayer: vi.fn(),
+    setLocalPlayerName: vi.fn(),
     syncPlayerVfx: vi.fn(),
     getCurrentAnimationClip: () => 'idle' as const,
     setAfterTick: vi.fn(),

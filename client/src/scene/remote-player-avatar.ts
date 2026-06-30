@@ -9,6 +9,7 @@ import {
 } from '@nj/game-core';
 import { createMeshCharacter, type MeshCharacter } from './creature/mesh-character';
 import { getPlayerManifestEntry } from './creature/player-manifest';
+import { createNameplate, type Nameplate } from './nameplate';
 import { MOVE_THRESHOLD, MOVE_COAST_MS } from './player-avatar';
 import {
   createWeaponVisualState,
@@ -25,12 +26,14 @@ export interface RemotePlayerAvatarSync {
   equippedWeaponItemId?: number;
   classId?: number;
   sex?: number;
+  name?: string;
 }
 
 export interface RemotePlayerAvatar {
   group: THREE.Group;
   sync: (p: RemotePlayerAvatarSync, nowMs?: number) => void;
   update: (dt: number, nowMs?: number) => AnimationClip;
+  setName: (name: string) => void;
   ready: Promise<void>;
 }
 
@@ -74,7 +77,20 @@ export function createRemotePlayerAvatar(
   let initialized = false;
   const weaponState: WeaponVisualState = createWeaponVisualState();
 
+  let nameplate: Nameplate | null = null;
+  const setName = (name: string): void => {
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) return;
+    if (!nameplate) {
+      nameplate = createNameplate(trimmed);
+      group.add(nameplate.sprite);
+    } else {
+      nameplate.setText(trimmed);
+    }
+  };
+
   const sync = (p: RemotePlayerAvatarSync, nowMs = performance.now()): void => {
+    if (p.name) setName(p.name);
     if (!initialized) {
       prevX = p.x;
       prevZ = p.z;
@@ -114,7 +130,7 @@ export function createRemotePlayerAvatar(
     return clip;
   };
 
-  return { group, sync, update, ready };
+  return { group, sync, update, setName, ready };
 }
 
 export { MOVE_THRESHOLD, MOVE_COAST_MS, ACTION_DURATION_MS };

@@ -654,6 +654,7 @@ export function wireRoom(
       classId,
       sex
     );
+    if (player.characterName) game.setLocalPlayerName(player.characterName);
     const scanDx = player.x - prevScanX;
     const scanDz = player.z - prevScanZ;
     if (
@@ -1292,6 +1293,7 @@ export function wireRoom(
       equippedWeaponItemId: state.equippedWeaponItemId ?? 0,
       classId: state.classId ?? 0,
       sex: state.sex ?? 0,
+      name: state.characterName,
     });
     publishOthers();
     callbacks.onChange(state, () => {
@@ -1304,6 +1306,7 @@ export function wireRoom(
         equippedWeaponItemId: state.equippedWeaponItemId ?? 0,
         classId: state.classId ?? 0,
         sex: state.sex ?? 0,
+        name: state.characterName,
       });
       publishOthers();
     });

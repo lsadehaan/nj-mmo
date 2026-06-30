@@ -24,6 +24,7 @@ describe('wireRoom audio sync', () => {
 
   const game = {
     syncLocalPlayer: vi.fn(),
+    setLocalPlayerName: vi.fn(),
     syncRemotePlayer: vi.fn(),
     removeRemotePlayer: vi.fn(),
     syncMob: vi.fn(),

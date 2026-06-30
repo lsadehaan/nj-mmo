@@ -16,6 +16,7 @@ function stubAvatar(): RemotePlayerAvatar {
     group,
     sync: () => undefined,
     update: () => 'idle',
+    setName: () => undefined,
     ready: Promise.resolve(),
   };
 }

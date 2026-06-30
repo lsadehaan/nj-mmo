@@ -19,6 +19,7 @@ describe('wireRoom progression (PROG27-36, PROG27-47)', () => {
 
   const game = {
     syncLocalPlayer: vi.fn(),
+    setLocalPlayerName: vi.fn(),
     syncRemotePlayer: vi.fn(),
     removeRemotePlayer: vi.fn(),
     syncMob: vi.fn(),

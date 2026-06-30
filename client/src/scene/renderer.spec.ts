@@ -58,6 +58,7 @@ vi.mock('./player-avatar', () => ({
     group: new THREE.Group(),
     sync: vi.fn(),
     update: vi.fn(() => 'idle' as const),
+    setName: vi.fn(),
     ready: Promise.resolve(),
   })),
 }));

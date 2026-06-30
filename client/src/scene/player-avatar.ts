@@ -8,6 +8,7 @@ import {
 } from '@nj/game-core';
 import { createMeshCharacter, type MeshCharacter } from './creature/mesh-character';
 import { getPlayerManifestEntry } from './creature/player-manifest';
+import { createNameplate, type Nameplate } from './nameplate';
 import { getGameState } from '../test-hook';
 import {
   createWeaponVisualState,
@@ -32,6 +33,8 @@ export interface PlayerAvatar {
   group: THREE.Group;
   sync: (p: PlayerAvatarSync, nowMs?: number) => void;
   update: (dt: number, nowMs?: number) => AnimationClip;
+  /** Show/update the floating name label above the avatar's head. */
+  setName: (name: string) => void;
   ready: Promise<void>;
 }
 
@@ -89,6 +92,18 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
   let initialized = false;
   const weaponState: WeaponVisualState = createWeaponVisualState();
 
+  let nameplate: Nameplate | null = null;
+  const setName = (name: string): void => {
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) return;
+    if (!nameplate) {
+      nameplate = createNameplate(trimmed);
+      group.add(nameplate.sprite);
+    } else {
+      nameplate.setText(trimmed);
+    }
+  };
+
   const sync = (p: PlayerAvatarSync, nowMs = performance.now()): void => {
     if (!initialized) {
       prevX = p.x;
@@ -137,7 +152,7 @@ export function createPlayerAvatar(options: PlayerAvatarOptions = {}): PlayerAva
     return clip;
   };
 
-  return { group, sync, update, ready };
+  return { group, sync, update, setName, ready };
 }
 
 export function computeFacingYaw(

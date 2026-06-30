@@ -74,6 +74,7 @@ export interface GameRenderer {
     classId?: number,
     sex?: number
   ) => void;
+  setLocalPlayerName: (name: string) => void;
   getCurrentAnimationClip: () => AnimationClip;
   syncRemotePlayer: (sessionId: string, sync: RemotePlayerAvatarSync) => void;
   listRemotePlayers: () => OtherPlayerHookEntry[];
@@ -187,6 +188,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
   scene.add(playerAvatar.group);
   let activeClassId = -1;
   let activeSex = -1;
+  let localPlayerName = '';
 
   const ensureLocalAvatar = (classId: number, sex: number): void => {
     if (classId === activeClassId && sex === activeSex) return;
@@ -194,7 +196,14 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     activeSex = sex;
     scene.remove(playerAvatar.group);
     playerAvatar = createPlayerAvatar({ classId, sex });
+    // Re-apply the name label after the avatar is rebuilt for a class/sex change.
+    if (localPlayerName) playerAvatar.setName(localPlayerName);
     scene.add(playerAvatar.group);
+  };
+
+  const setLocalPlayerName = (name: string): void => {
+    localPlayerName = (name ?? '').trim();
+    if (localPlayerName) playerAvatar.setName(localPlayerName);
   };
   const vfxManager: VfxManager = createVfxManager(scene);
   let audioManager: AudioManager | null = null;
@@ -656,6 +665,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
     render,
     handleClick,
     syncLocalPlayer,
+    setLocalPlayerName,
     getCurrentAnimationClip,
     syncRemotePlayer,
     listRemotePlayers: listRemotePlayersForHook,

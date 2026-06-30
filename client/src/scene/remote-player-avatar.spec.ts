@@ -39,6 +39,17 @@ describe('createRemotePlayerAvatar', () => {
     expect(avatar.update(0.016, 100 + MOVE_COAST_MS + 1)).toBe('idle');
   });
 
+  it('shows the player name above the head when provided in sync', () => {
+    const avatar = createRemotePlayerAvatar({ mesh: stubMesh() });
+    avatar.sync({ x: 0, y: 0, z: 0, name: 'Borin' }, 0);
+    const plates = avatar.group.children.filter((c) => c.name === 'nameplate');
+    expect(plates.length).toBe(1);
+
+    // Subsequent syncs (e.g. movement) keep a single label.
+    avatar.sync({ x: 1, y: 0, z: 0, name: 'Borin' }, 16);
+    expect(avatar.group.children.filter((c) => c.name === 'nameplate').length).toBe(1);
+  });
+
   it('faces movement direction within ±5°', () => {
     const avatar = createRemotePlayerAvatar({ mesh: stubMesh() });
     avatar.sync({ x: 0, y: 0, z: 0 }, 0);
