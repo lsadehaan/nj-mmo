@@ -336,6 +336,7 @@ export const characters = sqliteTable('characters', {
   bonusWit: integer('bonus_wit').notNull().default(0),
   bonusMen: integer('bonus_men').notNull().default(0),
   pvpFlagEndMs: integer('pvp_flag_end_ms').notNull().default(0),
+  accountName: text('account_name').notNull().default(''),
 });
 
 export type Monster = typeof monsters.$inferSelect;

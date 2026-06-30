@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { describe, it, expect, afterEach } from 'vitest';
 import { SPAWN_X, SPAWN_Y, SPAWN_Z } from '@nj/game-core';
 import { getDb } from './client';
-import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems, loadCharacterSkills, saveCharacterSkills, loadCharacterQuests, saveCharacterQuest, upsertQuestProgress } from './character-repository';
+import { createCharacter, loadCharacter, saveCharacter, loadCharacterItems, saveCharacterItems, loadCharacterSkills, saveCharacterSkills, loadCharacterQuests, saveCharacterQuest, upsertQuestProgress, listCharactersByAccount, findCharacterByNameOnAccount } from './character-repository';
 import { runSeed, FIXTURE_DATA_DIR } from '../seed/seed';
 
 describe('character repository', () => {
@@ -287,5 +287,36 @@ describe('character repository', () => {
     const db = tempDb();
     const row = createCharacter(db);
     expect(loadCharacterQuests(db, row.id)).toEqual([]);
+  });
+
+  it('UI28-14: createCharacter persists account_name', () => {
+    const db = tempDb();
+    const row = createCharacter(db, {
+      accountName: 'hero1',
+      name: 'KnightOne',
+      classId: 0,
+      sex: 0,
+    });
+    expect(row.accountName).toBe('hero1');
+    const loaded = loadCharacter(db, row.id);
+    expect(loaded?.accountName).toBe('hero1');
+  });
+
+  it('listCharactersByAccount returns roster rows', () => {
+    const db = tempDb();
+    createCharacter(db, { accountName: 'hero1', name: 'Alpha', classId: 0, sex: 0 });
+    createCharacter(db, { accountName: 'hero1', name: 'Beta', classId: 10, sex: 1 });
+    const rows = listCharactersByAccount(db, 'hero1');
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.name).sort()).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('rejects duplicate name on same account', () => {
+    const db = tempDb();
+    createCharacter(db, { accountName: 'hero1', name: 'Alpha', classId: 0, sex: 0 });
+    expect(() =>
+      createCharacter(db, { accountName: 'hero1', name: 'Alpha', classId: 0, sex: 0 })
+    ).toThrow('duplicate character name');
+    expect(findCharacterByNameOnAccount(db, 'hero1', 'Alpha')).toBeDefined();
   });
 });

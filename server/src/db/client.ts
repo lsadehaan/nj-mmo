@@ -382,6 +382,7 @@ function migrateProgressionColumns(sqlite: Database.Database): void {
     ['bonus_wit', 'INTEGER NOT NULL DEFAULT 0'],
     ['bonus_men', 'INTEGER NOT NULL DEFAULT 0'],
     ['pvp_flag_end_ms', 'INTEGER NOT NULL DEFAULT 0'],
+    ['account_name', "TEXT NOT NULL DEFAULT ''"],
   ];
   for (const [col, def] of adds) {
     if (!names.has(col)) {

@@ -18,6 +18,21 @@ const STARTER_NAME = 'Adventurer';
 const STARTER_ADENA = 1000;
 const DEFAULT_CLASS_ID = 0;
 const DEFAULT_SEX = 0;
+export const MAX_CHARACTERS_PER_ACCOUNT = 3;
+export const CHARACTER_NAME_MIN = 3;
+export const CHARACTER_NAME_MAX = 16;
+
+export interface CharacterListRow {
+  id: string;
+  name: string;
+  level: number;
+  classId: number;
+}
+
+export function isValidCharacterName(name: string): boolean {
+  const trimmed = name.trim();
+  return trimmed.length >= CHARACTER_NAME_MIN && trimmed.length <= CHARACTER_NAME_MAX;
+}
 
 const FIGHTER_CLASS_IDS = new Set([0, 18, 31, 44, 53]);
 const MYSTIC_CLASS_IDS = new Set([10, 25, 38, 49]);
@@ -28,6 +43,8 @@ export type CharacterSkillLevels = Record<number, number>;
 export interface CreateCharacterOptions {
   classId?: number;
   sex?: 0 | 1;
+  accountName?: string;
+  name?: string;
 }
 
 export function loadCharacterSkills(
@@ -129,12 +146,56 @@ export function migrateLegacyCharacterSkills(
   return skills;
 }
 
+export function listCharactersByAccount(
+  db: AppDatabase,
+  accountName: string
+): CharacterListRow[] {
+  return db
+    .select({
+      id: characters.id,
+      name: characters.name,
+      level: characters.level,
+      classId: characters.classId,
+    })
+    .from(characters)
+    .where(eq(characters.accountName, accountName))
+    .all();
+}
+
+export function countCharactersByAccount(db: AppDatabase, accountName: string): number {
+  return listCharactersByAccount(db, accountName).length;
+}
+
+export function findCharacterByNameOnAccount(
+  db: AppDatabase,
+  accountName: string,
+  name: string
+): Character | undefined {
+  return db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.accountName, accountName), eq(characters.name, name)))
+    .get();
+}
+
 export function createCharacter(
   db: AppDatabase,
   opts: CreateCharacterOptions = {}
 ): Character {
   const classId = opts.classId ?? DEFAULT_CLASS_ID;
   const sex = opts.sex ?? DEFAULT_SEX;
+  const accountName = opts.accountName ?? '';
+  const name = opts.name?.trim() ?? STARTER_NAME;
+
+  if (accountName && opts.name !== undefined && !isValidCharacterName(name)) {
+    throw new Error('invalid character name');
+  }
+  if (accountName && findCharacterByNameOnAccount(db, accountName, name)) {
+    throw new Error('duplicate character name');
+  }
+  if (accountName && countCharactersByAccount(db, accountName) >= MAX_CHARACTERS_PER_ACCOUNT) {
+    throw new Error('character cap reached');
+  }
 
   const vitals = loadClassVitalsAtLevel(db, classId, 1) ?? {
     maxHp: 100,
@@ -143,7 +204,8 @@ export function createCharacter(
 
   const row: Character = {
     id: randomUUID(),
-    name: STARTER_NAME,
+    name,
+    accountName,
     classId,
     sex,
     level: 1,
@@ -221,6 +283,7 @@ export function saveCharacter(db: AppDatabase, row: Character): void {
         bonusWit: row.bonusWit,
         bonusMen: row.bonusMen,
         pvpFlagEndMs: row.pvpFlagEndMs,
+        accountName: row.accountName,
       },
     })
     .run();
