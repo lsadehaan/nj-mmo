@@ -184,6 +184,10 @@ async function learnSkillAtBitz(
   sessionId: string,
   skillId: number
 ): Promise<void> {
+  const player = room.state.players.get(sessionId)!;
+  const stored = room['characters'].get(sessionId)!;
+  player.sp = Math.max(player.sp, 5000);
+  stored.sp = player.sp;
   placePlayerAtNpc(room, sessionId, BITZ_NPC_ID);
   await deliver(room, client, [
     ['interact', { npcId: BITZ_NPC_ID }],
@@ -197,9 +201,30 @@ async function learnSkillAtBaulro(
   sessionId: string,
   skillId: number
 ): Promise<void> {
+  const player = room.state.players.get(sessionId)!;
+  const stored = room['characters'].get(sessionId)!;
+  player.sp = Math.max(player.sp, 5000);
+  stored.sp = player.sp;
   placePlayerAtNpc(room, sessionId, BAULRO_NPC_ID);
   await deliver(room, client, [
     ['interact', { npcId: BAULRO_NPC_ID }],
+    ['learnSkill', { skillId }],
+  ]);
+}
+
+async function learnSkillAtVivyan(
+  room: TestRoom,
+  client: TestClient,
+  sessionId: string,
+  skillId: number
+): Promise<void> {
+  const player = room.state.players.get(sessionId)!;
+  const stored = room['characters'].get(sessionId)!;
+  player.sp = Math.max(player.sp, 5000);
+  stored.sp = player.sp;
+  placePlayerAtNpc(room, sessionId, NPC_TEST_COORDS.vivyan);
+  await deliver(room, client, [
+    ['interact', { npcId: NPC_TEST_COORDS.vivyan }],
     ['learnSkill', { skillId }],
   ]);
 }
@@ -4028,11 +4053,7 @@ describe('Phase 24 town services', () => {
       const room = await createIsolatedTownRoom({ dbPath });
       const client = await joinWithClass(room, { classId: 10, sex: 0 });
       setPlayerLevel(room, client.sessionId, 7);
-      placePlayerAtNpc(room, client.sessionId, VIVYAN);
-      await deliver(room, client, [
-        ['interact', { npcId: VIVYAN }],
-        ['learnSkill', { skillId: 1068 }],
-      ]);
+      await learnSkillAtVivyan(room, client, client.sessionId, 1068);
       const known = [...(room.state.players.get(client.sessionId)!.knownSkillIds)];
       expect(known).toContain(1068);
       await leaveRoom(room, client);
