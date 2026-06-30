@@ -109,6 +109,7 @@ import {
   migrateLegacyWeapon,
   type EquipmentRow,
 } from '../db/equipment-repository';
+import { ensureConBonusesRegistered } from '../bootstrap/stat-bonuses';
 import {
   applyEquipTransaction,
   applyUnequipTransaction,
@@ -1185,6 +1186,7 @@ export class TownRoom extends Room<{ state: TownState }> {
   }
 
   private loadClassTemplateData(): void {
+    ensureConBonusesRegistered();
     this.classTemplatesById.clear();
     this.classVitalsByClassId.clear();
     for (const row of this.db.select().from(classTemplates).all()) {

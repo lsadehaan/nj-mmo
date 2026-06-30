@@ -104,8 +104,8 @@ describe('wireRoom TI NPC roster (unit)', () => {
     initGameState();
   });
 
-  it('TOWN24-14: syncs 25 TI NPCs with mesh renderKind on __GAME_STATE__.npcs', () => {
-    expect(TI_NPC_MANIFEST_IDS).toHaveLength(25);
+  it('TOWN24-14: syncs 26 TI NPCs with mesh renderKind on __GAME_STATE__.npcs', () => {
+    expect(TI_NPC_MANIFEST_IDS).toHaveLength(26);
 
     const scene = new THREE.Scene();
     const meshMap = new Map<string, THREE.Group>();
@@ -147,7 +147,7 @@ describe('wireRoom TI NPC roster (unit)', () => {
       })
     );
 
-    expect(getGameState().npcs).toHaveLength(25);
+    expect(getGameState().npcs).toHaveLength(26);
     expect(getGameState().npcs[0]?.npcId).toBe(30001);
     for (const npc of getGameState().npcs) {
       expect(npc.renderKind).toBe('mesh');

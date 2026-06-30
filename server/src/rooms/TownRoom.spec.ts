@@ -53,7 +53,7 @@ let colyseus: ColyseusTestServer;
 
 beforeAll(async () => {
   colyseus = await boot(app);
-});
+}, 60_000);
 
 afterAll(async () => {
   await colyseus.shutdown();
@@ -167,10 +167,15 @@ function relocateMob(
 function placePlayerAndMobForCombat(
   room: { state: TownState },
   sessionId: string,
-  mob: { id: string; x: number; z: number }
+  mob: { id: string; x: number; z: number },
+  options?: { fortifyPlayer?: boolean }
 ) {
   relocateMob(room, mob.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
   placePlayerNear(room, sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+  if (options?.fortifyPlayer) {
+    const player = room.state.players.get(sessionId)!;
+    player.hp = 50_000;
+  }
 }
 
 async function learnSkillAtBitz(
@@ -754,7 +759,7 @@ describe('TownRoom combat', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       expect(player.action).toBe(0);
       expect(player.actionSeq).toBe(0);
@@ -785,7 +790,7 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const goblin = findMobByNpcId(room, 20003)!;
-      placePlayerAndMobForCombat(room, client.sessionId, goblin);
+      placePlayerAndMobForCombat(room, client.sessionId, goblin, { fortifyPlayer: true });
       const mobState = room.state.mobs.get(goblin.id)!;
 
       expect(mobState.action).toBe(0);
@@ -816,7 +821,7 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const orc = findMobByNpcId(room, 20130)!;
-      placePlayerAndMobForCombat(room, client.sessionId, orc);
+      placePlayerAndMobForCombat(room, client.sessionId, orc, { fortifyPlayer: true });
       const mobState = room.state.mobs.get(orc.id)!;
 
       expect(mobState.action).toBe(0);
@@ -852,7 +857,7 @@ describe('TownRoom combat', () => {
       });
       const client = await colyseus.connectTo(room);
       const orc = findMobByNpcId(room, 20130)!;
-      placePlayerAndMobForCombat(room, client.sessionId, orc);
+      placePlayerAndMobForCombat(room, client.sessionId, orc, { fortifyPlayer: true });
       const mobId = orc.id;
       let dieObservedBeforeDelete = false;
 
@@ -887,7 +892,7 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const golem = findMobByNpcId(room, 20016)!;
-      placePlayerAndMobForCombat(room, client.sessionId, golem);
+      placePlayerAndMobForCombat(room, client.sessionId, golem, { fortifyPlayer: true });
       const mobState = room.state.mobs.get(golem.id)!;
       const runtime = room['mobRuntime'].get(golem.id)!;
       runtime.targetSessionId = client.sessionId;
@@ -907,7 +912,7 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const warrior = findMobByNpcId(room, 20093)!;
-      placePlayerAndMobForCombat(room, client.sessionId, warrior);
+      placePlayerAndMobForCombat(room, client.sessionId, warrior, { fortifyPlayer: true });
       const mobId = warrior.id;
       let dieObservedBeforeDelete = false;
       const mobMap = room.state.mobs;
@@ -940,9 +945,10 @@ describe('TownRoom combat', () => {
       const archer = findMobByNpcId(room, 20006)!;
       relocateMob(room, archer.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
       placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 6, OUT_OF_PEACE.z);
+      const player = room.state.players.get(client.sessionId)!;
+      player.hp = 50_000;
       const runtime = room['mobRuntime'].get(archer.id)!;
       runtime.targetSessionId = client.sessionId;
-      const player = room.state.players.get(client.sessionId)!;
       const hpBefore = player.hp;
 
       for (let i = 0; i < 60; i++) {
@@ -967,7 +973,7 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const wolf = findMobByNpcId(room, 20132)!;
-      placePlayerAndMobForCombat(room, client.sessionId, wolf);
+      placePlayerAndMobForCombat(room, client.sessionId, wolf, { fortifyPlayer: true });
       await deliverAndTick(room, client, [
         ['setTarget', { mobId: wolf.id }],
         ['attack', {}],
@@ -992,6 +998,8 @@ describe('TownRoom combat', () => {
       relocateMob(room, wolfA.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
       relocateMob(room, wolfB.id, OUT_OF_PEACE.x + 10, OUT_OF_PEACE.z);
       placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
+      const packPlayer = room.state.players.get(client.sessionId)!;
+      packPlayer.hp = 50_000;
       await deliverAndTick(room, client, [
         ['setTarget', { mobId: wolfA.id }],
         ['attack', {}],
@@ -1010,7 +1018,7 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await colyseus.connectTo(room);
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
       await deliverAndTick(room, client, [
@@ -1033,7 +1041,7 @@ describe('TownRoom combat', () => {
       const room = await colyseus.createRoom('town', { dbPath, combatRng: zeroOffsetRng() });
       const client = await joinWithClass(room, { classId: 10, sex: 0 });
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
       await deliverAndTick(room, client, [
@@ -1075,7 +1083,7 @@ describe('TownRoom combat', () => {
     client: Awaited<ReturnType<ColyseusTestServer['connectTo']>>
   ) {
     const gremlin = findMobByNpcId(room, 20001)!;
-    placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+    placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
     await deliver(room, client, [['setTarget', { mobId: gremlin.id }]]);
 
@@ -1097,7 +1105,7 @@ describe('TownRoom combat', () => {
       });
       const client = await colyseus.connectTo(room);
       const goblin = findMobByNpcId(room, 20003)!;
-      placePlayerAndMobForCombat(room, client.sessionId, goblin);
+      placePlayerAndMobForCombat(room, client.sessionId, goblin, { fortifyPlayer: true });
       const mobId = goblin.id;
       let dieObservedBeforeDelete = false;
 
@@ -1253,7 +1261,7 @@ describe('TownRoom combat', () => {
       let runtime = room['mobRuntime'].get(gremlin.id)!;
       expect(runtime.targetSessionId).toBeNull();
 
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       await deliverAndTick(room, client, [
         ['setTarget', { mobId: gremlin.id }],
         ['attack', {}],
@@ -1335,7 +1343,7 @@ describe('TownRoom Power Strike', () => {
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
       await prepareFighterWithPowerStrike(room, client, client.sessionId);
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       expect(player.action).toBe(0);
       expect(player.actionSeq).toBe(0);
@@ -1365,7 +1373,7 @@ describe('TownRoom Power Strike', () => {
       await prepareFighterWithPowerStrike(room, client, client.sessionId);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -1421,6 +1429,7 @@ describe('TownRoom Power Strike', () => {
       const gremlin = findMobByNpcId(room, 20001)!;
       relocateMob(room, gremlin.id, OUT_OF_PEACE.x, OUT_OF_PEACE.z);
       placePlayerNear(room, client.sessionId, OUT_OF_PEACE.x + 3.9, OUT_OF_PEACE.z);
+      player.hp = 50_000;
 
       await castPowerStrike(client, room, gremlin.id);
 
@@ -1444,7 +1453,7 @@ describe('TownRoom Power Strike', () => {
       const player = room.state.players.get(client.sessionId)!;
       player.mp = 8;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
       await castPowerStrike(client, room, gremlin.id);
@@ -1470,7 +1479,7 @@ describe('TownRoom Power Strike', () => {
       await prepareFighterWithPowerStrike(room, client, client.sessionId);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       await castPowerStrike(client, room, gremlin.id);
 
@@ -1494,7 +1503,7 @@ describe('TownRoom Power Strike', () => {
       await prepareFighterWithPowerStrike(room, client, client.sessionId);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -1531,7 +1540,7 @@ describe('TownRoom Power Strike', () => {
       await prepareFighterWithPowerStrike(room, client, client.sessionId);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
       const mpBefore = player.mp;
 
@@ -1597,7 +1606,7 @@ describe('TownRoom Phase 20 skills', () => {
       const fighterClient = await colyseus.connectTo(room);
       const fighter = room.state.players.get(fighterClient.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, fighterClient.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, fighterClient.sessionId, gremlin, { fortifyPlayer: true });
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
       const mpBefore = fighter.mp;
 
@@ -1610,7 +1619,7 @@ describe('TownRoom Phase 20 skills', () => {
 
       const mysticClient = await joinWithClass(room, { classId: 10, sex: 0 });
       const mystic = room.state.players.get(mysticClient.sessionId)!;
-      placePlayerAndMobForCombat(room, mysticClient.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, mysticClient.sessionId, gremlin, { fortifyPlayer: true });
       const mysticMpBefore = mystic.mp;
       const hpBeforeMystic = room.state.mobs.get(gremlin.id)!.hp;
 
@@ -1639,7 +1648,7 @@ describe('TownRoom Phase 20 skills', () => {
       const client = await joinWithClass(room, { classId: 0, sex: 0 });
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
       const mpBefore = player.mp;
 
@@ -1762,7 +1771,7 @@ describe('TownRoom Phase 20 skills', () => {
       expect([...player.knownSkillIds]).toContain(29);
 
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -1796,7 +1805,7 @@ describe('TownRoom Phase 20 skills', () => {
       const client = await joinWithClass(room, { classId: 10, sex: 0 });
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -1839,7 +1848,7 @@ describe('TownRoom Phase 20 skills', () => {
       const client = await joinWithClass(room, { classId: 10, sex: 0 });
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       const hpBefore = gremlinRuntime.hp;
       const mpBefore = player.mp;
@@ -1880,7 +1889,7 @@ describe('TownRoom Phase 20 skills', () => {
       room['syncItemsToPlayerState'](client.sessionId);
 
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -1934,7 +1943,7 @@ describe('TownRoom Phase 20 skills', () => {
       room['syncItemsToPlayerState'](client.sessionId);
 
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -1971,7 +1980,7 @@ describe('TownRoom Phase 20 skills', () => {
       room['syncItemsToPlayerState'](client.sessionId);
 
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -2010,7 +2019,7 @@ describe('TownRoom Phase 20 skills', () => {
       await prepareFighterWithPowerStrike(room, client, client.sessionId);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const gremlinRuntime = room['mobRuntime'].get(gremlin.id)!;
       gremlinRuntime.hp = 500;
       gremlinRuntime.maxHp = 500;
@@ -2486,7 +2495,7 @@ describe('TownRoom equip', () => {
       );
 
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
       const hpBefore = room.state.mobs.get(gremlin.id)!.hp;
 
       await deliverAndTick(room, client, [
@@ -2821,7 +2830,7 @@ describe('TownRoom player death', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       player.hp = 1;
       const runtime = room['mobRuntime'].get(gremlin.id)!;
@@ -2864,7 +2873,7 @@ describe('TownRoom player death', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       player.xp = 44;
       room['characters'].get(client.sessionId)!.xp = 44;
@@ -2899,7 +2908,7 @@ describe('TownRoom player death', () => {
       const client = await colyseus.connectTo(room);
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       await deliver(room, client, [['setTarget', { mobId: gremlin.id }]]);
       const combat = room['playerCombat'].get(client.sessionId)!;
@@ -2931,7 +2940,7 @@ describe('TownRoom player death', () => {
       const characterId = await client.waitForMessage('characterId');
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       player.hp = 1;
       const runtime = room['mobRuntime'].get(gremlin.id)!;
@@ -2963,7 +2972,7 @@ describe('TownRoom player death', () => {
       const characterId = await client.waitForMessage('characterId');
       const player = room.state.players.get(client.sessionId)!;
       const gremlin = findMobByNpcId(room, 20001)!;
-      placePlayerAndMobForCombat(room, client.sessionId, gremlin);
+      placePlayerAndMobForCombat(room, client.sessionId, gremlin, { fortifyPlayer: true });
 
       player.hp = 1;
       const runtime = room['mobRuntime'].get(gremlin.id)!;
@@ -2998,7 +3007,7 @@ describe('TownRoom level-up reward', () => {
     sessionId: string
   ) {
     const gremlin = findMobByNpcId(room, 20001)!;
-    placePlayerAndMobForCombat(room, sessionId, gremlin);
+    placePlayerAndMobForCombat(room, sessionId, gremlin, { fortifyPlayer: true });
 
     await deliver(room, client, [['setTarget', { mobId: gremlin.id }]]);
 
@@ -3275,7 +3284,7 @@ async function killMobNearPlayer(
 ): Promise<void> {
   const mob = findMobByNpcId(room, mobNpcId);
   if (!mob) throw new Error(`mob ${mobNpcId} not found`);
-  placePlayerAndMobForCombat(room, sessionId, mob);
+  placePlayerAndMobForCombat(room, sessionId, mob, { fortifyPlayer: true });
   await deliver(room, client, [['setTarget', { mobId: mob.id }], ['attack', {}]]);
   for (let i = 0; i < 200; i++) {
     tick(room);

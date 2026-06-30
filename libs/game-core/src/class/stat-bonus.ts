@@ -66,3 +66,7 @@ export function registerIntBonusEntries(entries: Record<number, number>): void {
 export function registerDexBonusEntries(entries: Record<number, number>): void {
   Object.assign(DEX_BONUS, entries);
 }
+
+export function registerConBonusEntries(entries: Record<number, number>): void {
+  Object.assign(CON_BONUS, entries);
+}
