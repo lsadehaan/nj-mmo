@@ -90,10 +90,145 @@ const NPC_MANIFEST: Record<number, NpcEntry> = {
     feetOffsetY: 0.75,
     displayName: 'Bitz',
   },
+  30027: {
+    model: '/models/npcs/Gwinter.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Gwinter',
+  },
+  30028: {
+    model: '/models/npcs/Pintage.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Pintage',
+  },
+  30029: {
+    model: '/models/npcs/Minia.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Minia',
+  },
+  30030: {
+    model: '/models/npcs/Vivyan.glb',
+    clipMap: KATERINA_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Vivyan',
+  },
+  30031: {
+    model: '/models/npcs/Biotin.glb',
+    clipMap: KATERINA_CLIP_MAP,
+    scale: 0.86,
+    feetOffsetY: 0.75,
+    displayName: 'Biotin',
+  },
+  30032: {
+    model: '/models/npcs/Yohanes.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Yohanes',
+  },
+  30033: {
+    model: '/models/npcs/Baulro.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Baulro',
+  },
+  30034: {
+    model: '/models/npcs/Iris.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Iris',
+  },
+  30035: {
+    model: '/models/npcs/Harrys.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Harrys',
+  },
+  30036: {
+    model: '/models/npcs/Petron.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.84,
+    feetOffsetY: 0.75,
+    displayName: 'Petron',
+  },
+  30039: {
+    model: '/models/npcs/GuardKnightA.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Gilbert',
+  },
+  30040: {
+    model: '/models/npcs/GuardKnightA.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Leon',
+  },
+  30041: {
+    model: '/models/npcs/GuardKnightB.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Arnold',
+  },
+  30042: {
+    model: '/models/npcs/GuardKnightB.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Abellos',
+  },
+  30043: {
+    model: '/models/npcs/GuardKnightC.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Johnstone',
+  },
+  30044: {
+    model: '/models/npcs/GuardKnightC.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Chiperan',
+  },
+  30045: {
+    model: '/models/npcs/GuardKnightD.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Kenyos',
+  },
+  30046: {
+    model: '/models/npcs/GuardKnightD.glb',
+    clipMap: KAYKIT_NPC_CLIP_MAP,
+    scale: 0.9,
+    feetOffsetY: 0.75,
+    displayName: 'Hanks',
+  },
 };
 
 export function getNpcEntry(npcId: number): NpcEntry | null {
   return NPC_MANIFEST[npcId] ?? null;
 }
 
-export const TI_NPC_MANIFEST_IDS = [30001, 30002, 30003, 30004, 30005, 30006, 30026] as const;
+export const TI_NPC_MANIFEST_IDS = [
+  30001, 30002, 30003, 30004, 30005, 30006, 30026, 30027, 30028, 30029, 30030,
+  30031, 30032, 30033, 30034, 30035, 30036, 30039, 30040, 30041, 30042, 30043,
+  30044, 30045, 30046,
+] as const;
+
+/** Folk trainers that expose learnSkill (excludes Biotin 30031). */
+export const FOLK_TRAINER_NPC_IDS = TI_NPC_MANIFEST_IDS.filter(
+  (id) => id >= 30027 && id <= 30036 && id !== 30031
+);
