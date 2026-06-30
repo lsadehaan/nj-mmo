@@ -232,3 +232,6 @@ export const TI_NPC_MANIFEST_IDS = [
 export const FOLK_TRAINER_NPC_IDS = TI_NPC_MANIFEST_IDS.filter(
   (id) => id >= 30027 && id <= 30036 && id !== 30031
 );
+
+/** Bitz plus all folk trainers (learnSkill NPCs). */
+export const TRAINER_NPC_IDS = [30026, ...FOLK_TRAINER_NPC_IDS] as const;

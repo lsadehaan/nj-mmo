@@ -6,6 +6,8 @@ import {
   ROXXY_CLIP_MAP,
   WILFORD_CLIP_MAP,
   TI_NPC_MANIFEST_IDS,
+  FOLK_TRAINER_NPC_IDS,
+  TRAINER_NPC_IDS,
 } from './npc-manifest';
 import { KAYKIT_CLIP_MAP } from './mesh-character';
 
@@ -70,5 +72,15 @@ describe('npc-manifest', () => {
 
   it('returns null for unknown npcId', () => {
     expect(getNpcEntry(99999)).toBeNull();
+  });
+
+  it('TRAINER_NPC_IDS includes folk 30027–30036 except Biotin plus Bitz (TOWN24-17)', () => {
+    const expectedFolk = [
+      30027, 30028, 30029, 30030, 30032, 30033, 30034, 30035, 30036,
+    ];
+    expect(FOLK_TRAINER_NPC_IDS).toEqual(expectedFolk);
+    expect(TRAINER_NPC_IDS).toEqual([30026, ...expectedFolk]);
+    expect(TRAINER_NPC_IDS).not.toContain(30031);
+    expect(TRAINER_NPC_IDS).toHaveLength(10);
   });
 });

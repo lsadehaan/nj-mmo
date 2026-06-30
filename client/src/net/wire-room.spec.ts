@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import * as THREE from 'three';
 import {
   initGameState,
   getGameState,
@@ -9,7 +10,13 @@ import {
   setNpcs,
 } from '../test-hook';
 import { getZoneAt } from '@nj/game-core';
-import { TI_NPC_MANIFEST_IDS } from '../scene/creature/npc-manifest';
+import { getNpcEntry, TI_NPC_MANIFEST_IDS } from '../scene/creature/npc-manifest';
+import {
+  createNpcInstanceMap,
+  getNpcHookEntries,
+  npcStateToVisual,
+  syncNpcVisual,
+} from '../scene/npc-renderer';
 
 describe('wireRoom mob sync (unit)', () => {
   beforeEach(() => {
@@ -97,21 +104,54 @@ describe('wireRoom TI NPC roster (unit)', () => {
     initGameState();
   });
 
-  it('TOWN24-14: manifest lists 25 TI NPC ids for mesh polling', () => {
+  it('TOWN24-14: syncs 25 TI NPCs with mesh renderKind on __GAME_STATE__.npcs', () => {
     expect(TI_NPC_MANIFEST_IDS).toHaveLength(25);
-    setNpcs(
-      TI_NPC_MANIFEST_IDS.map((npcId, i) => ({
+
+    const scene = new THREE.Scene();
+    const meshMap = new Map<string, THREE.Group>();
+    const instances = createNpcInstanceMap();
+    const snapshots = new Map<
+      string,
+      ReturnType<typeof npcStateToVisual>
+    >();
+
+    for (const npcId of TI_NPC_MANIFEST_IDS) {
+      const id = `npc-${npcId}`;
+      const serverNpc = {
+        id,
         npcId,
-        name: `Npc${npcId}`,
         type: 'Folk',
-        x: i,
+        x: 0,
         y: 4,
         z: 0,
-        action: 'idle' as const,
-      }))
+      };
+      syncNpcVisual(meshMap, instances, npcStateToVisual(serverNpc), scene);
+      snapshots.set(id, npcStateToVisual(serverNpc));
+    }
+
+    const hooks = getNpcHookEntries(instances, snapshots);
+    setNpcs(
+      hooks.map((hook) => {
+        const snap = snapshots.get(hook.npcKey)!;
+        const entry = getNpcEntry(hook.npcId);
+        return {
+          npcId: hook.npcId,
+          name: entry?.displayName ?? `Npc${hook.npcId}`,
+          type: 'Folk',
+          x: snap.x,
+          y: snap.y,
+          z: snap.z,
+          renderKind: hook.renderKind,
+          action: hook.action,
+        };
+      })
     );
+
     expect(getGameState().npcs).toHaveLength(25);
     expect(getGameState().npcs[0]?.npcId).toBe(30001);
+    for (const npc of getGameState().npcs) {
+      expect(npc.renderKind).toBe('mesh');
+    }
   });
 });
 
