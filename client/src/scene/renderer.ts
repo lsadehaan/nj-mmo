@@ -46,6 +46,13 @@ import type { AudioManager } from '../audio/audio-manager';
 const WORLD_SEED = TERRAIN_CONFIG.seed;
 const TERRAIN_OPTS = TERRAIN_CONFIG;
 
+/** Barely-there world-edge fog: stays fully outside gameplay-relevant range. */
+export const FOG_NEAR_M = MOB_RENDER_DISTANCE * 1.5;
+export const FOG_FAR_M = MOB_RENDER_DISTANCE * 3;
+/** Single directional shadow map covering the local player's immediate surroundings. */
+export const SUN_SHADOW_MAP_SIZE = 2048;
+export const SUN_SHADOW_FRUSTUM_M = 100;
+
 function mobDistanceSq(x: number, z: number, playerX: number, playerZ: number): number {
   const dx = x - playerX;
   const dz = z - playerZ;
@@ -157,12 +164,17 @@ function findMobId(object: THREE.Object3D): string | null {
 }
 
 export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRenderer> {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87ceeb);
+  scene.fog = new THREE.Fog(0x87ceeb, FOG_NEAR_M, FOG_FAR_M);
 
   const camera = new THREE.PerspectiveCamera(
     60,
@@ -174,6 +186,15 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const sun = new THREE.DirectionalLight(0xffffff, 0.85);
   sun.position.set(30, 50, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(SUN_SHADOW_MAP_SIZE, SUN_SHADOW_MAP_SIZE);
+  sun.shadow.camera.left = -SUN_SHADOW_FRUSTUM_M;
+  sun.shadow.camera.right = SUN_SHADOW_FRUSTUM_M;
+  sun.shadow.camera.top = SUN_SHADOW_FRUSTUM_M;
+  sun.shadow.camera.bottom = -SUN_SHADOW_FRUSTUM_M;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 220;
+  sun.shadow.camera.updateProjectionMatrix();
   scene.add(sun);
 
   const terrainData = generateTerrain(WORLD_SEED, TERRAIN_OPTS);

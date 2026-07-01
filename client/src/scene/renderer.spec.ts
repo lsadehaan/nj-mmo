@@ -10,6 +10,10 @@ const { mockVfxTick, mockVfxPublishHook, mockTickFootsteps } = vi.hoisted(() => 
   mockTickFootsteps: vi.fn(),
 }));
 
+const { mockWebGLRendererParams } = vi.hoisted(() => ({
+  mockWebGLRendererParams: [] as unknown[],
+}));
+
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>();
   class MockWebGLRenderer {
@@ -17,6 +21,12 @@ vi.mock('three', async (importOriginal) => {
     setSize = vi.fn();
     render = vi.fn();
     dispose = vi.fn();
+    shadowMap = { enabled: false, type: 0 };
+    toneMapping = 0;
+    outputColorSpace = '';
+    constructor(params: unknown) {
+      mockWebGLRendererParams.push(params);
+    }
   }
   return {
     ...actual,
@@ -63,13 +73,21 @@ vi.mock('./player-avatar', () => ({
   })),
 }));
 
-import { createRenderer } from './renderer';
+import { MOB_RENDER_DISTANCE } from '@nj/game-core';
+import {
+  createRenderer,
+  FOG_NEAR_M,
+  FOG_FAR_M,
+  SUN_SHADOW_MAP_SIZE,
+  SUN_SHADOW_FRUSTUM_M,
+} from './renderer';
 
 describe('renderer', () => {
   beforeEach(() => {
     initGameState();
     mockVfxTick.mockClear();
     mockVfxPublishHook.mockClear();
+    mockWebGLRendererParams.length = 0;
     vi.useFakeTimers();
     vi.setSystemTime(1000);
 
@@ -105,5 +123,66 @@ describe('renderer', () => {
 
     expect(tickSpy).toHaveBeenCalledTimes(1);
     expect(tickSpy.mock.calls[0]?.[0]).toMatchObject({ x: expect.any(Number), z: expect.any(Number) });
+  });
+
+  describe('VFU-01/05/06/07/08/09/10: visual fidelity renderer config', () => {
+    it('VFU-05: constructs WebGLRenderer with antialias enabled', async () => {
+      const canvas = document.createElement('canvas');
+      await createRenderer(canvas);
+
+      expect(mockWebGLRendererParams[0]).toMatchObject({ antialias: true });
+    });
+
+    it('VFU-01: enables a soft PCF shadow map on the renderer', async () => {
+      const canvas = document.createElement('canvas');
+      const game = await createRenderer(canvas);
+
+      expect(game.renderer.shadowMap.enabled).toBe(true);
+      expect(game.renderer.shadowMap.type).toBe(THREE.PCFSoftShadowMap);
+    });
+
+    it('VFU-01: configures the sun as a shadow caster with the sized frustum', async () => {
+      const canvas = document.createElement('canvas');
+      const game = await createRenderer(canvas);
+
+      const sun = game.scene.children.find(
+        (c): c is THREE.DirectionalLight => c instanceof THREE.DirectionalLight
+      );
+      expect(sun).toBeDefined();
+      expect(sun!.castShadow).toBe(true);
+      expect(sun!.shadow.mapSize.width).toBe(SUN_SHADOW_MAP_SIZE);
+      expect(sun!.shadow.mapSize.height).toBe(SUN_SHADOW_MAP_SIZE);
+      expect(sun!.shadow.camera.left).toBe(-SUN_SHADOW_FRUSTUM_M);
+      expect(sun!.shadow.camera.right).toBe(SUN_SHADOW_FRUSTUM_M);
+      expect(sun!.shadow.camera.top).toBe(SUN_SHADOW_FRUSTUM_M);
+      expect(sun!.shadow.camera.bottom).toBe(-SUN_SHADOW_FRUSTUM_M);
+    });
+
+    it('VFU-06: sets ACES filmic tonemapping and sRGB output color space', async () => {
+      const canvas = document.createElement('canvas');
+      const game = await createRenderer(canvas);
+
+      expect(game.renderer.toneMapping).toBe(THREE.ACESFilmicToneMapping);
+      expect(game.renderer.outputColorSpace).toBe(THREE.SRGBColorSpace);
+    });
+
+    it('VFU-08/09/10: attaches a barely-there fog matching the sky color', async () => {
+      const canvas = document.createElement('canvas');
+      const game = await createRenderer(canvas);
+
+      expect(game.scene.fog).toBeInstanceOf(THREE.Fog);
+      const fog = game.scene.fog as THREE.Fog;
+      expect(fog.color.getHex()).toBe(0x87ceeb);
+      expect(fog.near).toBe(FOG_NEAR_M);
+      expect(fog.far).toBe(FOG_FAR_M);
+      expect(fog.near).toBeGreaterThanOrEqual(MOB_RENDER_DISTANCE);
+      expect(fog.near).toBeLessThan(fog.far);
+      expect(fog.far).toBeLessThan(game.camera.far);
+    });
+
+    it('VFU-07: renderer factory does not throw under the mocked WebGLRenderer', async () => {
+      const canvas = document.createElement('canvas');
+      await expect(createRenderer(canvas)).resolves.toBeDefined();
+    });
   });
 });
