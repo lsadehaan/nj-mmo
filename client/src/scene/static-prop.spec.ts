@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {
   clearGltfStaticTemplateCache,
   cloneStaticProp,
+  createInstancedScatter,
   loadGltfStaticTemplate,
   type StaticPropTemplate,
 } from './static-prop';
@@ -64,5 +65,63 @@ describe('cloneStaticProp', () => {
       if (node.userData && 'mixer' in node.userData) mixerInUserData = true;
     });
     expect(mixerInUserData).toBe(false);
+  });
+
+  it('VFU-02: sets castShadow and receiveShadow on every cloned mesh', () => {
+    const root = cloneStaticProp(makeStaticTemplate());
+    let meshCount = 0;
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
+        meshCount++;
+        expect(node.castShadow).toBe(true);
+        expect(node.receiveShadow).toBe(true);
+      }
+    });
+    expect(meshCount).toBeGreaterThan(0);
+  });
+});
+
+describe('loadGltfStaticTemplate shadow flags', () => {
+  afterEach(() => {
+    clearGltfStaticTemplateCache();
+  });
+
+  it('VFU-02: sets castShadow and receiveShadow on every loaded template mesh', async () => {
+    const load = vi.fn(
+      (_url: string, onLoad: (gltf: { scene: THREE.Group }) => void) => {
+        onLoad(makeStaticTemplate());
+      }
+    );
+    const loader = { load } as unknown as import('three/examples/jsm/loaders/GLTFLoader.js').GLTFLoader;
+
+    const template = await loadGltfStaticTemplate('/models/props/environment/shadow-flags.glb', loader);
+
+    let meshCount = 0;
+    template.scene.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
+        meshCount++;
+        expect(node.castShadow).toBe(true);
+        expect(node.receiveShadow).toBe(true);
+      }
+    });
+    expect(meshCount).toBeGreaterThan(0);
+  });
+});
+
+describe('createInstancedScatter shadow flags', () => {
+  it('VFU-02: sets castShadow and receiveShadow on every returned InstancedMesh', () => {
+    const template = makeStaticTemplate();
+    const placements = [
+      { x: 0, y: 0, z: 0, scale: 1 },
+      { x: 5, y: 0, z: 5, scale: 1 },
+    ];
+
+    const instanced = createInstancedScatter(template, placements, 'tree');
+
+    expect(instanced.length).toBeGreaterThan(0);
+    for (const mesh of instanced) {
+      expect(mesh.castShadow).toBe(true);
+      expect(mesh.receiveShadow).toBe(true);
+    }
   });
 });

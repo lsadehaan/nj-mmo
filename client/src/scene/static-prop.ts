@@ -39,6 +39,7 @@ export function loadGltfStaticTemplate(
         scene.traverse((node) => {
           if (node instanceof THREE.Mesh) {
             node.castShadow = true;
+            node.receiveShadow = true;
           }
         });
         resolve({ scene });
@@ -70,6 +71,7 @@ export function cloneStaticProp(
   cloned.traverse((node) => {
     if (node instanceof THREE.Mesh) {
       node.castShadow = true;
+      node.receiveShadow = true;
     }
   });
   root.add(cloned);
@@ -112,6 +114,7 @@ export function createInstancedScatter(
     instanced.name = `scatter-${kind}-${m}-instanced`;
     instanced.userData.scatterKind = kind;
     instanced.castShadow = true;
+    instanced.receiveShadow = true;
 
     for (let i = 0; i < placements.length; i++) {
       const p = placements[i];
