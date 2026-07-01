@@ -7,6 +7,9 @@ import {
   buildEnvironmentScene,
   placeScatterEnvironment,
   placeVillageEnvironment,
+  addBoxPrimitiveForTests,
+  addTreePrimitiveForTests,
+  addRockPrimitiveForTests,
 } from './environment-renderer';
 import { clearGltfStaticTemplateCache } from './static-prop';
 import { getScatterPropEntry } from './environment-manifest';
@@ -198,6 +201,38 @@ describe('placeScatterEnvironment', () => {
     expect(result.count).toBe(220);
     expect(result.renderKind).toBe('primitive');
     expect(scene.children.length).toBe(220);
+  });
+});
+
+describe('VFU-02: primitive-fallback shadow flags', () => {
+  it('addBoxPrimitive sets castShadow and receiveShadow', () => {
+    const mesh = addBoxPrimitiveForTests({
+      kind: 'building',
+      x: 0,
+      y: 1,
+      z: 0,
+      width: 2,
+      depth: 2,
+      height: 2,
+      color: 0x8b4513,
+    });
+    expect(mesh.castShadow).toBe(true);
+    expect(mesh.receiveShadow).toBe(true);
+  });
+
+  it('addTreePrimitive sets castShadow and receiveShadow on both trunk and foliage', () => {
+    const group = addTreePrimitiveForTests(0, 0, 0, 1);
+    expect(group.children).toHaveLength(2);
+    for (const child of group.children) {
+      expect((child as THREE.Mesh).castShadow).toBe(true);
+      expect((child as THREE.Mesh).receiveShadow).toBe(true);
+    }
+  });
+
+  it('addRockPrimitive sets castShadow and receiveShadow', () => {
+    const mesh = addRockPrimitiveForTests(0, 0, 0, 1);
+    expect(mesh.castShadow).toBe(true);
+    expect(mesh.receiveShadow).toBe(true);
   });
 });
 

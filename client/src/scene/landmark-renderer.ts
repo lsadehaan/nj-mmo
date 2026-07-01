@@ -25,6 +25,8 @@ function addLandmarkPrimitive(entry: LandmarkEntry, y: number): THREE.Group {
     new THREE.MeshStandardMaterial({ color, flatShading: true, side: THREE.DoubleSide })
   );
   mesh.position.y = 2;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   group.add(mesh);
   group.position.set(entry.x, y, entry.z);
   group.rotation.y = entry.yRotation;
@@ -39,7 +41,12 @@ export async function buildLandmarkScene(
 
   for (const entry of listLandmarkEntries()) {
     const y = opts.sampleHeight(entry.x, entry.z);
-    const template = await loadGltfStaticTemplate(entry.model, loader);
+    let template;
+    try {
+      template = await loadGltfStaticTemplate(entry.model, loader);
+    } catch {
+      template = null;
+    }
     if (template) {
       const prop = cloneStaticProp(template, {
         scale: entry.scale,

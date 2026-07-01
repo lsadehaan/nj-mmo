@@ -46,6 +46,8 @@ function addBoxPrimitive(spec: SceneObjectSpec): THREE.Mesh {
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(spec.x, spec.y, spec.z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   return mesh;
 }
 
@@ -56,11 +58,15 @@ function addTreePrimitive(x: number, y: number, z: number, scale: number): THREE
     new THREE.MeshLambertMaterial({ color: 0x5c4033, flatShading: true })
   );
   trunk.position.y = y + scale;
+  trunk.castShadow = true;
+  trunk.receiveShadow = true;
   const foliage = new THREE.Mesh(
     new THREE.ConeGeometry(1 * scale, 2.5 * scale, 6),
     new THREE.MeshLambertMaterial({ color: 0x228b22, flatShading: true })
   );
   foliage.position.y = y + 2.2 * scale;
+  foliage.castShadow = true;
+  foliage.receiveShadow = true;
   group.add(trunk, foliage);
   group.position.set(x, 0, z);
   return group;
@@ -72,6 +78,8 @@ function addRockPrimitive(x: number, y: number, z: number, scale: number): THREE
     new THREE.MeshLambertMaterial({ color: 0x808080, flatShading: true })
   );
   mesh.position.set(x, y + 0.4 * scale, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   return mesh;
 }
 
