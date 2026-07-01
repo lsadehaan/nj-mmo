@@ -11,16 +11,16 @@ description: >-
 # Spec-Driven Execution
 
 **Driver only.** All planning, task format, implementation rules, and validation
-live in **`tlc-spec-driven`**. This skill does not duplicate them.
+live in `tlc-spec-driven`. This skill does not duplicate them.
 
 ## What this repo adds
 
-| Delta | Meaning |
-| ----- | ------- |
-| **Sub-agent roles** | Planner → Implementer → Verifier, each a fresh Composer 2.5 sub-agent (`model: composer-2.5`). Orchestrator sequences them; never writes spec/code/tests. |
-| **Single Implementer** | One sub-agent runs every task in `tasks.md`. Skip tlc's per-phase worker offer. |
-| **Auto-commit in flow** | Implementer may commit per task without asking (only while this flow is active). |
-| **ROADMAP loop** | Autonomous mode walks `.specs/ROADMAP.md` one unchecked phase at a time. |
+| Delta                   | Meaning                                                                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sub-agent roles**     | Planner → Implementer → Verifier, each a fresh Composer 2.5 sub-agent (`model: composer-2.5`). Orchestrator sequences them; never writes spec/code/tests. |
+| **Single Implementer**  | One sub-agent runs every task in `tasks.md`. Skip tlc's per-phase worker offer.                                                                           |
+| **Auto-commit in flow** | Implementer may commit per task without asking (only while this flow is active).                                                                          |
+| **ROADMAP loop**        | Autonomous mode walks `.specs/ROADMAP.md` one unchecked phase at a time.                                                                                  |
 
 ## Orchestrator flow
 
@@ -35,13 +35,14 @@ live in **`tlc-spec-driven`**. This skill does not duplicate them.
 
 Sub-agents cannot see this chat. Each prompt is self-contained:
 
-1. **Activate `tlc-spec-driven` by name** and follow it for the assigned role (Specify/Design/Tasks, Execute, or Validate). If the skill cannot be activated, STOP.
+1. **Activate** `tlc-spec-driven` **by name** and follow it for the assigned role (Specify/Design/Tasks, Execute, or Validate). If the skill cannot be activated, STOP.
 2. **Feature context** — ROADMAP phase title + goal, feature slug, output dir `.specs/features/<feature>/`, repo path `/Users/wneto/Dev/nj`.
 3. **Autonomous mode** (loop / unattended) — resolve ambiguities as spec assumptions; no user confirmation gates.
 4. **Project glue** (below) — repo inputs tlc does not know about.
 5. **Role footnotes only:**
-   - *Implementer:* paths to existing `spec.md` / `design.md` / `tasks.md`; authorized to commit per task; do **not** run Verifier.
-   - *Verifier:* git diff/commit range for the feature; Implementer deviation summary if any.
+
+- _Implementer:_ paths to existing `spec.md` / `design.md` / `tasks.md`; authorized to commit per task; do **not** run Verifier.
+- _Verifier:_ git diff/commit range for the feature; Implementer deviation summary if any.
 
 Do not paste tlc templates, reference filenames, or quality rules into the prompt — the skill owns that.
 
@@ -53,19 +54,3 @@ Append to every sub-agent prompt. Point at repo docs; do not restate their conte
 - `.specs/STATE.md` — `## Decisions` (`AD-NNN`), `## Handoff`
 - `AGENTS.md` — testing contract for this monorepo
 - L2J Classic reference (parse only, never depend): `~/Dev/L2J_Mobius/L2J_Mobius_Classic_1.0/dist/game/data/`
-
-## Autonomous loop (`/loop`)
-
-1. First unchecked ROADMAP phase per dependency order; one phase per iteration.
-2. **Plan → Implement → Verify** with no human gates.
-3. Done only when `validation.md` records **PASS**.
-4. **On PASS** — ROADMAP + STATE update, commit, re-arm heartbeat.
-5. **On FAIL after 3 fix→re-verify** — blocker in Handoff; stop loop.
-
-Halt for a human only when genuinely stuck (unsatisfiable requirements, missing secret, destructive out-of-repo action, missing prerequisite).
-
-### Loop sentinel
-
-- `AGENT_LOOP_WAKE_ROADMAP {"prompt":"advance ROADMAP: run the next unchecked phase end-to-end"}`
-- Monitor: `^AGENT_LOOP_WAKE_ROADMAP`
-- Re-arm on PASS only (default `sleep 1800`); kill sleeper on FAIL
