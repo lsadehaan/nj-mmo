@@ -5,7 +5,7 @@ Guidance for AI agents working in this repository.
 ## What this project is
 
 A browser-playable, low-poly 3D multiplayer MVP of an MMORPG inspired by
-Lineage 2 — a Talking Island vertical slice. Authoritative Colyseus server,
+L2 — a Talking Island vertical slice. Authoritative Colyseus server,
 Three.js client, Nx monorepo (`server/` + `client/`), SQLite first.
 
 L2J_Mobius **Classic** (`~/Dev/L2J_Mobius/L2J_Mobius_Classic_1.0`) is a

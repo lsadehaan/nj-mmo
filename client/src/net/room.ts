@@ -84,7 +84,10 @@ export async function connect(
   } = {}
 ): Promise<Room> {
   const client = new Client(endpoint);
-  const characterId = options.characterId ?? getStoredCharacterId();
+  // An explicit `create` request always means "make a new character" — never
+  // fall back to a previously stored characterId, or we'd silently rejoin an
+  // existing character instead of creating the new one.
+  const characterId = options.characterId ?? (options.create ? undefined : getStoredCharacterId());
   if (characterId) {
     setCharacterId(characterId);
   }

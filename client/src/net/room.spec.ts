@@ -67,6 +67,29 @@ describe('room connect', () => {
     expect(storage['nj.characterId']).toBe('server-issued-uuid');
   });
 
+  it('sends create options instead of a stale stored characterId when creating a new character', async () => {
+    storage['nj.characterId'] = 'existing-character-uuid';
+
+    const mockRoom = {
+      sessionId: 'local-session',
+      onMessage: vi.fn(),
+      state: {
+        players: new Map([['local-session', {}]]),
+        mobs: new Map([['mob-1', { x: 0, z: 0 }]]),
+      },
+    };
+    mockJoinOrCreate.mockResolvedValue(mockRoom);
+
+    const { connect } = await import('./room');
+    await connect('http://test', {
+      create: { classId: 0, sex: 0, accountName: 'acct', name: 'SecondHero' },
+    });
+
+    expect(mockJoinOrCreate).toHaveBeenCalledWith('town', {
+      create: { classId: 0, sex: 0, accountName: 'acct', name: 'SecondHero' },
+    });
+  });
+
   it('joins without characterId when localStorage is empty', async () => {
     const mockRoom = {
       sessionId: 'local-session',

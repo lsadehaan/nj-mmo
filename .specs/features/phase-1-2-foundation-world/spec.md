@@ -3,7 +3,7 @@
 ## Problem Statement
 
 We have an empty repo and a mission to build a browser-playable, low-poly 3D
-multiplayer MVP MMORPG inspired by Lineage 2 (a Talking Island vertical slice).
+multiplayer MVP MMORPG inspired by L2 (a Talking Island vertical slice).
 Before any gameplay can exist, we need a working monorepo + dev loop, a data
 seed grounded in authentic L2J Classic values, and a navigable 3D world. This
 feature delivers exactly that: a runnable `npm run dev` where a single player

@@ -1,13 +1,64 @@
-# NJ — Browser MMO (Talking Island vertical slice)
+# 🏰 NJ MMO — A Talking Island Browser MMORPG
 
-A browser-playable, low-poly 3D multiplayer MVP inspired by Lineage 2 — a Talking
-Island vertical slice. Authoritative [Colyseus](https://colyseus.io/) server +
-[Three.js](https://threejs.org/) client in an [Nx](https://nx.dev/) monorepo
-(`server/` + `client/`), SQLite + Drizzle, seeded from L2J_Mobius Classic data.
+> A fully playable, low-poly 3D MMORPG that runs entirely in your browser —
+> an authoritative [Colyseus](https://colyseus.io/) server + a
+> [Three.js](https://threejs.org/) client, inspired by L2 Classic's Talking Island.
+> Every gameplay outcome is decided by the server; the client only renders and sends intent.
 
-The server is authoritative: all gameplay outcomes (movement, combat, XP, drops,
-skills, shop, peace zone) are decided and validated server-side; the client only
-renders state and sends intent.
+## 🧱 Built with
+
+- 🎮 **[Colyseus](https://colyseus.io/)** — authoritative multiplayer game server
+- 🌐 **[Three.js](https://threejs.org/)** — real-time 3D rendering in the browser
+- 📦 **[Nx](https://nx.dev/)** monorepo — `server/` + `client/` + shared `libs/game-core` rules
+- 🗄️ **SQLite + [Drizzle ORM](https://orm.drizzle.team/)** — persistence, seeded from L2J Classic data
+- ⚡ **[Vite](https://vitejs.dev/)** — client dev server & build
+- 🧪 **[Vitest](https://vitest.dev/) + `@colyseus/testing`** — unit + room-integration test gate
+- 🟦 **TypeScript** end to end (Node 22+)
+
+## ✨ What's actually playable
+
+This isn't a tech demo — all 29 roadmap phases are complete and independently verified.
+Here's what you can do right now:
+
+- 🗺️ **A full open world** — 640 m of explorable Talking Island (village, fields, Elven
+  Ruins, Obelisk, Harbor, Cave of Souls/Maze) across 6 named zones, with terrain-aware
+  movement, collision, and A\* pathfinding around buildings.
+- 🧝 **9 playable races & classes** — Human/Elf/Dark Elf/Orc/Dwarf Fighter & Mystic
+  paths, each with distinct stats, HP/MP curves, and a rigged 3D avatar.
+- ⚔️ **Real combat & skills** — server-validated melee and magic, MP costs and cooldowns,
+  soulshots/spiritshots, a cast bar with interrupt-on-hit, and buffs/debuffs.
+- 🐺 **A full bestiary** — 23+ authentic Talking Island monsters, each a rigged 3D
+  creature with idle/move/attack/die animations, ranged AI, and pack behavior.
+- 🏘️ **A living town** — 25 NPCs: weapon/armor/accessory merchants, a Warehouse Keeper
+  with real item storage, folk trainers, a High Priest who buffs and resurrects, guards,
+  Gatekeeper teleports, and first-class transfer at the Grand Master.
+- 📜 **17 quests**, including the full Tutorial chain, with kill/collect/talk objectives
+  and server-validated rewards and a quest log UI.
+- 🎒 **Items & economy** — ~87 items across 11 equipment slots (paper-doll), dwarven
+  crafting/recipes, safe +1..+3 enchanting, and set bonuses.
+- 🤝 **Social systems** — chat channels (all/local/trade/party), party with shared XP &
+  loot, player trade window, and a friend list.
+- 💀 **Progression & PvP** — death XP loss/restore via High Priest, PvP flag + karma,
+  delevel, and stat re-specialization at trainers.
+- 🖥️ **A real client shell** — login screen, character select, inventory grid, skill
+  window, quest log, party UI, minimap/world map, buff/debuff bars, and a
+  target-of-target frame.
+- 🎧 **Audio** — zone-appropriate music loops, combat/cast/UI SFX, and ambient world audio.
+
+## 🔒 Server-authoritative by design
+
+Every gameplay outcome — movement, damage, XP, drops, trades, skills — is decided and
+validated on the server; the client is never trusted. See [AGENTS.md](AGENTS.md) for the
+full testing contract.
+
+## 🧪 Tested like it matters
+
+A fast, deterministic test suite covers three layers — unit (server + client),
+Colyseus room-integration, and seed/data — with all randomness driven by an injected
+seeded RNG and no wall-clock sleeps. See [AGENTS.md](AGENTS.md) and
+[`.specs/ROADMAP.md`](.specs/ROADMAP.md) for the full phase-by-phase build history.
+
+---
 
 ## Prerequisites
 
@@ -51,18 +102,19 @@ real-time multiplayer.
 | **`E`** (near an NPC) | Interact — opens the merchant shop or NPC dialog |
 | **`I`** | Toggle inventory (equip a weapon) |
 
-## The MVP loop
+## Quick start loop
 
-1. Walk to **Roxxy** (helper NPC), press **`E`**, and claim the **starter kit**
+1. Create your character, pick a race/class at the selection screen.
+2. Walk to **Roxxy** (helper NPC), press **`E`**, and claim the **starter kit**
    (3× Healing Potion + Squire's Sword).
-2. Press **`I`** and **Equip** the Squire's Sword (melee damage 17 → 27).
-3. Head to the field, click a **monster**, and attack (**Space**) or cast
+3. Press **`I`** and **Equip** the Squire's Sword (melee damage 17 → 27).
+4. Head to the field, click a **monster**, and attack (**Space**) or cast
    **Power Strike** (**`2`**) to kill it and gain XP. Two kills reaches **level 2**
    (+max HP/MP).
-4. If a mob kills you, you **respawn in town** at full HP (no XP lost at low level).
-5. Back in town, press **`E`** at **Katerina** (merchant) to **buy** a Healing
+5. If a mob kills you, you **respawn in town** at full HP (no XP lost at low level).
+6. Back in town, press **`E`** at **Katerina** (merchant) to **buy** a Healing
    Potion (adena is deducted).
-6. Combat is **disabled inside the town peace zone** (enforced server-side).
+7. Combat is **disabled inside the town peace zone** (enforced server-side).
 
 ## Configuration
 
@@ -83,6 +135,3 @@ nx run-many -t build lint test   # full gate
 Tests assert server-defined outcomes; randomness runs through an injected seeded
 RNG. Client tests use `__GAME_STATE__` and DOM assertions. See `AGENTS.md` for
 the testing contract and `.specs/ROADMAP.md` for the phased build.
-
-> Public production deployment is deferred post-MVP; the slice runs locally via
-> `npm run dev`.
