@@ -159,8 +159,11 @@
 
 ## Handoff
 
-**Feature — Visual fidelity upgrade: COMPLETE (Verifier PASS, 2026-07-01).**
-`.specs/features/visual-fidelity-upgrade/validation.md` records the outcome.
+**Phase 30 — Visual fidelity upgrade: COMPLETE (independent Verifier PASS, 2026-07-01).**
+`.specs/features/visual-fidelity-upgrade/validation.md` records the outcome:
+14/14 ACs (VFU-01–14) spec-anchored with `file:line` evidence, 0
+spec-precision gaps, discrimination sensor 3/3 mutations killed, gate green
+(`nx test client` 414 → 438 tests / 87 → 88 files, fresh non-cached run).
 Real shadows (soft PCF shadow map, sun `castShadow` + frustum-follow on the
 local player), antialiasing + ACES filmic tonemapping + sRGB output color
 space, a barely-there world-edge `THREE.Fog`, and a procedural seeded
@@ -170,8 +173,11 @@ terrain, static-prop GLB/instanced-scatter pipeline, and all four
 primitive-fallback builders (also fixed a pre-existing dead-code bug where
 `buildLandmarkScene`'s primitive fallback was unreachable because
 `loadGltfStaticTemplate` rejects rather than resolving falsy on load
-failure). AD-019 recorded above. `nx test client`: 414 → 438 tests, all
-green; commits `21b1dd3..a4d7cc0`.
+failure — independently re-confirmed necessary by the Verifier). Verifier
+independently re-confirmed both `server:build`/`client:build:production`
+gate failures are pre-existing (baseline worktree at `6f6d53c`), unrelated
+to this feature. AD-019 recorded above. ROADMAP Phase 30 flipped to `[x]`.
+Commits `21b1dd3..64e4697`.
 
 **Loop status: STOPPED — ALL ROADMAP PHASES (1–29) COMPLETE.**
 

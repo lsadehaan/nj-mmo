@@ -874,7 +874,7 @@ Via `spec-driven-execution`:
 
 ---
 
-## Phase 30 — Visual fidelity upgrade `[~]`
+## Phase 30 — Visual fidelity upgrade `[x]`
 
 > Done when: the client renders real cast/received shadows anywhere in the
 > 640 m world, correct color response (antialiasing, ACES filmic tonemapping,
@@ -927,7 +927,7 @@ Via `spec-driven-execution`:
 - [x] `receiveShadow` on the static-prop GLB/instanced-scatter pipeline
 - [x] `castShadow`/`receiveShadow` on primitive-fallback meshes
 - [x] AD-019 recorded in `.specs/STATE.md`
-- [ ] Verifier PASS recorded in `.specs/features/visual-fidelity-upgrade/validation.md`
+- [x] Verifier PASS recorded in `.specs/features/visual-fidelity-upgrade/validation.md`
 
 ---
 
@@ -955,4 +955,4 @@ Verifier still FAILs after its 3 fix→re-verify iterations, or a true blocker
 (contradictory requirements, missing secret/resource, destructive out-of-repo action,
 or a missing prerequisite phase).
 
-**Next unchecked phase:** Phase 30 — Visual fidelity upgrade.
+**Next unchecked phase:** none — Phase 30 is the last recorded phase, all `[x]`.
