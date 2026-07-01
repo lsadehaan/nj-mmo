@@ -15,6 +15,33 @@
 - 🧪 **[Vitest](https://vitest.dev/) + `@colyseus/testing`** — unit + room-integration test gate
 - 🟦 **TypeScript** end to end (Node 22+)
 
+## 🤖 An AI experiment
+
+**This entire project — every line of game logic, every spec, every test, every 3D
+asset pipeline decision — was built by AI agents**, not hand-written. It's a
+real-world stress test of autonomous, spec-driven software development on a
+non-trivial project (an authoritative multiplayer game server).
+
+The build followed a **Planner → Implementer → Verifier** loop, one ROADMAP phase
+at a time, with an independent Verifier (never the same agent that implemented the
+feature) re-checking every phase against its spec before it could be marked done.
+If you want to see how it was done or run the same process yourself:
+
+- [`.cursor/skills/spec-driven-execution/SKILL.md`](.cursor/skills/spec-driven-execution/SKILL.md)
+  — the orchestrator: how the Planner/Implementer/Verifier sub-agents are
+  dispatched, and the autonomous `/loop` that walks the roadmap.
+- [`.cursor/skills/game-designer/SKILL.md`](.cursor/skills/game-designer/SKILL.md)
+  — how every 3D character, monster, prop, icon, and VFX asset was sourced/built
+  and passed a mandatory visual gate.
+- [`.specs/ROADMAP.md`](.specs/ROADMAP.md) — the full 29-phase build plan, with
+  scope, dependencies, and out-of-scope calls for every phase.
+- [`.specs/STATE.md`](.specs/STATE.md) — the running decision log (`AD-NNN`
+  architecture decisions) and per-phase verification handoffs.
+- [`.specs/features/`](.specs/features/) — one `spec.md` / `design.md` / `tasks.md`
+  / `validation.md` set per phase, produced and verified by the agents themselves.
+- [`AGENTS.md`](AGENTS.md) — the testing contract every agent-written change has
+  to satisfy (server authority, three test layers, deterministic seeded RNG).
+
 ## ✨ What's actually playable
 
 This isn't a tech demo — all 29 roadmap phases are complete and independently verified.
