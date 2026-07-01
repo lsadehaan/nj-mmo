@@ -149,7 +149,29 @@
 - **Date**: 2026-06-28
 - **Status**: active
 
+### AD-019
+- **Decision**: Procedural texture detail on top of flat-shaded low-poly geometry uses `THREE.DataTexture` from a seeded pixel buffer — never Canvas 2D, never an external texture file — because jsdom (AD-009) has no real 2D canvas context and AD-010 requires deterministic seeded randomness. Shadow-casting lights that must cover a world larger than their fixed shadow-camera frustum re-center on the local player using the existing render-distance-based move-culling threshold, rather than a fixed-at-origin frustum or expensive per-frame cascades.
+- **Reason**: jsdom's lack of a real `<canvas>` 2D context (AD-009) rules out Canvas 2D for the ground texture without a native `canvas` npm dependency; `DataTexture` sidesteps that while staying deterministic (AD-010). A single fixed-at-origin shadow frustum would only cover the village, not the 80 m mob-render radius everywhere the player roams the 640 m world.
+- **Trade-off**: Single shadow cascade only (no cascaded shadow maps for very long view distances) — acceptable since `MOB_RENDER_DISTANCE` already bounds the visible world to 80 m; the frustum-follow re-center adds a small per-move-threshold check (reuses the existing mob-culling distance computation, no duplicate math).
+- **Scope**: Client rendering, all future terrain/prop texture and shadow-casting-light work.
+- **Date**: 2026-07-01
+- **Status**: active
+
 ## Handoff
+
+**Feature — Visual fidelity upgrade: COMPLETE (Verifier PASS, 2026-07-01).**
+`.specs/features/visual-fidelity-upgrade/validation.md` records the outcome.
+Real shadows (soft PCF shadow map, sun `castShadow` + frustum-follow on the
+local player), antialiasing + ACES filmic tonemapping + sRGB output color
+space, a barely-there world-edge `THREE.Fog`, and a procedural seeded
+`DataTexture` grass texture (with terrain `uv` attribute + `RepeatWrapping`
+tiling) replacing the flat terrain color. `receiveShadow` added across the
+terrain, static-prop GLB/instanced-scatter pipeline, and all four
+primitive-fallback builders (also fixed a pre-existing dead-code bug where
+`buildLandmarkScene`'s primitive fallback was unreachable because
+`loadGltfStaticTemplate` rejects rather than resolving falsy on load
+failure). AD-019 recorded above. `nx test client`: 414 → 438 tests, all
+green; commits `21b1dd3..a4d7cc0`.
 
 **Loop status: STOPPED — ALL ROADMAP PHASES (1–29) COMPLETE.**
 

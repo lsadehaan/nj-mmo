@@ -8,6 +8,7 @@
 >
 > **MVP (Phases 1–18): complete.** **Post-MVP TI completion (Phases 19–29):**
 > eleven phases through UI shell — public deployment explicitly excluded.
+> **Phase 30 (visual fidelity upgrade): renderer/lighting/shadow/fog polish.**
 
 High-level roadmap for the MVP. Each phase ends in something runnable and is
 built through the `spec-driven-execution` flow (Planner → Implementer →
@@ -873,6 +874,63 @@ Via `spec-driven-execution`:
 
 ---
 
+## Phase 30 — Visual fidelity upgrade `[~]`
+
+> Done when: the client renders real cast/received shadows anywhere in the
+> 640 m world, correct color response (antialiasing, ACES filmic tonemapping,
+> sRGB output), a barely-there world-edge fog invisible at gameplay range, and
+> a procedurally-generated tiled grass texture on the terrain — closing the
+> "programmer art" gap (zero shadows/fog/tonemapping, flat solid-color
+> geometry) without abandoning the project's zero-external-asset,
+> procedural-texture art direction (AD-005/AD-017/AD-019).
+>
+> Spec: `.specs/features/visual-fidelity-upgrade/`.
+
+### Scope
+
+- Renderer: `renderer.shadowMap` (soft PCF) + sun `castShadow` with a sized
+  shadow-camera frustum; `WebGLRenderer({ antialias: true })`;
+  `toneMapping = ACESFilmicToneMapping`; `outputColorSpace = SRGBColorSpace`;
+  `scene.fog = THREE.Fog` anchored to `MOB_RENDER_DISTANCE` so it never
+  touches gameplay-relevant visibility.
+- Shadow frustum-follow: the sun + its shadow target re-center on the local
+  player using the existing move-culling threshold (no fixed-at-origin
+  frustum, no cascades) — reused across the entire 640 m world.
+- Terrain: procedural seeded `THREE.DataTexture` grass texture (AD-019,
+  no Canvas 2D, no external asset) + a new `uv` `BufferAttribute` +
+  `RepeatWrapping` tiling; `receiveShadow = true`.
+- `receiveShadow` added to the static-prop GLB/instanced-scatter pipeline and
+  all four primitive-fallback builders (village buildings, scattered
+  trees/rocks, peace-zone marker, landmarks) — both render paths, no
+  regression on GLB-load failure.
+- AD-019 recorded in `STATE.md`.
+
+### Out of scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Bloom / `EffectComposer` post-processing | Subtle-ambition decision (`context.md`) |
+| Dusk/warm mood lighting change | Neutral-mood decision (`context.md`) |
+| External CC0 ground texture + LICENSE attribution | Procedural-texture decision (`context.md`) |
+| New shadow-casting behavior for animated entities (player/remote players/mobs/NPCs) | Already `castShadow = true` since Phase 8/10/11/12; unchanged |
+| Self-shadowing (`receiveShadow`) on characters/creatures | Low-poly rigged meshes self-shadow poorly at this fidelity |
+| Retuning existing VFX color constants for the new tonemapping response | Separate follow-up only if a specific regression is spotted |
+
+### Checklist
+
+- [x] Planner: `.specs/features/visual-fidelity-upgrade/` (`spec.md`,
+      `design.md`, `tasks.md`)
+- [x] Renderer static config: shadow map, sun shadow-casting, fog,
+      tonemapping/color-space, antialiasing
+- [x] Shadow frustum follows the local player
+- [x] Procedural grass `DataTexture` + terrain UVs + `receiveShadow`
+- [x] `receiveShadow` on the static-prop GLB/instanced-scatter pipeline
+- [x] `castShadow`/`receiveShadow` on primitive-fallback meshes
+- [x] AD-019 recorded in `.specs/STATE.md`
+- [ ] Verifier PASS recorded in `.specs/features/visual-fidelity-upgrade/validation.md`
+
+---
+
 ## Explicitly deferred (not in Phases 19–29)
 
 | Former epic | Reason |
@@ -897,4 +955,4 @@ Verifier still FAILs after its 3 fix→re-verify iterations, or a true blocker
 (contradictory requirements, missing secret/resource, destructive out-of-repo action,
 or a missing prerequisite phase).
 
-**Next unchecked phase:** Phase 19 — Character creation & classes.
+**Next unchecked phase:** Phase 30 — Visual fidelity upgrade.
