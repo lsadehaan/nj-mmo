@@ -52,6 +52,8 @@ export const FOG_FAR_M = MOB_RENDER_DISTANCE * 3;
 /** Single directional shadow map covering the local player's immediate surroundings. */
 export const SUN_SHADOW_MAP_SIZE = 2048;
 export const SUN_SHADOW_FRUSTUM_M = 100;
+/** Sun's fixed offset from whatever point it targets (originally the world origin). */
+const SUN_OFFSET = { x: 30, y: 50, z: 20 };
 
 function mobDistanceSq(x: number, z: number, playerX: number, playerZ: number): number {
   const dx = x - playerX;
@@ -185,7 +187,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const sun = new THREE.DirectionalLight(0xffffff, 0.85);
-  sun.position.set(30, 50, 20);
+  sun.position.set(SUN_OFFSET.x, SUN_OFFSET.y, SUN_OFFSET.z);
   sun.castShadow = true;
   sun.shadow.mapSize.set(SUN_SHADOW_MAP_SIZE, SUN_SHADOW_MAP_SIZE);
   sun.shadow.camera.left = -SUN_SHADOW_FRUSTUM_M;
@@ -196,6 +198,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
   sun.shadow.camera.far = 220;
   sun.shadow.camera.updateProjectionMatrix();
   scene.add(sun);
+  scene.add(sun.target);
 
   const terrainData = generateTerrain(WORLD_SEED, TERRAIN_OPTS);
   const terrainMesh = createTerrainMesh(THREE, terrainData);
@@ -320,6 +323,9 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<GameRen
       lastCullX = x;
       lastCullZ = z;
       refreshMobCulling();
+      sun.position.set(x + SUN_OFFSET.x, SUN_OFFSET.y, z + SUN_OFFSET.z);
+      sun.target.position.set(x, 0, z);
+      sun.target.updateMatrixWorld();
     }
     updateCamera();
     const player = getGameState().player;

@@ -185,4 +185,54 @@ describe('renderer', () => {
       await expect(createRenderer(canvas)).resolves.toBeDefined();
     });
   });
+
+  describe('VFU-03/04: shadow frustum follows the local player', () => {
+    function getSun(game: Awaited<ReturnType<typeof createRenderer>>): THREE.DirectionalLight {
+      const sun = game.scene.children.find(
+        (c): c is THREE.DirectionalLight => c instanceof THREE.DirectionalLight
+      );
+      expect(sun).toBeDefined();
+      return sun!;
+    }
+
+    it('VFU-03: adds the sun target to the scene', async () => {
+      const canvas = document.createElement('canvas');
+      const game = await createRenderer(canvas);
+      const sun = getSun(game);
+
+      expect(game.scene.children).toContain(sun.target);
+    });
+
+    it('VFU-03: re-centers the sun and its target on a large player move, preserving the original offset', async () => {
+      const canvas = document.createElement('canvas');
+      const game = await createRenderer(canvas);
+      const sun = getSun(game);
+      const initialOffsetX = sun.position.x;
+      const initialOffsetY = sun.position.y;
+      const initialOffsetZ = sun.position.z;
+
+      game.syncLocalPlayer(50, 5, 40, 0, 0, 0, 0, 0);
+
+      expect(sun.position.x).toBeCloseTo(50 + initialOffsetX, 5);
+      expect(sun.position.y).toBeCloseTo(initialOffsetY, 5);
+      expect(sun.position.z).toBeCloseTo(40 + initialOffsetZ, 5);
+      expect(sun.target.position.x).toBeCloseTo(50, 5);
+      expect(sun.target.position.z).toBeCloseTo(40, 5);
+    });
+
+    it('VFU-03: does NOT reposition the sun for a move below the cull-move threshold', async () => {
+      const canvas = document.createElement('canvas');
+      const game = await createRenderer(canvas);
+      const sun = getSun(game);
+
+      game.syncLocalPlayer(50, 5, 40, 0, 0, 0, 0, 0);
+      const settledX = sun.position.x;
+      const settledZ = sun.position.z;
+
+      game.syncLocalPlayer(50.5, 5, 40, 0, 0, 0, 0, 0);
+
+      expect(sun.position.x).toBeCloseTo(settledX, 5);
+      expect(sun.position.z).toBeCloseTo(settledZ, 5);
+    });
+  });
 });
